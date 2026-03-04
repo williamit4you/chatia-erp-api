@@ -36,6 +36,11 @@ public class AppDbContext : DbContext
             entity.Property(e => e.QueryCount).HasColumnName("queryCount");
             entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
             entity.Property(e => e.UpdatedAt).HasColumnName("updatedAt");
+            
+            entity.HasOne(d => d.Tenant)
+                .WithMany(p => p.Users)
+                .HasForeignKey(d => d.TenantId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // Tenant

@@ -30,7 +30,16 @@ public class TenantService : ITenantService
     public async Task<IEnumerable<TenantDto>> GetAllTenantsAsync()
     {
         return await _context.Tenants
-            .Select(t => new TenantDto(t.Id, t.Name, t.Cnpj, t.IaToken, t.ErpToken))
+            .Include(t => t.Users)
+            .Select(t => new TenantDto(
+                t.Id, 
+                t.Name, 
+                t.Cnpj, 
+                t.IaToken, 
+                t.ErpToken, 
+                t.CreatedAt,
+                t.Users.Select(u => new UserDto(u.Id, u.Name, u.Email, u.Role.ToString(), u.QueryCount, u.CreatedAt))
+            ))
             .ToListAsync();
     }
 
