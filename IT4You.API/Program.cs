@@ -18,7 +18,10 @@ builder.Services.AddControllers();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowNextJS",
-        policy => policy.WithOrigins("http://localhost:3010", "https://localhost:3010")
+        policy => policy.WithOrigins(
+                            "http://localhost:3010", 
+                            "https://localhost:3010",
+                            "https://desenvolvimento-chat-erp-ia-web.ykzlki.easypanel.host")
                         .AllowAnyMethod()
                         .AllowAnyHeader()
                         .AllowCredentials());
