@@ -1,0 +1,19 @@
+﻿  Determinando os projetos a serem restaurados...
+  Todos os projetos est├úo atualizados para restaura├º├úo.
+  IT4You.Domain -> C:\dev\chaterpia\api\IT4You.Domain\bin\Debug\net8.0\IT4You.Domain.dll
+C:\dev\chaterpia\api\IT4You.Application\Interfaces\IChatService.cs(8,15): error CS0246: O nome do tipo ou do namespace "ChatSession" n├úo pode ser encontrado (est├í faltando uma diretiva using ou uma refer├¬ncia de assembly?) [C:\dev\chaterpia\api\IT4You.Application\IT4You.Application.csproj]
+C:\dev\chaterpia\api\IT4You.Application\Interfaces\IChatService.cs(9,15): error CS0246: O nome do tipo ou do namespace "ChatMessage" n├úo pode ser encontrado (est├í faltando uma diretiva using ou uma refer├¬ncia de assembly?) [C:\dev\chaterpia\api\IT4You.Application\IT4You.Application.csproj]
+C:\dev\chaterpia\api\IT4You.Application\Services\ChatService.cs(16,28): error CS0738: "ChatService" n├úo implementa membro de interface "IChatService.GetSessionsAsync(string, string)". "ChatService.GetSessionsAsync(string, string)" n├úo pode implementar "IChatService.GetSessionsAsync(string, string)" porqu n├úo tem o tipo de retorno correspondente de "Task<List<ChatSession>>". [C:\dev\chaterpia\api\IT4You.Application\IT4You.Application.csproj]
+C:\dev\chaterpia\api\IT4You.Application\Services\ChatService.cs(16,28): error CS0738: "ChatService" n├úo implementa membro de interface "IChatService.GetMessagesAsync(string)". "ChatService.GetMessagesAsync(string)" n├úo pode implementar "IChatService.GetMessagesAsync(string)" porqu n├úo tem o tipo de retorno correspondente de "Task<List<ChatMessage>>". [C:\dev\chaterpia\api\IT4You.Application\IT4You.Application.csproj]
+
+FALHA da compila├º├úo.
+
+C:\dev\chaterpia\api\IT4You.Application\Interfaces\IChatService.cs(8,15): error CS0246: O nome do tipo ou do namespace "ChatSession" n├úo pode ser encontrado (est├í faltando uma diretiva using ou uma refer├¬ncia de assembly?) [C:\dev\chaterpia\api\IT4You.Application\IT4You.Application.csproj]
+C:\dev\chaterpia\api\IT4You.Application\Interfaces\IChatService.cs(9,15): error CS0246: O nome do tipo ou do namespace "ChatMessage" n├úo pode ser encontrado (est├í faltando uma diretiva using ou uma refer├¬ncia de assembly?) [C:\dev\chaterpia\api\IT4You.Application\IT4You.Application.csproj]
+C:\dev\chaterpia\api\IT4You.Application\Services\ChatService.cs(16,28): error CS0738: "ChatService" n├úo implementa membro de interface "IChatService.GetSessionsAsync(string, string)". "ChatService.GetSessionsAsync(string, string)" n├úo pode implementar "IChatService.GetSessionsAsync(string, string)" porqu n├úo tem o tipo de retorno correspondente de "Task<List<ChatSession>>". [C:\dev\chaterpia\api\IT4You.Application\IT4You.Application.csproj]
+C:\dev\chaterpia\api\IT4You.Application\Services\ChatService.cs(16,28): error CS0738: "ChatService" n├úo implementa membro de interface "IChatService.GetMessagesAsync(string)". "ChatService.GetMessagesAsync(string)" n├úo pode implementar "IChatService.GetMessagesAsync(string)" porqu n├úo tem o tipo de retorno correspondente de "Task<List<ChatMessage>>". [C:\dev\chaterpia\api\IT4You.Application\IT4You.Application.csproj]
+    0 Aviso(s)
+    4 Erro(s)
+
+Tempo Decorrido 00:00:01.90
+

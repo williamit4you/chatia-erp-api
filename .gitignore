@@ -1,0 +1,46 @@
+# Build
+bin/
+obj/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+
+# Visual Studio
+.vs/
+*.vspscc
+*.vssscc
+
+# Rider
+.idea/
+
+# Logs
+*.log
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# Publish
+publish/
+*.publishproj
+
+# EF Core
+Migrations/
+
+# Secrets
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+
+# Test Results
+TestResults/
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+
+# OS
+.DS_Store
+Thumbs.db
