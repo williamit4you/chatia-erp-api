@@ -21,10 +21,13 @@ namespace IT4You.Application.Services
             if (string.IsNullOrWhiteSpace(iaToken))
                 throw new ArgumentException("IA Token was not provided by the current Tenant.", nameof(iaToken));
 
+            Console.WriteLine($"[AgentFactory] Creating ChatClient with token: {(string.IsNullOrEmpty(iaToken) ? "NULL/EMPTY" : iaToken.Substring(0, Math.Min(iaToken.Length, 12)) + "...")}");
+
             IChatClient chatClient =
                 new OpenAI.Chat.ChatClient("gpt-4o-mini", iaToken)
                 .AsIChatClient(); 
             
+            Console.WriteLine("[AgentFactory] IChatClient created successfully.");
             // 2. Extrai as Tools do Plugin
             var tools = ToolRegistry.FromPlugin(_erpPlugin);
 

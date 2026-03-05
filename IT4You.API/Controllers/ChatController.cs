@@ -41,6 +41,8 @@ public class ChatController : ControllerBase
         }
         catch (Exception ex)
         {
+            Console.WriteLine("!!! EXCEPTION IN CHATCONTROLLER.POST: " + ex.Message);
+            if (ex.InnerException != null) Console.WriteLine("Inner: " + ex.InnerException.Message);
             return BadRequest(new { message = ex.Message });
         }
     }

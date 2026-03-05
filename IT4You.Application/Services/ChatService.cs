@@ -42,7 +42,12 @@ public class ChatService : IChatService
 
                 var tenant = await _context.Tenants.FindAsync(tenantId);
                 if (tenant == null)
+                {
+                    Console.WriteLine($"!!! ERROR: Tenant {tenantId} not found in database.");
                     throw new Exception("Tenant não encontrado.");
+                }
+
+                Console.WriteLine($"[ProcessMessage] Found Tenant: {tenant.Name}. IaToken check (length): {(tenant.IaToken?.Length ?? 0)}");
 
                 // ================================
                 // 1️⃣ GERENCIAMENTO DE SESSÃO
