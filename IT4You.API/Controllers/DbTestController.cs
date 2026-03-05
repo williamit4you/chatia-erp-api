@@ -22,7 +22,6 @@ public class DbTestController : ControllerBase
     {
         try
         {
-            // Pegando a mesma connection string que o ErpPlugin usa
             var connectionString = _configuration.GetConnectionString("DefaultConnection");
             
             if (string.IsNullOrEmpty(connectionString))
@@ -30,15 +29,22 @@ public class DbTestController : ControllerBase
                 return BadRequest(new { status = "error", message = "Connection string 'DefaultConnection' not found." });
             }
 
-            using var connection = new SqlConnection(connectionString);
+            // Garante que TrustServerCertificate está ativo e desabilita Integrated Security/Kerberos
+            // se o ambiente for Linux (comum em Docker/Produção)
+            var builder = new SqlConnectionStringBuilder(connectionString)
+            {
+                TrustServerCertificate = true,
+                IntegratedSecurity = false // Força SQL Authentication (Usuario/Senha)
+            };
+
+            using var connection = new SqlConnection(builder.ConnectionString);
             
-            // Usando a sintaxe SQL Server (TOP 1) conforme solicitado
             var result = await connection.QueryFirstOrDefaultAsync<string>("SELECT TOP 1 descricao FROM testeia");
             
             return Ok(new 
             { 
                 status = "success", 
-                message = "SQL Server connection verified (using DefaultConnection)", 
+                message = "SQL Server connection verified with SQL Authentication", 
                 data = result ?? "No record found" 
             });
         }
