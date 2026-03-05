@@ -72,4 +72,18 @@ public class SuperAdminController : ControllerBase
             return BadRequest(new { message = ex.Message });
         }
     }
+
+    [HttpPut("tenants/{tenantId}/users/{userId}")]
+    public async Task<IActionResult> UpdateUser(string tenantId, string userId, [FromBody] UpdateUserRequest request)
+    {
+        try
+        {
+            await _tenantService.UpdateUserAsync(tenantId, userId, request);
+            return Ok(new { success = true, message = "User updated successfully" });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }

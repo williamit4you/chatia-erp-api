@@ -62,4 +62,30 @@ public class TenantService : ITenantService
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
     }
+
+    public async Task UpdateUserAsync(string tenantId, string userId, UpdateUserRequest request)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId);
+        if (user == null) throw new Exception("User not found or does not belong to this tenant");
+
+        if (user.Email != request.Email)
+        {
+            var emailExists = await _context.Users.AnyAsync(u => u.Email == request.Email);
+            if (emailExists) throw new Exception("Email already in use by another user");
+            user.Email = request.Email;
+        }
+
+        if (Enum.TryParse<UserRole>(request.Role, out var role))
+        {
+            user.Role = role;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Password))
+        {
+            user.Password = BCrypt.Net.BCrypt.HashPassword(request.Password);
+        }
+
+        user.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+    }
 }
