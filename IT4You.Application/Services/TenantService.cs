@@ -38,9 +38,28 @@ public class TenantService : ITenantService
                 t.IaToken, 
                 t.ErpToken, 
                 t.CreatedAt,
-                t.Users.Select(u => new UserDto(u.Id, u.Name, u.Email, u.Role.ToString(), u.QueryCount, u.CreatedAt))
+                t.Users.Select(u => new UserDto(u.Id, u.Name, u.Email, u.Role.ToString(), u.QueryCount, u.CreatedAt, u.IsActive))
             ))
             .ToListAsync();
+    }
+
+    public async Task<TenantDto?> GetTenantAsync(string tenantId)
+    {
+        var t = await _context.Tenants
+            .Include(t => t.Users)
+            .FirstOrDefaultAsync(t => t.Id == tenantId);
+
+        if (t == null) return null;
+
+        return new TenantDto(
+            t.Id, 
+            t.Name, 
+            t.Cnpj, 
+            t.IaToken, 
+            t.ErpToken, 
+            t.CreatedAt,
+            t.Users.Select(u => new UserDto(u.Id, u.Name, u.Email, u.Role.ToString(), u.QueryCount, u.CreatedAt, u.IsActive))
+        );
     }
 
     public async Task CreateUserAsync(string tenantId, CreateUserRequest request)

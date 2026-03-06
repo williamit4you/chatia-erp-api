@@ -1,0 +1,8 @@
+﻿C:\dev\chaterpia\api\IT4You.Application\DTOs\UserDto.cs(7,15): error CS0101: O namespace "IT4You.Application.DTOs" j├í cont├®m uma defini├º├úo para "CreateUserRequest" [C:\dev\chaterpia\api\IT4You.Application\IT4You.Application.csproj]
+C:\dev\chaterpia\api\IT4You.Application\DTOs\UserDto.cs(7,32): error CS8863: Apenas uma declara├º├úo de tipo parcial simples pode ter uma lista de par├ómetros [C:\dev\chaterpia\api\IT4You.Application\IT4You.Application.csproj]
+
+FALHA da compila├º├úo.
+    0 Aviso(s)
+    2 Erro(s)
+
+Tempo Decorrido 00:00:01.32

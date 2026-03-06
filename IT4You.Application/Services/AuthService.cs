@@ -34,6 +34,18 @@ public class AuthService : IAuthService
                 _logger.LogWarning("User not found: {Email}", request.Email);
                 return null;
             }
+
+            if (!user.IsActive)
+            {
+                _logger.LogWarning("User is inactive: {Email}", request.Email);
+                throw new UnauthorizedAccessException("FORBIDDEN_INACTIVE_USER");
+            }
+
+            if (user.Tenant != null && !user.Tenant.IsActive)
+            {
+                _logger.LogWarning("Tenant is inactive for user: {Email}", request.Email);
+                throw new UnauthorizedAccessException("FORBIDDEN_INACTIVE_TENANT");
+            }
             
             _logger.LogInformation("User found. Checking password for: {Email}", request.Email);
 
@@ -51,6 +63,9 @@ public class AuthService : IAuthService
                 return null;
             }
 
+            user.CurrentSessionId = Guid.NewGuid().ToString();
+            await _context.SaveChangesAsync();
+
             _logger.LogInformation("Login successful for: {Email}", request.Email);
             return new LoginResponse(
                 Id: user.Id,
@@ -58,7 +73,8 @@ public class AuthService : IAuthService
                 Name: user.Name ?? string.Empty,
                 Email: user.Email ?? string.Empty,
                 TenantId: user.TenantId ?? string.Empty,
-                Role: user.Role.ToString()
+                Role: user.Role.ToString(),
+                CurrentSessionId: user.CurrentSessionId
             );
         }
         catch (Exception ex)
@@ -72,10 +88,10 @@ public class AuthService : IAuthService
     {
         _logger.LogInformation("Registering new user/company: {Email}, {CompanyName}", request.Email, request.CompanyName);
         var existingTenant = await _context.Tenants.FirstOrDefaultAsync(t => t.Cnpj == request.Cnpj);
-        if (existingTenant != null) throw new Exception("Company with this CNPJ already registered");
+        if (existingTenant != null) throw new Exception("Já existe uma empresa cadastrada com este CNPJ.");
 
         var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
-        if (existingUser != null) throw new Exception("Email already registered");
+        if (existingUser != null) throw new Exception("Este e-mail já está em uso.");
 
         var hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password);
 

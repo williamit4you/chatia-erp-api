@@ -21,6 +21,9 @@ public class User
     
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public bool IsActive { get; set; } = true;
+    public string? CurrentSessionId { get; set; }
     
     public ICollection<ChatSession> ChatSessions { get; set; } = new List<ChatSession>();
+    public ICollection<FavoriteQuestion> FavoriteQuestions { get; set; } = new List<FavoriteQuestion>();
 }

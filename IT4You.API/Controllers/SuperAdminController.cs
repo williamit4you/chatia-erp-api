@@ -59,6 +59,20 @@ public class SuperAdminController : ControllerBase
         return Ok(tenants);
     }
 
+    [HttpPut("tenants/{tenantId}")]
+    public async Task<IActionResult> UpdateTenantSettings(string tenantId, [FromBody] UpdateSettingsRequest request)
+    {
+        try
+        {
+            await _tenantService.UpdateSettingsAsync(tenantId, request);
+            return Ok(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpPost("tenants/{tenantId}/users")]
     public async Task<IActionResult> CreateUser(string tenantId, [FromBody] CreateUserRequest request)
     {

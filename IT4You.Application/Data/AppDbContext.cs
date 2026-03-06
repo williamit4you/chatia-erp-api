@@ -11,16 +11,67 @@ public class AppDbContext : DbContext
     public DbSet<User> Users { get; set; }
     public DbSet<ChatSession> ChatSessions { get; set; }
     public DbSet<ChatMessage> ChatMessages { get; set; }
+    public DbSet<FavoriteQuestion> FavoriteQuestions { get; set; }
+
+    public override int SaveChanges()
+    {
+        UpdateTimestamps();
+        return base.SaveChanges();
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        UpdateTimestamps();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void UpdateTimestamps()
+    {
+        var entries = ChangeTracker.Entries()
+            .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
+
+        foreach (var entry in entries)
+        {
+            foreach (var property in entry.Properties)
+            {
+                if (property.Metadata.ClrType == typeof(DateTime) && property.CurrentValue is DateTime dt)
+                {
+                    if (dt.Kind == DateTimeKind.Unspecified)
+                    {
+                        property.CurrentValue = DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+                    }
+                    else if (dt.Kind == DateTimeKind.Local)
+                    {
+                        property.CurrentValue = dt.ToUniversalTime();
+                    }
+                }
+                else if (property.Metadata.ClrType == typeof(DateTime?) && property.CurrentValue is DateTime dtNullable)
+                {
+                    if (dtNullable.Kind == DateTimeKind.Unspecified)
+                    {
+                        property.CurrentValue = DateTime.SpecifyKind(dtNullable, DateTimeKind.Utc);
+                    }
+                    else if (dtNullable.Kind == DateTimeKind.Local)
+                    {
+                        property.CurrentValue = dtNullable.ToUniversalTime();
+                    }
+                }
+            }
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        
+        modelBuilder.HasPostgresEnum<UserRole>(name: "RoleName", nameTranslator: new Npgsql.NameTranslation.NpgsqlNullNameTranslator());
 
         // --- MAP TABLE NAMES (Singular like Prisma) ---
         modelBuilder.Entity<Tenant>().ToTable("Tenant");
         modelBuilder.Entity<User>().ToTable("User");
         modelBuilder.Entity<ChatSession>().ToTable("ChatSession");
         modelBuilder.Entity<ChatMessage>().ToTable("ChatMessage");
+        modelBuilder.Entity<FavoriteQuestion>().ToTable("FavoriteQuestion");
 
         // --- COMPREHENSIVE COLUMN MAPPING (Match Prisma camelCase) ---
 
@@ -31,9 +82,11 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Email).HasColumnName("email");
             entity.Property(e => e.Name).HasColumnName("name");
             entity.Property(e => e.Password).HasColumnName("password");
-            entity.Property(e => e.Role).HasColumnName("role").HasConversion<string>();
+            entity.Property(e => e.Role).HasColumnName("role");
             entity.Property(e => e.TenantId).HasColumnName("tenantId");
             entity.Property(e => e.QueryCount).HasColumnName("queryCount");
+            entity.Property(e => e.IsActive).HasColumnName("isActive");
+            entity.Property(e => e.CurrentSessionId).HasColumnName("currentSessionId");
             entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
             entity.Property(e => e.UpdatedAt).HasColumnName("updatedAt");
             
@@ -51,6 +104,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Cnpj).HasColumnName("cnpj");
             entity.Property(e => e.IaToken).HasColumnName("iaToken");
             entity.Property(e => e.ErpToken).HasColumnName("erpToken");
+            entity.Property(e => e.IsActive).HasColumnName("isActive");
             entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
             entity.Property(e => e.UpdatedAt).HasColumnName("updatedAt");
         });
@@ -88,6 +142,20 @@ public class AppDbContext : DbContext
             entity.HasOne(d => d.Session)
                 .WithMany(p => p.Messages)
                 .HasForeignKey(d => d.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // FavoriteQuestion
+        modelBuilder.Entity<FavoriteQuestion>(entity => {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.QuestionText).HasColumnName("questionText");
+            entity.Property(e => e.UserId).HasColumnName("userId");
+            entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
+
+            entity.HasOne(d => d.User)
+                .WithMany(p => p.FavoriteQuestions)
+                .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

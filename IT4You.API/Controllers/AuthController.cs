@@ -24,17 +24,24 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        var response = await _authService.LoginAsync(request);
-        if (response == null)
-            return Unauthorized(new { message = "Invalid email or password" });
+        try
+        {
+            var response = await _authService.LoginAsync(request);
+            if (response == null)
+                return Unauthorized(new { message = "Invalid email or password" });
 
-        // Generate JWT
-        var token = GenerateJwtToken(response);
-        
-        return Ok(response with { Token = token });
+            // Generate JWT
+            var token = GenerateJwtToken(response);
+            
+            return Ok(response with { Token = token });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { error = ex.Message, message = "favor consulte o administrador do sistema" });
+        }
     }
 
-    [HttpPost("register")]
+    [HttpPost("/api/register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
         try
@@ -61,6 +68,7 @@ public class AuthController : ControllerBase
                 new Claim("userId", user.Id),
                 new Claim("id", user.Email),
                 new Claim("tenantId", user.TenantId),
+                new Claim("sessionId", user.CurrentSessionId),
                 new Claim(ClaimTypes.Role, user.Role)
             }),
             Expires = DateTime.UtcNow.AddDays(7),

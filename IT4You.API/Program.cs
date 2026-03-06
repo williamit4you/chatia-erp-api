@@ -7,13 +7,19 @@ using Microsoft.Extensions.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Fix PostgreSQL DateTime kind issue
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 // Ensure logging is configured
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers(options => 
+{
+    options.Filters.Add<IT4You.API.Filters.ConcurrentSessionFilter>();
+});
 
 builder.Services.AddCors(options =>
 {
@@ -30,13 +36,20 @@ builder.Services.AddCors(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+var connString = builder.Configuration.GetConnectionString("AppConnection");
+var dataSourceBuilder = new Npgsql.NpgsqlDataSourceBuilder(connString);
+dataSourceBuilder.MapEnum<UserRole>("RoleName", nameTranslator: new Npgsql.NameTranslation.NpgsqlNullNameTranslator());
+var dataSource = dataSourceBuilder.Build();
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("AppConnection")));
+    options.UseNpgsql(dataSource));
 
 // Register Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<ITenantService, TenantService>();
+builder.Services.AddScoped<IFavoriteService, FavoriteService>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 builder.Services.AddScoped<IT4You.Application.Plugins.ErpPlugin>();
 builder.Services.AddScoped<IFinancialAgentFactory, FinancialAgentFactory>();
