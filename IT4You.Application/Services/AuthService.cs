@@ -74,6 +74,9 @@ public class AuthService : IAuthService
                 Email: user.Email ?? string.Empty,
                 TenantId: user.TenantId ?? string.Empty,
                 Role: user.Role.ToString(),
+                HasDashboardAccess: user.HasDashboardAccess,
+                HasPayableAccess: user.HasPayableAccess,
+                HasReceivableAccess: user.HasReceivableAccess,
                 CurrentSessionId: user.CurrentSessionId
             );
         }

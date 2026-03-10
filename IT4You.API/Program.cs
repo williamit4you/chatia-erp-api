@@ -1,9 +1,13 @@
 using IT4You.Application.Data;
 using IT4You.Application.Interfaces;
 using IT4You.Application.Services;
+using IT4You.Application.FinanceAnalytics.Interfaces;
+using IT4You.Application.FinanceAnalytics.Services;
+using IT4You.Infrastructure.Repositories;
 using IT4You.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,7 +36,7 @@ builder.Services.AddCors(options =>
                         .AllowAnyHeader()
                         .AllowCredentials());
 });
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -50,6 +54,8 @@ builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<IFavoriteService, FavoriteService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IFinanceAnalyticsRepository, FinanceAnalyticsRepository>();
+builder.Services.AddScoped<IFinanceAnalyticsService, FinanceAnalyticsService>();
 
 builder.Services.AddScoped<IT4You.Application.Plugins.ErpPlugin>();
 builder.Services.AddScoped<IFinancialAgentFactory, FinancialAgentFactory>();
@@ -75,6 +81,7 @@ builder.Services.AddAuthentication(x =>
         IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key),
         ValidateIssuer = false, // Relaxed for local dev
         ValidateAudience = false, // Relaxed for local dev
+        RoleClaimType = System.Security.Claims.ClaimTypes.Role,
         ValidateLifetime = true
     };
 });
@@ -87,10 +94,8 @@ app.UseCors("AllowNextJS");
 app.UseSwagger();
 app.UseSwaggerUI();
 
-
-// app.UseHttpsRedirection(); // Commented out to avoid local CORS issues with redirects
-
 app.UseAuthentication();
+
 app.UseAuthorization();
 
 app.MapControllers();

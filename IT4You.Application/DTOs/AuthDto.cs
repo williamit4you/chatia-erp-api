@@ -2,7 +2,7 @@ namespace IT4You.Application.DTOs;
 
 public record LoginRequest(string Email, string Password);
 
-public record LoginResponse(string Id, string Token, string Name, string Email, string TenantId, string Role, string CurrentSessionId = "");
+public record LoginResponse(string Id, string Token, string Name, string Email, string TenantId, string Role, bool HasDashboardAccess, bool HasPayableAccess, bool HasReceivableAccess, string CurrentSessionId = "");
 
 public record RegisterRequest(string Cnpj, string CompanyName, string Email, string Password, string Name);
 

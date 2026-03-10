@@ -3,20 +3,24 @@ using IT4You.Application.Interfaces;
 using IT4You.Domain.Entities;
 using IT4You.Application.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace IT4You.Application.Services;
 
 public class TenantService : ITenantService
 {
     private readonly AppDbContext _context;
+    private readonly ILogger<TenantService> _logger;
 
-    public TenantService(AppDbContext context)
+    public TenantService(AppDbContext context, ILogger<TenantService> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     public async Task UpdateSettingsAsync(string tenantId, UpdateSettingsRequest request)
     {
+        _logger.LogInformation("Updating settings for tenant: {TenantId}", tenantId);
         var tenant = await _context.Tenants.FindAsync(tenantId);
         if (tenant == null) throw new Exception("Tenant not found");
 
@@ -29,36 +33,62 @@ public class TenantService : ITenantService
 
     public async Task<IEnumerable<TenantDto>> GetAllTenantsAsync()
     {
-        return await _context.Tenants
+        _logger.LogInformation("Fetching all tenants and users...");
+        var tenants = await _context.Tenants
             .Include(t => t.Users)
-            .Select(t => new TenantDto(
-                t.Id, 
-                t.Name, 
-                t.Cnpj, 
-                t.IaToken, 
-                t.ErpToken, 
-                t.CreatedAt,
-                t.Users.Select(u => new UserDto(u.Id, u.Name, u.Email, u.Role.ToString(), u.QueryCount, u.CreatedAt, u.IsActive))
-            ))
             .ToListAsync();
-    }
 
-    public async Task<TenantDto?> GetTenantAsync(string tenantId)
-    {
-        var t = await _context.Tenants
-            .Include(t => t.Users)
-            .FirstOrDefaultAsync(t => t.Id == tenantId);
+        _logger.LogInformation("Found {Count} tenants", tenants.Count);
+        foreach (var t in tenants)
+        {
+            _logger.LogInformation("Tenant {Name} ({Id}) has {UserCount} users", t.Name, t.Id, t.Users.Count);
+        }
 
-        if (t == null) return null;
-
-        return new TenantDto(
+        return tenants.Select(t => new TenantDto(
             t.Id, 
             t.Name, 
             t.Cnpj, 
             t.IaToken, 
             t.ErpToken, 
             t.CreatedAt,
-            t.Users.Select(u => new UserDto(u.Id, u.Name, u.Email, u.Role.ToString(), u.QueryCount, u.CreatedAt, u.IsActive))
+            t.Users.Select(u => new UserDto(
+                u.Id, 
+                u.Name, 
+                u.Email, 
+                u.Role.ToString(), 
+                u.QueryCount, 
+                u.CreatedAt, 
+                u.IsActive, 
+                u.HasDashboardAccess,
+                u.HasPayableAccess,
+                u.HasReceivableAccess
+            ))
+        ));
+    }
+
+    public async Task<TenantDto?> GetTenantAsync(string tenantId)
+    {
+        _logger.LogInformation("Fetching single tenant: {TenantId}", tenantId);
+        var tenant = await _context.Tenants
+            .Include(t => t.Users)
+            .FirstOrDefaultAsync(t => t.Id == tenantId);
+
+        if (tenant == null) 
+        {
+            _logger.LogWarning("Tenant not found: {TenantId}", tenantId);
+            return null;
+        }
+
+        _logger.LogInformation("Tenant {Name} has {UserCount} users", tenant.Name, tenant.Users.Count);
+
+        return new TenantDto(
+            tenant.Id, 
+            tenant.Name, 
+            tenant.Cnpj, 
+            tenant.IaToken, 
+            tenant.ErpToken, 
+            tenant.CreatedAt,
+            tenant.Users.Select(u => new UserDto(u.Id, u.Name, u.Email, u.Role.ToString(), u.QueryCount, u.CreatedAt, u.IsActive, u.HasDashboardAccess, u.HasPayableAccess, u.HasReceivableAccess))
         );
     }
 
@@ -68,6 +98,7 @@ public class TenantService : ITenantService
         if (existingUser) throw new Exception("Email already in use");
 
         var hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password);
+        var isAdmin = Enum.TryParse<UserRole>(request.Role, out var parsedRole) && (parsedRole == UserRole.TENANT_ADMIN || parsedRole == UserRole.SUPER_ADMIN || parsedRole == UserRole.ADMIN);
 
         var user = new User
         {
@@ -75,7 +106,10 @@ public class TenantService : ITenantService
             Password = hashedPassword,
             Name = request.Name ?? request.Email.Split('@')[0],
             Role = Enum.TryParse<UserRole>(request.Role, out var role) ? role : UserRole.TENANT_USER,
-            TenantId = tenantId
+            TenantId = tenantId,
+            HasDashboardAccess = isAdmin || request.HasDashboardAccess,
+            HasPayableAccess = isAdmin || request.HasPayableAccess,
+            HasReceivableAccess = isAdmin || request.HasReceivableAccess
         };
 
         _context.Users.Add(user);
@@ -87,6 +121,8 @@ public class TenantService : ITenantService
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId);
         if (user == null) throw new Exception("User not found or does not belong to this tenant");
 
+        var isAdmin = user.Role == UserRole.TENANT_ADMIN || user.Role == UserRole.SUPER_ADMIN || user.Role == UserRole.ADMIN;
+
         if (user.Email != request.Email)
         {
             var emailExists = await _context.Users.AnyAsync(u => u.Email == request.Email);
@@ -97,6 +133,31 @@ public class TenantService : ITenantService
         if (Enum.TryParse<UserRole>(request.Role, out var role))
         {
             user.Role = role;
+        }
+        
+        if (request.IsActive.HasValue)
+        {
+            user.IsActive = request.IsActive.Value;
+        }
+
+        if (request.HasDashboardAccess.HasValue)
+        {
+            user.HasDashboardAccess = isAdmin || request.HasDashboardAccess.Value;
+        }
+
+        if (request.HasPayableAccess.HasValue)
+        {
+            user.HasPayableAccess = isAdmin || request.HasPayableAccess.Value;
+        }
+
+        if (request.HasReceivableAccess.HasValue)
+        {
+            user.HasReceivableAccess = isAdmin || request.HasReceivableAccess.Value;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Name))
+        {
+            user.Name = request.Name;
         }
 
         if (!string.IsNullOrWhiteSpace(request.Password))

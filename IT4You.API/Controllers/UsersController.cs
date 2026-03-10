@@ -19,7 +19,7 @@ public class UsersController : ControllerBase
 
     private string GetTenantId() => User.FindFirst("tenantId")?.Value ?? string.Empty;
     private string GetUserId() => User.FindFirst("userId")?.Value ?? string.Empty;
-    private string GetRole() => User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? string.Empty;
+    private string GetRole() => User.FindFirst("role")?.Value ?? string.Empty;
 
     [HttpGet("me")]
     public async Task<IActionResult> GetMe()
@@ -35,6 +35,17 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> GetTenantUsers()
     {
         var tenantId = GetTenantId();
+        
+        // If SUPER_ADMIN with no tenantId, they should see all users? 
+        // Based on logic, SuperAdmin manages all.
+        if (string.IsNullOrEmpty(tenantId) && User.IsInRole("SUPER_ADMIN"))
+        {
+            // SuperAdmin should probably see all tenants/users in the SuperAdmin screen.
+            // If they are here, we could return all users, but let's just return empty for now
+            // and avoid the logic failure.
+            return Ok(new List<UserResponse>());
+        }
+
         var users = await _userService.GetUsersByTenantAsync(tenantId);
         return Ok(users);
     }

@@ -16,7 +16,7 @@ namespace IT4You.Application.Services
             _erpPlugin = erpPlugin;
         }
 
-        public Task<AIAgent> CreateAgentAsync(string iaToken)
+        public Task<AIAgent> CreateAgentAsync(string iaToken, bool hasPayableAccess, bool hasReceivableAccess)
         {
             if (string.IsNullOrWhiteSpace(iaToken))
                 throw new ArgumentException("IA Token was not provided by the current Tenant.", nameof(iaToken));
@@ -40,15 +40,20 @@ namespace IT4You.Application.Services
 
                                         # CORE ARCHITECTURE (VIEWS)
                                         Sempre mapeie a intenção do usuário para a fonte de dados correta ANTES de acionar uma ferramenta:
-                                        1. SAÍDAS PENDENTES: View `VW_DOC_FIN_PAG_ABERTO`.
-                                        2. SAÍDAS LIQUIDADAS: View `VW_DOC_FIN_PAG_PAGO`.
-                                        3. ENTRADAS PENDENTES: View `VW_DOC_FIN_REC_ABERTO`.
-                                        4. ENTRADAS LIQUIDADAS: View `VW_DOC_FIN_REC_PAGO`.
+                                        1. SAÍDAS PENDENTES: View `VW_DOC_FIN_PAG_ABERTO`. (Acesso: {(hasPayableAccess ? "PERMITIDO" : "NEGADO")})
+                                        2. SAÍDAS LIQUIDADAS: View `VW_DOC_FIN_PAG_PAGO`. (Acesso: {(hasPayableAccess ? "PERMITIDO" : "NEGADO")})
+                                        3. ENTRADAS PENDENTES: View `VW_DOC_FIN_REC_ABERTO`. (Acesso: {(hasReceivableAccess ? "PERMITIDO" : "NEGADO")})
+                                        4. ENTRADAS LIQUIDADAS: View `VW_DOC_FIN_REC_PAGO`. (Acesso: {(hasReceivableAccess ? "PERMITIDO" : "NEGADO")})
+
+                                        # REGRAS DE ACESSO CRÍTICAS (DEVE SEGUIR À RISCA)
+                                        - Se o usuário solicitar informações sobre Contas a PAGAR (Views 1 e 2) e o acesso estiver NEGADO, você NÃO deve executar nenhuma ferramenta. Em vez disso, retorne EXATAMENTE esta frase: ""Esse questionamento é somente para usuários do conta a pagar"".
+                                        - Se o usuário solicitar informações sobre Contas a RECEBER (Views 3 e 4) e o acesso estiver NEGADO, você NÃO deve executar nenhuma ferramenta. Em vez disso, retorne EXATAMENTE esta frase: ""Esse questionamento é somente para usuários do conta a receber"".
+                                        - Se o usuário for ADMIN (Acesso PERMITIDO para ambos), ignore estas restrições.
 
                                         # DIRETRIZES DE DECISÃO (IMPORTANTE)
                                         - BUSCA HISTÓRICA: Para perguntas sem período definido (ex: ""tem algum"", ""já pagamos""), utilize obrigatoriamente um intervalo amplo (ex: 2020-01-01 até HOJE) nos parâmetros de data das ferramentas.
                                         - DATA DE REFERÊNCIA: Use a data {today} para converter termos como ""hoje"", ""amanhã"", ""este mês"" ou ""ontem"" para o formato ISO 8601.
-                                        - DESAMBIGUAÇÃO: Se a entidade for ambígua (ex: Seguradoras), verifique tanto os fluxos de Pagar quanto de Receber.
+                                        - DESAMBIGUAÇÃO: Se a entidade for ambígua (ex: Seguradoras), verifique tanto os fluxos de Pagar quanto de Receber (respeitando as permissões acima).
                                         - PRECISÃO DE BUSCA: Ao procurar por nomes, ignore termos genéricos (LTDA, SA). As ferramentas já realizam busca parcial (LIKE).
                                         - AGREGAÇÃO: Se a pergunta for sobre ""Total"", ""Quantidade"" ou ""Soma"", use as ferramentas agregadoras (GetSoma... ou GetContagem...). Jamais some manualmente.
 

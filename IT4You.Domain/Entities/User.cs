@@ -4,7 +4,8 @@ public enum UserRole
 {
     SUPER_ADMIN,
     TENANT_ADMIN,
-    TENANT_USER
+    TENANT_USER,
+    ADMIN // Keep for legacy mapping compatibility
 }
 
 public class User
@@ -22,6 +23,9 @@ public class User
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public bool IsActive { get; set; } = true;
+    public bool HasDashboardAccess { get; set; } = false;
+    public bool HasPayableAccess { get; set; } = false;
+    public bool HasReceivableAccess { get; set; } = false;
     public string? CurrentSessionId { get; set; }
     
     public ICollection<ChatSession> ChatSessions { get; set; } = new List<ChatSession>();

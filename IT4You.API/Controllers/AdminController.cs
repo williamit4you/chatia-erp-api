@@ -21,7 +21,7 @@ public class AdminController : ControllerBase
     public async Task<IActionResult> GetSettings()
     {
         var tenantId = User.FindFirst("tenantId")?.Value;
-        if (string.IsNullOrEmpty(tenantId)) return Unauthorized();
+        if (string.IsNullOrEmpty(tenantId) && !User.IsInRole("SUPER_ADMIN")) return Unauthorized();
 
         var tenant = await _tenantService.GetTenantAsync(tenantId);
         if (tenant == null) return NotFound();
@@ -33,7 +33,7 @@ public class AdminController : ControllerBase
     public async Task<IActionResult> UpdateSettings([FromBody] UpdateSettingsRequest request)
     {
         var tenantId = User.FindFirst("tenantId")?.Value;
-        if (string.IsNullOrEmpty(tenantId)) return Unauthorized();
+        if (string.IsNullOrEmpty(tenantId) && !User.IsInRole("SUPER_ADMIN")) return Unauthorized();
 
         try
         {
@@ -50,7 +50,16 @@ public class AdminController : ControllerBase
     public async Task<IActionResult> GetUsers()
     {
         var tenantId = User.FindFirst("tenantId")?.Value;
-        if (string.IsNullOrEmpty(tenantId)) return Unauthorized();
+        if (string.IsNullOrEmpty(tenantId) && !User.IsInRole("SUPER_ADMIN")) return Unauthorized();
+
+        if (User.IsInRole("SUPER_ADMIN") && string.IsNullOrEmpty(tenantId))
+        {
+            // SuperAdmin wanting to see all users in the admin screen?
+            // Actually, usually they see this per tenant, but if they are here, let's show all.
+            var allTenants = await _tenantService.GetAllTenantsAsync();
+            var allUsers = allTenants.SelectMany(t => t.Users ?? new List<UserDto>());
+            return Ok(allUsers);
+        }
 
         var tenant = await _tenantService.GetTenantAsync(tenantId);
         if (tenant == null) return NotFound();
@@ -62,7 +71,7 @@ public class AdminController : ControllerBase
     public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
     {
         var tenantId = User.FindFirst("tenantId")?.Value;
-        if (string.IsNullOrEmpty(tenantId)) return Unauthorized();
+        if (string.IsNullOrEmpty(tenantId) && !User.IsInRole("SUPER_ADMIN")) return Unauthorized();
 
         try
         {
@@ -79,7 +88,7 @@ public class AdminController : ControllerBase
     public async Task<IActionResult> UpdateUser(string userId, [FromBody] UpdateUserRequest request)
     {
         var tenantId = User.FindFirst("tenantId")?.Value;
-        if (string.IsNullOrEmpty(tenantId)) return Unauthorized();
+        if (string.IsNullOrEmpty(tenantId) && !User.IsInRole("SUPER_ADMIN")) return Unauthorized();
 
         try
         {
