@@ -6,10 +6,10 @@ namespace IT4You.Application.FinanceAnalytics.Interfaces
 {
     public interface IFinanceAnalyticsRepository
     {
-        Task<FinanceSummaryDto> GetSummaryAsync(int tenantId, DateTime? startDate = null, DateTime? endDate = null);
-        Task<IEnumerable<MonthlyFlowDto>> GetMonthlyFlowAsync(int tenantId, DateTime? startDate = null, DateTime? endDate = null);
-        Task<IEnumerable<TopDebtorDto>> GetTopDebtorsAsync(int tenantId, DateTime? startDate = null, DateTime? endDate = null);
-        Task<AiAnalysisDto> GetAiAnalysisDataAsync(int tenantId, DateTime? startDate = null, DateTime? endDate = null);
-        Task<AdvancedDashboardDto> GetAdvancedAnalyticsAsync(int tenantId, DateTime? startDate = null, DateTime? endDate = null);
+        Task<FinanceSummaryDto> GetSummaryAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null);
+        Task<IEnumerable<MonthlyFlowDto>> GetMonthlyFlowAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null);
+        Task<IEnumerable<TopDebtorDto>> GetTopDebtorsAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null);
+        Task<AiAnalysisDto> GetAiAnalysisDataAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null);
+        Task<AdvancedDashboardDto> GetAdvancedAnalyticsAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null);
     }
 }

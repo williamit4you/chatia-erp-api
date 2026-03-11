@@ -69,7 +69,13 @@ public class AuthController : ControllerBase
                 new Claim("id", user.Email),
                 new Claim("tenantId", user.TenantId),
                 new Claim("sessionId", user.CurrentSessionId),
-                new Claim(ClaimTypes.Role, user.Role)
+                new Claim(ClaimTypes.Role, user.Role),
+                new Claim("hasPayableChatAccess", user.HasPayableChatAccess.ToString().ToLower()),
+                new Claim("hasPayableDashboardAccess", user.HasPayableDashboardAccess.ToString().ToLower()),
+                new Claim("hasReceivableChatAccess", user.HasReceivableChatAccess.ToString().ToLower()),
+                new Claim("hasReceivableDashboardAccess", user.HasReceivableDashboardAccess.ToString().ToLower()),
+                new Claim("hasBankingChatAccess", user.HasBankingChatAccess.ToString().ToLower()),
+                new Claim("hasBankingDashboardAccess", user.HasBankingDashboardAccess.ToString().ToLower())
             }),
             Expires = DateTime.UtcNow.AddDays(7),
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature),

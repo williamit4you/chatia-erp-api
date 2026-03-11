@@ -1,4 +1,4 @@
-﻿
+
 using IT4You.Application.Interfaces;
 using IT4You.Application.Plugins;
 using Microsoft.Agents.AI;
@@ -16,7 +16,7 @@ namespace IT4You.Application.Services
             _erpPlugin = erpPlugin;
         }
 
-        public Task<AIAgent> CreateAgentAsync(string iaToken, bool hasPayableAccess, bool hasReceivableAccess)
+        public Task<AIAgent> CreateAgentAsync(string iaToken, bool hasPayableChatAccess, bool hasReceivableChatAccess, bool hasBankingChatAccess)
         {
             if (string.IsNullOrWhiteSpace(iaToken))
                 throw new ArgumentException("IA Token was not provided by the current Tenant.", nameof(iaToken));
@@ -40,14 +40,16 @@ namespace IT4You.Application.Services
 
                                         # CORE ARCHITECTURE (VIEWS)
                                         Sempre mapeie a intenção do usuário para a fonte de dados correta ANTES de acionar uma ferramenta:
-                                        1. SAÍDAS PENDENTES: View `VW_DOC_FIN_PAG_ABERTO`. (Acesso: {(hasPayableAccess ? "PERMITIDO" : "NEGADO")})
-                                        2. SAÍDAS LIQUIDADAS: View `VW_DOC_FIN_PAG_PAGO`. (Acesso: {(hasPayableAccess ? "PERMITIDO" : "NEGADO")})
-                                        3. ENTRADAS PENDENTES: View `VW_DOC_FIN_REC_ABERTO`. (Acesso: {(hasReceivableAccess ? "PERMITIDO" : "NEGADO")})
-                                        4. ENTRADAS LIQUIDADAS: View `VW_DOC_FIN_REC_PAGO`. (Acesso: {(hasReceivableAccess ? "PERMITIDO" : "NEGADO")})
+                                        1. SAÍDAS PENDENTES: View `VW_DOC_FIN_PAG_ABERTO`. (Acesso: {(hasPayableChatAccess ? "PERMITIDO" : "NEGADO")})
+                                        2. SAÍDAS LIQUIDADAS: View `VW_DOC_FIN_PAG_PAGO`. (Acesso: {(hasPayableChatAccess ? "PERMITIDO" : "NEGADO")})
+                                        3. ENTRADAS PENDENTES: View `VW_DOC_FIN_REC_ABERTO`. (Acesso: {(hasReceivableChatAccess ? "PERMITIDO" : "NEGADO")})
+                                        4. ENTRADAS LIQUIDADAS: View `VW_DOC_FIN_REC_PAGO`. (Acesso: {(hasReceivableChatAccess ? "PERMITIDO" : "NEGADO")})
+                                        5. MOVIMENTAÇÃO BANCÁRIA / SALDOS: (Acesso: {(hasBankingChatAccess ? "PERMITIDO" : "NEGADO")})
 
                                         # REGRAS DE ACESSO CRÍTICAS (DEVE SEGUIR À RISCA)
                                         - Se o usuário solicitar informações sobre Contas a PAGAR (Views 1 e 2) e o acesso estiver NEGADO, você NÃO deve executar nenhuma ferramenta. Em vez disso, retorne EXATAMENTE esta frase: ""Esse questionamento é somente para usuários do conta a pagar"".
                                         - Se o usuário solicitar informações sobre Contas a RECEBER (Views 3 e 4) e o acesso estiver NEGADO, você NÃO deve executar nenhuma ferramenta. Em vez disso, retorne EXATAMENTE esta frase: ""Esse questionamento é somente para usuários do conta a receber"".
+                                        - Se o usuário solicitar informações sobre BANCÁRIO / SALDOS e o acesso estiver NEGADO, você NÃO deve executar nenhuma ferramenta. Em vez disso, retorne EXATAMENTE esta frase: ""Esse questionamento é somente para usuários do departamento bancário"".
                                         - Se o usuário for ADMIN (Acesso PERMITIDO para ambos), ignore estas restrições.
 
                                         # DIRETRIZES DE DECISÃO (IMPORTANTE)

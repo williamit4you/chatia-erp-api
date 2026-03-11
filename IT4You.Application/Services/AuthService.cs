@@ -74,9 +74,12 @@ public class AuthService : IAuthService
                 Email: user.Email ?? string.Empty,
                 TenantId: user.TenantId ?? string.Empty,
                 Role: user.Role.ToString(),
-                HasDashboardAccess: user.HasDashboardAccess,
-                HasPayableAccess: user.HasPayableAccess,
-                HasReceivableAccess: user.HasReceivableAccess,
+                HasPayableChatAccess: user.HasPayableChatAccess,
+                HasPayableDashboardAccess: user.HasPayableDashboardAccess,
+                HasReceivableChatAccess: user.HasReceivableChatAccess,
+                HasReceivableDashboardAccess: user.HasReceivableDashboardAccess,
+                HasBankingChatAccess: user.HasBankingChatAccess,
+                HasBankingDashboardAccess: user.HasBankingDashboardAccess,
                 CurrentSessionId: user.CurrentSessionId
             );
         }

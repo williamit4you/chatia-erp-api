@@ -14,29 +14,29 @@ namespace IT4You.Application.FinanceAnalytics.Services
             _repository = repository;
         }
 
-        public async Task<FinanceSummaryDto> GetSummaryAsync(int tenantId, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<FinanceSummaryDto> GetSummaryAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
         {
-            return await _repository.GetSummaryAsync(tenantId, startDate, endDate);
+            return await _repository.GetSummaryAsync(tenantId, rights, startDate, endDate);
         }
 
-        public async Task<IEnumerable<MonthlyFlowDto>> GetMonthlyFlowAsync(int tenantId, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<IEnumerable<MonthlyFlowDto>> GetMonthlyFlowAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
         {
-            return await _repository.GetMonthlyFlowAsync(tenantId, startDate, endDate);
+            return await _repository.GetMonthlyFlowAsync(tenantId, rights, startDate, endDate);
         }
 
-        public async Task<IEnumerable<TopDebtorDto>> GetTopDebtorsAsync(int tenantId, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<IEnumerable<TopDebtorDto>> GetTopDebtorsAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
         {
-            return await _repository.GetTopDebtorsAsync(tenantId, startDate, endDate);
+            return await _repository.GetTopDebtorsAsync(tenantId, rights, startDate, endDate);
         }
 
-        public async Task<AiAnalysisDto> GetAiAnalysisDataAsync(int tenantId, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<AiAnalysisDto> GetAiAnalysisDataAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
         {
-            return await _repository.GetAiAnalysisDataAsync(tenantId, startDate, endDate);
+            return await _repository.GetAiAnalysisDataAsync(tenantId, rights, startDate, endDate);
         }
 
-        public async Task<AdvancedDashboardDto> GetAdvancedAnalyticsAsync(int tenantId, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<AdvancedDashboardDto> GetAdvancedAnalyticsAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
         {
-            return await _repository.GetAdvancedAnalyticsAsync(tenantId, startDate, endDate);
+            return await _repository.GetAdvancedAnalyticsAsync(tenantId, rights, startDate, endDate);
         }
     }
 }

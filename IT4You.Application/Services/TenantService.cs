@@ -59,9 +59,12 @@ public class TenantService : ITenantService
                 u.QueryCount, 
                 u.CreatedAt, 
                 u.IsActive, 
-                u.HasDashboardAccess,
-                u.HasPayableAccess,
-                u.HasReceivableAccess
+                u.HasPayableChatAccess,
+                u.HasPayableDashboardAccess,
+                u.HasReceivableChatAccess,
+                u.HasReceivableDashboardAccess,
+                u.HasBankingChatAccess,
+                u.HasBankingDashboardAccess
             ))
         ));
     }
@@ -88,7 +91,7 @@ public class TenantService : ITenantService
             tenant.IaToken, 
             tenant.ErpToken, 
             tenant.CreatedAt,
-            tenant.Users.Select(u => new UserDto(u.Id, u.Name, u.Email, u.Role.ToString(), u.QueryCount, u.CreatedAt, u.IsActive, u.HasDashboardAccess, u.HasPayableAccess, u.HasReceivableAccess))
+            tenant.Users.Select(u => new UserDto(u.Id, u.Name, u.Email, u.Role.ToString(), u.QueryCount, u.CreatedAt, u.IsActive, u.HasPayableChatAccess, u.HasPayableDashboardAccess, u.HasReceivableChatAccess, u.HasReceivableDashboardAccess, u.HasBankingChatAccess, u.HasBankingDashboardAccess))
         );
     }
 
@@ -107,9 +110,12 @@ public class TenantService : ITenantService
             Name = request.Name ?? request.Email.Split('@')[0],
             Role = Enum.TryParse<UserRole>(request.Role, out var role) ? role : UserRole.TENANT_USER,
             TenantId = tenantId,
-            HasDashboardAccess = isAdmin || request.HasDashboardAccess,
-            HasPayableAccess = isAdmin || request.HasPayableAccess,
-            HasReceivableAccess = isAdmin || request.HasReceivableAccess
+            HasPayableChatAccess = isAdmin || request.HasPayableChatAccess,
+            HasPayableDashboardAccess = isAdmin || request.HasPayableDashboardAccess,
+            HasReceivableChatAccess = isAdmin || request.HasReceivableChatAccess,
+            HasReceivableDashboardAccess = isAdmin || request.HasReceivableDashboardAccess,
+            HasBankingChatAccess = isAdmin || request.HasBankingChatAccess,
+            HasBankingDashboardAccess = isAdmin || request.HasBankingDashboardAccess
         };
 
         _context.Users.Add(user);
@@ -140,20 +146,12 @@ public class TenantService : ITenantService
             user.IsActive = request.IsActive.Value;
         }
 
-        if (request.HasDashboardAccess.HasValue)
-        {
-            user.HasDashboardAccess = isAdmin || request.HasDashboardAccess.Value;
-        }
-
-        if (request.HasPayableAccess.HasValue)
-        {
-            user.HasPayableAccess = isAdmin || request.HasPayableAccess.Value;
-        }
-
-        if (request.HasReceivableAccess.HasValue)
-        {
-            user.HasReceivableAccess = isAdmin || request.HasReceivableAccess.Value;
-        }
+        if (request.HasPayableChatAccess.HasValue) user.HasPayableChatAccess = isAdmin || request.HasPayableChatAccess.Value;
+        if (request.HasPayableDashboardAccess.HasValue) user.HasPayableDashboardAccess = isAdmin || request.HasPayableDashboardAccess.Value;
+        if (request.HasReceivableChatAccess.HasValue) user.HasReceivableChatAccess = isAdmin || request.HasReceivableChatAccess.Value;
+        if (request.HasReceivableDashboardAccess.HasValue) user.HasReceivableDashboardAccess = isAdmin || request.HasReceivableDashboardAccess.Value;
+        if (request.HasBankingChatAccess.HasValue) user.HasBankingChatAccess = isAdmin || request.HasBankingChatAccess.Value;
+        if (request.HasBankingDashboardAccess.HasValue) user.HasBankingDashboardAccess = isAdmin || request.HasBankingDashboardAccess.Value;
 
         if (!string.IsNullOrWhiteSpace(request.Name))
         {

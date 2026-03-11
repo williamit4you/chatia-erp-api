@@ -1,4 +1,5 @@
 using IT4You.Application.FinanceAnalytics.Interfaces;
+using IT4You.Application.FinanceAnalytics.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
@@ -26,11 +27,27 @@ namespace IT4You.API.Controllers
             return 0; // Default to 0, which likely won't return data or will be handled by Db
         }
 
+        private FinanceRightsDto GetFinanceRights()
+        {
+            var user = User;
+            bool isFullAdmin = user.IsInRole("TENANT_ADMIN") || user.IsInRole("SUPER_ADMIN");
+            
+            if (isFullAdmin) 
+                return new FinanceRightsDto(true, true, true);
+
+            return new FinanceRightsDto(
+                HasPayableDashboardAccess: user.FindFirst("hasPayableDashboardAccess")?.Value == "true",
+                HasReceivableDashboardAccess: user.FindFirst("hasReceivableDashboardAccess")?.Value == "true",
+                HasBankingDashboardAccess: user.FindFirst("hasBankingDashboardAccess")?.Value == "true"
+            );
+        }
+
         [HttpGet("summary")]
         public async Task<IActionResult> GetSummary([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
         {
             var tenantId = GetTenantId();
-            var data = await _financeAnalyticsService.GetSummaryAsync(tenantId, startDate, endDate);
+            var rights = GetFinanceRights();
+            var data = await _financeAnalyticsService.GetSummaryAsync(tenantId, rights, startDate, endDate);
             return Ok(data);
         }
 
@@ -38,7 +55,8 @@ namespace IT4You.API.Controllers
         public async Task<IActionResult> GetMonthlyFlow([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
         {
             var tenantId = GetTenantId();
-            var data = await _financeAnalyticsService.GetMonthlyFlowAsync(tenantId, startDate, endDate);
+            var rights = GetFinanceRights();
+            var data = await _financeAnalyticsService.GetMonthlyFlowAsync(tenantId, rights, startDate, endDate);
             return Ok(data);
         }
 
@@ -46,7 +64,8 @@ namespace IT4You.API.Controllers
         public async Task<IActionResult> GetTopDebtors([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
         {
             var tenantId = GetTenantId();
-            var data = await _financeAnalyticsService.GetTopDebtorsAsync(tenantId, startDate, endDate);
+            var rights = GetFinanceRights();
+            var data = await _financeAnalyticsService.GetTopDebtorsAsync(tenantId, rights, startDate, endDate);
             return Ok(data);
         }
 
@@ -54,7 +73,8 @@ namespace IT4You.API.Controllers
         public async Task<IActionResult> GetAiAnalysis([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
         {
             var tenantId = GetTenantId();
-            var data = await _financeAnalyticsService.GetAiAnalysisDataAsync(tenantId, startDate, endDate);
+            var rights = GetFinanceRights();
+            var data = await _financeAnalyticsService.GetAiAnalysisDataAsync(tenantId, rights, startDate, endDate);
             return Ok(data);
         }
 
@@ -62,7 +82,8 @@ namespace IT4You.API.Controllers
         public async Task<IActionResult> GetAdvancedAnalytics([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
         {
             var tenantId = GetTenantId();
-            var data = await _financeAnalyticsService.GetAdvancedAnalyticsAsync(tenantId, startDate, endDate);
+            var rights = GetFinanceRights();
+            var data = await _financeAnalyticsService.GetAdvancedAnalyticsAsync(tenantId, rights, startDate, endDate);
             return Ok(data);
         }
     }

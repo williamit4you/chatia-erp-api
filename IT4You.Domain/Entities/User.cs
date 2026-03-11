@@ -23,9 +23,12 @@ public class User
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public bool IsActive { get; set; } = true;
-    public bool HasDashboardAccess { get; set; } = false;
-    public bool HasPayableAccess { get; set; } = false;
-    public bool HasReceivableAccess { get; set; } = false;
+    public bool HasPayableChatAccess { get; set; } = false;
+    public bool HasPayableDashboardAccess { get; set; } = false;
+    public bool HasReceivableChatAccess { get; set; } = false;
+    public bool HasReceivableDashboardAccess { get; set; } = false;
+    public bool HasBankingChatAccess { get; set; } = false;
+    public bool HasBankingDashboardAccess { get; set; } = false;
     public string? CurrentSessionId { get; set; }
     
     public ICollection<ChatSession> ChatSessions { get; set; } = new List<ChatSession>();

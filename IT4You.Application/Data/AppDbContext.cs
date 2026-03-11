@@ -86,9 +86,12 @@ public class AppDbContext : DbContext
             entity.Property(e => e.TenantId).HasColumnName("tenantId");
             entity.Property(e => e.QueryCount).HasColumnName("queryCount");
             entity.Property(e => e.IsActive).HasColumnName("isActive");
-            entity.Property(e => e.HasDashboardAccess).HasColumnName("hasDashboardAccess");
-            entity.Property(e => e.HasPayableAccess).HasColumnName("hasPayableAccess");
-            entity.Property(e => e.HasReceivableAccess).HasColumnName("hasReceivableAccess");
+            entity.Property(e => e.HasPayableChatAccess).HasColumnName("hasPayableChatAccess");
+            entity.Property(e => e.HasPayableDashboardAccess).HasColumnName("hasPayableDashboardAccess");
+            entity.Property(e => e.HasReceivableChatAccess).HasColumnName("hasReceivableChatAccess");
+            entity.Property(e => e.HasReceivableDashboardAccess).HasColumnName("hasReceivableDashboardAccess");
+            entity.Property(e => e.HasBankingChatAccess).HasColumnName("hasBankingChatAccess");
+            entity.Property(e => e.HasBankingDashboardAccess).HasColumnName("hasBankingDashboardAccess");
             entity.Property(e => e.CurrentSessionId).HasColumnName("currentSessionId");
             entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
             entity.Property(e => e.UpdatedAt).HasColumnName("updatedAt");

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,6 +9,6 @@ namespace IT4You.Application.Interfaces
 {
     public interface IFinancialAgentFactory
     {
-        Task<AIAgent> CreateAgentAsync(string iaToken, bool hasPayableAccess, bool hasReceivableAccess);
+        Task<AIAgent> CreateAgentAsync(string iaToken, bool hasPayableChatAccess, bool hasReceivableChatAccess, bool hasBankingChatAccess);
     }
 }

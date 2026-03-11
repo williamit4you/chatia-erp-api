@@ -25,7 +25,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SqlConnection(_connectionString);
         }
 
-        public async Task<FinanceSummaryDto> GetSummaryAsync(int tenantId, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<FinanceSummaryDto> GetSummaryAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
         {
             using var connection = CreateConnection();
             var parameters = new DynamicParameters();
@@ -46,15 +46,26 @@ namespace IT4You.Infrastructure.Repositories
                 parameters.Add("EndDate", endDate.Value);
             }
 
-            var pagAbertoSql = $"SELECT SUM(VALORORIG - ISNULL(VALORPAG, 0)) FROM VW_DOC_FIN_PAG_ABERTO WHERE 1=1 {whereAberto}";
-            var recAbertoSql = $"SELECT SUM(VALORORIG - ISNULL(VALORPAG, 0)) FROM VW_DOC_FIN_REC_ABERTO WHERE 1=1 {whereAberto}";
-            var pagoSql = $"SELECT SUM(VALORPAG) FROM VW_DOC_FIN_PAG_PAGO WHERE 1=1 {wherePago}";
-            var recebidoSql = $"SELECT SUM(VALORPAG) FROM VW_DOC_FIN_REC_PAGO WHERE 1=1 {wherePago}";
+            decimal pagAberto = 0;
+            decimal recAberto = 0;
+            decimal pago = 0;
+            decimal recebido = 0;
 
-            var pagAberto = await connection.ExecuteScalarAsync<decimal?>(pagAbertoSql, parameters) ?? 0;
-            var recAberto = await connection.ExecuteScalarAsync<decimal?>(recAbertoSql, parameters) ?? 0;
-            var pago = await connection.ExecuteScalarAsync<decimal?>(pagoSql, parameters) ?? 0;
-            var recebido = await connection.ExecuteScalarAsync<decimal?>(recebidoSql, parameters) ?? 0;
+            if (rights.HasPayableDashboardAccess)
+            {
+                var pagAbertoSql = $"SELECT SUM(VALORORIG - ISNULL(VALORPAG, 0)) FROM VW_DOC_FIN_PAG_ABERTO WHERE 1=1 {whereAberto}";
+                var pagoSql = $"SELECT SUM(VALORPAG) FROM VW_DOC_FIN_PAG_PAGO WHERE 1=1 {wherePago}";
+                pagAberto = await connection.ExecuteScalarAsync<decimal?>(pagAbertoSql, parameters) ?? 0;
+                pago = await connection.ExecuteScalarAsync<decimal?>(pagoSql, parameters) ?? 0;
+            }
+
+            if (rights.HasReceivableDashboardAccess)
+            {
+                var recAbertoSql = $"SELECT SUM(VALORORIG - ISNULL(VALORPAG, 0)) FROM VW_DOC_FIN_REC_ABERTO WHERE 1=1 {whereAberto}";
+                var recebidoSql = $"SELECT SUM(VALORPAG) FROM VW_DOC_FIN_REC_PAGO WHERE 1=1 {wherePago}";
+                recAberto = await connection.ExecuteScalarAsync<decimal?>(recAbertoSql, parameters) ?? 0;
+                recebido = await connection.ExecuteScalarAsync<decimal?>(recebidoSql, parameters) ?? 0;
+            }
 
             return new FinanceSummaryDto
             {
@@ -66,7 +77,7 @@ namespace IT4You.Infrastructure.Repositories
             };
         }
 
-        public async Task<IEnumerable<MonthlyFlowDto>> GetMonthlyFlowAsync(int tenantId, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<IEnumerable<MonthlyFlowDto>> GetMonthlyFlowAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
         {
             using var connection = CreateConnection();
             var parameters = new DynamicParameters();
@@ -86,40 +97,6 @@ namespace IT4You.Infrastructure.Repositories
                 whereAberto += " AND DATAVENCIMENTO <= @EndDate";
                 parameters.Add("EndDate", endDate.Value);
             }
-
-            // Using FORMAT for grouping by MM/yyyy
-            var sqlRecebidos = $@"
-                SELECT FORMAT(DATAPAGAMENTO, 'MM/yyyy') as Mes, SUM(VALORPAG) as Valor
-                FROM VW_DOC_FIN_REC_PAGO 
-                WHERE DATAPAGAMENTO IS NOT NULL {wherePago}
-                GROUP BY FORMAT(DATAPAGAMENTO, 'MM/yyyy')
-            ";
-
-            var sqlPagos = $@"
-                SELECT FORMAT(DATAPAGAMENTO, 'MM/yyyy') as Mes, SUM(VALORPAG) as Valor
-                FROM VW_DOC_FIN_PAG_PAGO 
-                WHERE DATAPAGAMENTO IS NOT NULL {wherePago}
-                GROUP BY FORMAT(DATAPAGAMENTO, 'MM/yyyy')
-            ";
-
-            var sqlRecAberto = $@"
-                SELECT FORMAT(DATAVENCIMENTO, 'MM/yyyy') as Mes, SUM(VALORORIG - ISNULL(VALORPAG, 0)) as Valor
-                FROM VW_DOC_FIN_REC_ABERTO 
-                WHERE DATAVENCIMENTO IS NOT NULL {whereAberto}
-                GROUP BY FORMAT(DATAVENCIMENTO, 'MM/yyyy')
-            ";
-
-            var sqlPagAberto = $@"
-                SELECT FORMAT(DATAVENCIMENTO, 'MM/yyyy') as Mes, SUM(VALORORIG - ISNULL(VALORPAG, 0)) as Valor
-                FROM VW_DOC_FIN_PAG_ABERTO 
-                WHERE DATAVENCIMENTO IS NOT NULL {whereAberto}
-                GROUP BY FORMAT(DATAVENCIMENTO, 'MM/yyyy')
-            ";
-
-            var recebidosList = await connection.QueryAsync(sqlRecebidos, parameters);
-            var pagosList = await connection.QueryAsync(sqlPagos, parameters);
-            var recAbertoList = await connection.QueryAsync(sqlRecAberto, parameters);
-            var pagAbertoList = await connection.QueryAsync(sqlPagAberto, parameters);
 
             var dictMap = new Dictionary<string, MonthlyFlowDto>();
 
@@ -138,12 +115,30 @@ namespace IT4You.Infrastructure.Repositories
                 }
             }
 
-            AddToMap(recebidosList, (dto, val) => dto.ValoresRecebidos = val);
-            AddToMap(pagosList, (dto, val) => dto.ValoresPagos = val);
-            AddToMap(recAbertoList, (dto, val) => dto.ValoresAVencer += val);
-            AddToMap(pagAbertoList, (dto, val) => dto.ValoresAVencer -= val); // Pagar acts as negative pending flow
+            if (rights.HasReceivableDashboardAccess)
+            {
+                var sqlRecebidos = $@"SELECT FORMAT(DATAPAGAMENTO, 'MM/yyyy') as Mes, SUM(VALORPAG) as Valor FROM VW_DOC_FIN_REC_PAGO WHERE DATAPAGAMENTO IS NOT NULL {wherePago} GROUP BY FORMAT(DATAPAGAMENTO, 'MM/yyyy')";
+                var sqlRecAberto = $@"SELECT FORMAT(DATAVENCIMENTO, 'MM/yyyy') as Mes, SUM(VALORORIG - ISNULL(VALORPAG, 0)) as Valor FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO IS NOT NULL {whereAberto} GROUP BY FORMAT(DATAVENCIMENTO, 'MM/yyyy')";
+                
+                var recebidosList = await connection.QueryAsync(sqlRecebidos, parameters);
+                var recAbertoList = await connection.QueryAsync(sqlRecAberto, parameters);
+                
+                AddToMap(recebidosList, (dto, val) => dto.ValoresRecebidos = val);
+                AddToMap(recAbertoList, (dto, val) => dto.ValoresAVencer += val);
+            }
 
-            // Sort by month/year logic (simple Parse)
+            if (rights.HasPayableDashboardAccess)
+            {
+                var sqlPagos = $@"SELECT FORMAT(DATAPAGAMENTO, 'MM/yyyy') as Mes, SUM(VALORPAG) as Valor FROM VW_DOC_FIN_PAG_PAGO WHERE DATAPAGAMENTO IS NOT NULL {wherePago} GROUP BY FORMAT(DATAPAGAMENTO, 'MM/yyyy')";
+                var sqlPagAberto = $@"SELECT FORMAT(DATAVENCIMENTO, 'MM/yyyy') as Mes, SUM(VALORORIG - ISNULL(VALORPAG, 0)) as Valor FROM VW_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO IS NOT NULL {whereAberto} GROUP BY FORMAT(DATAVENCIMENTO, 'MM/yyyy')";
+                
+                var pagosList = await connection.QueryAsync(sqlPagos, parameters);
+                var pagAbertoList = await connection.QueryAsync(sqlPagAberto, parameters);
+                
+                AddToMap(pagosList, (dto, val) => dto.ValoresPagos = val);
+                AddToMap(pagAbertoList, (dto, val) => dto.ValoresAVencer -= val);
+            }
+
             var result = new List<MonthlyFlowDto>(dictMap.Values);
             result.Sort((a, b) => 
             {
@@ -157,8 +152,10 @@ namespace IT4You.Infrastructure.Repositories
             return result;
         }
 
-        public async Task<IEnumerable<TopDebtorDto>> GetTopDebtorsAsync(int tenantId, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<IEnumerable<TopDebtorDto>> GetTopDebtorsAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
         {
+            if (!rights.HasReceivableDashboardAccess) return Enumerable.Empty<TopDebtorDto>();
+
             using var connection = CreateConnection();
             var parameters = new DynamicParameters();
             
@@ -188,10 +185,10 @@ namespace IT4You.Infrastructure.Repositories
             return result;
         }
 
-        public async Task<AiAnalysisDto> GetAiAnalysisDataAsync(int tenantId, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<AiAnalysisDto> GetAiAnalysisDataAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
         {
-            var summary = await GetSummaryAsync(tenantId, startDate, endDate);
-            var topDebtors = await GetTopDebtorsAsync(tenantId, startDate, endDate);
+            var summary = await GetSummaryAsync(tenantId, rights, startDate, endDate);
+            var topDebtors = await GetTopDebtorsAsync(tenantId, rights, startDate, endDate);
             
             return new AiAnalysisDto
             {
@@ -203,7 +200,7 @@ namespace IT4You.Infrastructure.Repositories
             };
         }
 
-        public async Task<AdvancedDashboardDto> GetAdvancedAnalyticsAsync(int tenantId, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<AdvancedDashboardDto> GetAdvancedAnalyticsAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
         {
             using var connection = CreateConnection();
             var parameters = new DynamicParameters();
@@ -224,94 +221,60 @@ namespace IT4You.Infrastructure.Repositories
                 parameters.Add("End", endDate.Value);
             }
 
-            // 1. Aging (Atraso)
-            var sqlAging = $@"
-                SELECT 
-                    CASE 
-                        WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) <= 0 THEN 'A vencer'
-                        WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 1 AND 30 THEN '1-30 dias'
-                        WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 31 AND 60 THEN '31-60 dias'
-                        WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 61 AND 90 THEN '61-90 dias'
-                        ELSE 'Mais de 90 dias'
-                    END as Faixa,
-                    SUM(VALORORIG - ISNULL(VALORPAG, 0)) as Valor
-                FROM VW_DOC_FIN_REC_ABERTO
-                WHERE 1=1 {dateFilterRec}
-                GROUP BY 
-                    CASE 
-                        WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) <= 0 THEN 'A vencer'
-                        WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 1 AND 30 THEN '1-30 dias'
-                        WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 31 AND 60 THEN '31-60 dias'
-                        WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 61 AND 90 THEN '61-90 dias'
-                        ELSE 'Mais de 90 dias'
-                    END";
-
-            // 2. Geográfico (UF)
-            var sqlGeo = $@"
-                SELECT TOP 10 UF as Local, SUM(VALORORIG) as Valor
-                FROM VW_DOC_FIN_REC_ABERTO
-                WHERE UF IS NOT NULL {dateFilterRec}
-                GROUP BY UF ORDER BY Valor DESC";
-
-            // 3. Distribuição Clientes (Pie)
-            var sqlDist = $@"
-                SELECT TOP 10 CLIENTE as Label, SUM(VALORORIG) as Valor
-                FROM VW_DOC_FIN_REC_ABERTO
-                WHERE 1=1 {dateFilterRec}
-                GROUP BY CLIENTE ORDER BY Valor DESC";
-
-            // 4. Performance (Prazo vs Atraso)
-            var sqlPerformance = $@"
-                SELECT 
-                    CASE 
-                        WHEN DATAPAGAMENTO <= DATAVENCIMENTO THEN 'No prazo'
-                        ELSE 'Com atraso'
-                    END as Categoria,
-                    SUM(VALORPAG) as Valor
-                FROM VW_DOC_FIN_REC_PAGO
-                WHERE DATAPAGAMENTO IS NOT NULL {dateFilterPag}
-                GROUP BY CASE WHEN DATAPAGAMENTO <= DATAVENCIMENTO THEN 'No prazo' ELSE 'Com atraso' END";
-
-            // 5. Previsão de Caixa (Próximos 30 dias)
-            var sqlProjection = $@"
-                SELECT 
-                    DATAVENCIMENTO as Data,
-                    SUM(CASE WHEN Tipo = 'REC' THEN Valor ELSE 0 END) as Recebimentos,
-                    SUM(CASE WHEN Tipo = 'PAG' THEN Valor ELSE 0 END) as Pagamentos
-                FROM (
-                    SELECT DATAVENCIMENTO, (VALORORIG - ISNULL(VALORPAG, 0)) as Valor, 'REC' as Tipo 
-                    FROM VW_DOC_FIN_REC_ABERTO 
-                    WHERE DATAVENCIMENTO >= CAST(GETDATE() AS DATE)
-                    UNION ALL
-                    SELECT DATAVENCIMENTO, (VALORORIG - ISNULL(VALORPAG, 0)) as Valor, 'PAG' as Tipo 
-                    FROM VW_DOC_FIN_PAG_ABERTO
-                    WHERE DATAVENCIMENTO >= CAST(GETDATE() AS DATE)
-                ) t
-                WHERE DATAVENCIMENTO <= DATEADD(day, 30, GETDATE())
-                GROUP BY DATAVENCIMENTO ORDER BY DATAVENCIMENTO";
-
-            var aging = await connection.QueryAsync<AgingDto>(sqlAging, parameters);
-            var geo = await connection.QueryAsync<GeographicDto>(sqlGeo, parameters);
-            var dist = await connection.QueryAsync<DistributionDto>(sqlDist, parameters);
-            var perf = await connection.QueryAsync<PerformanceDto>(sqlPerformance, parameters);
-            var projRaw = await connection.QueryAsync<dynamic>(sqlProjection, parameters);
-
-            // Calculate KPIs
-            var totalRec = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORORIG) FROM VW_DOC_FIN_REC_ABERTO", parameters) ?? 0;
-            var totalVencido = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORORIG - ISNULL(VALORPAG,0)) FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO < GETDATE()", parameters) ?? 0;
-            
-            var inadimplencia = totalRec > 0 ? (totalVencido / totalRec) * 100 : 0;
-            
-            // Map Projection
+            IEnumerable<AgingDto> aging = Enumerable.Empty<AgingDto>();
+            IEnumerable<GeographicDto> geo = Enumerable.Empty<GeographicDto>();
+            IEnumerable<DistributionDto> dist = Enumerable.Empty<DistributionDto>();
+            IEnumerable<PerformanceDto> perf = Enumerable.Empty<PerformanceDto>();
             var projections = new List<CashProjectionDto>();
-            foreach(var item in projRaw) {
-                projections.Add(new CashProjectionDto {
-                    Data = item.Data,
-                    Recebimentos = (decimal)item.Recebimentos,
-                    Pagamentos = (decimal)item.Pagamentos,
-                    SaldoPrevisto = (decimal)item.Recebimentos - (decimal)item.Pagamentos
-                });
+            decimal totalRec = 0;
+            decimal totalVencido = 0;
+
+            if (rights.HasReceivableDashboardAccess)
+            {
+                var sqlAging = $@"SELECT CASE WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) <= 0 THEN 'A vencer' WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 1 AND 30 THEN '1-30 dias' WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 31 AND 60 THEN '31-60 dias' WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 61 AND 90 THEN '61-90 dias' ELSE 'Mais de 90 dias' END as Faixa, SUM(VALORORIG - ISNULL(VALORPAG, 0)) as Valor FROM VW_DOC_FIN_REC_ABERTO WHERE 1=1 {dateFilterRec} GROUP BY CASE WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) <= 0 THEN 'A vencer' WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 1 AND 30 THEN '1-30 dias' WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 31 AND 60 THEN '31-60 dias' WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 61 AND 90 THEN '61-90 dias' ELSE 'Mais de 90 dias' END";
+                var sqlGeo = $@"SELECT TOP 10 UF as Local, SUM(VALORORIG) as Valor FROM VW_DOC_FIN_REC_ABERTO WHERE UF IS NOT NULL {dateFilterRec} GROUP BY UF ORDER BY Valor DESC";
+                var sqlDist = $@"SELECT TOP 10 CLIENTE as Label, SUM(VALORORIG) as Valor FROM VW_DOC_FIN_REC_ABERTO WHERE 1=1 {dateFilterRec} GROUP BY CLIENTE ORDER BY Valor DESC";
+                var sqlPerformance = $@"SELECT CASE WHEN DATAPAGAMENTO <= DATAVENCIMENTO THEN 'No prazo' ELSE 'Com atraso' END as Categoria, SUM(VALORPAG) as Valor FROM VW_DOC_FIN_REC_PAGO WHERE DATAPAGAMENTO IS NOT NULL {dateFilterPag} GROUP BY CASE WHEN DATAPAGAMENTO <= DATAVENCIMENTO THEN 'No prazo' ELSE 'Com atraso' END";
+                
+                aging = await connection.QueryAsync<AgingDto>(sqlAging, parameters);
+                geo = await connection.QueryAsync<GeographicDto>(sqlGeo, parameters);
+                dist = await connection.QueryAsync<DistributionDto>(sqlDist, parameters);
+                perf = await connection.QueryAsync<PerformanceDto>(sqlPerformance, parameters);
+                
+                totalRec = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORORIG) FROM VW_DOC_FIN_REC_ABERTO", parameters) ?? 0;
+                totalVencido = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORORIG - ISNULL(VALORPAG,0)) FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO < GETDATE()", parameters) ?? 0;
             }
+
+            // Projection handles both or partial
+            string projectionSql = null;
+            if (rights.HasPayableDashboardAccess && rights.HasReceivableDashboardAccess)
+            {
+                projectionSql = "SELECT DATAVENCIMENTO, (VALORORIG - ISNULL(VALORPAG, 0)) as Valor, 'REC' as Tipo FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO >= CAST(GETDATE() AS DATE) UNION ALL SELECT DATAVENCIMENTO, (VALORORIG - ISNULL(VALORPAG, 0)) as Valor, 'PAG' as Tipo FROM VW_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO >= CAST(GETDATE() AS DATE)";
+            }
+            else if (rights.HasReceivableDashboardAccess)
+            {
+                projectionSql = "SELECT DATAVENCIMENTO, (VALORORIG - ISNULL(VALORPAG, 0)) as Valor, 'REC' as Tipo FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO >= CAST(GETDATE() AS DATE)";
+            }
+            else if (rights.HasPayableDashboardAccess)
+            {
+                projectionSql = "SELECT DATAVENCIMENTO, (VALORORIG - ISNULL(VALORPAG, 0)) as Valor, 'PAG' as Tipo FROM VW_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO >= CAST(GETDATE() AS DATE)";
+            }
+
+            if (projectionSql != null)
+            {
+                var sqlProjection = $@"SELECT DATAVENCIMENTO as Data, SUM(CASE WHEN Tipo = 'REC' THEN Valor ELSE 0 END) as Recebimentos, SUM(CASE WHEN Tipo = 'PAG' THEN Valor ELSE 0 END) as Pagamentos FROM ({projectionSql}) t WHERE DATAVENCIMENTO <= DATEADD(day, 30, GETDATE()) GROUP BY DATAVENCIMENTO ORDER BY DATAVENCIMENTO";
+                var projRaw = await connection.QueryAsync<dynamic>(sqlProjection, parameters);
+                foreach(var item in projRaw) {
+                    projections.Add(new CashProjectionDto {
+                        Data = item.Data,
+                        Recebimentos = (decimal)item.Recebimentos,
+                        Pagamentos = (decimal)item.Pagamentos,
+                        SaldoPrevisto = (decimal)item.Recebimentos - (decimal)item.Pagamentos
+                    });
+                }
+            }
+
+            var inadimplencia = totalRec > 0 ? (totalVencido / totalRec) * 100 : 0;
 
             return new AdvancedDashboardDto
             {

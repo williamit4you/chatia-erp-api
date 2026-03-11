@@ -97,8 +97,9 @@ public class ChatService : IChatService
                     // ================================
                     var agent = await _agentFactory.CreateAgentAsync(
                         tenant.IaToken, 
-                        user?.HasPayableAccess ?? false, 
-                        user?.HasReceivableAccess ?? false);
+                        user?.HasPayableChatAccess ?? false, 
+                        user?.HasReceivableChatAccess ?? false,
+                        user?.HasBankingChatAccess ?? false);
 
                     // ================================
                     // 4️⃣ MONTA HISTÓRICO
