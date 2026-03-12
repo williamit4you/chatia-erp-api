@@ -160,6 +160,68 @@ public class ChatService : IChatService
                 }
             }
 
+    public async Task<IT4You.Application.DTOs.ChatResponse> ProcessChartAnalysisAsync(ChartAnalysisRequest request, string userId, string tenantId)
+    {
+        _logger.LogInformation("Processing chart analysis for User: {UserId}, Chart: {ChartId}", userId, request.ChartId);
+
+        var tenant = await _context.Tenants.FindAsync(tenantId);
+        if (tenant == null) throw new Exception("Tenant não encontrado.");
+
+        var user = await _context.Users.FindAsync(userId);
+
+        try
+        {
+            var agent = await _agentFactory.CreateAgentAsync(
+                tenant.IaToken,
+                user?.HasPayableChatAccess ?? false,
+                user?.HasReceivableChatAccess ?? false,
+                user?.HasBankingChatAccess ?? false);
+
+            var chartContext = $@"
+# CONTEXTO DO GRÁFICO ATUAL (Ground Truth)
+Você está analisando o gráfico: {request.ChartTitle}
+Descrição do gráfico: {request.ChartDescription}
+
+# DADOS DO GRÁFICO (JSON)
+{System.Text.Json.JsonSerializer.Serialize(request.ChartData)}
+
+# INSTRUÇÕES DE ANÁLISE
+1. O usuário está visualizando estes dados agora no dashboard. Priorize responder com base nestes dados.
+2. Se a pergunta for sobre tendências, faça cálculos simples com base no JSON fornecido.
+3. Se o usuário perguntar algo que transgrida o gráfico (ex: detalhes de um documento específico que não está no resumo), use suas ferramentas para consultar o ERP, MAS sempre relacione com o contexto do gráfico atual.
+4. Responda de forma executiva, clara e em Português (Brasil).";
+
+            var messages = new List<Microsoft.Extensions.AI.ChatMessage>();
+            
+            // Adiciona o contexto como mensagem de sistema para orientar o agente
+            messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.System, chartContext));
+
+            if (request.History != null)
+            {
+                foreach (var msg in request.History)
+                {
+                    messages.Add(new Microsoft.Extensions.AI.ChatMessage(
+                        msg.Role == "user" ? Microsoft.Extensions.AI.ChatRole.User : Microsoft.Extensions.AI.ChatRole.Assistant,
+                        msg.Content));
+                }
+            }
+
+            messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.User, request.Message));
+
+            _logger.LogInformation("Calling agent for chart analysis with {Count} messages", messages.Count);
+
+            var response = await agent.RunAsync(messages);
+            var reply = response.Messages.LastOrDefault()?.Text ?? "(Sem resposta)";
+
+            return new IT4You.Application.DTOs.ChatResponse(reply, "chart-analysis-" + request.ChartId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ERROR IN CHART ANALYSIS: {Message}", ex.Message);
+            return new IT4You.Application.DTOs.ChatResponse("Erro ao analisar gráfico: " + ex.Message, "error");
+        }
+    }
+
     public async Task<List<ChatSession>> GetSessionsAsync(string userId, string tenantId)
     {
         return await _context.ChatSessions

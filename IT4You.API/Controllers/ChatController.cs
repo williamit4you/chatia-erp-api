@@ -47,6 +47,27 @@ public class ChatController : ControllerBase
         }
     }
 
+    [HttpPost("analyze-chart")]
+    public async Task<IActionResult> AnalyzeChart([FromBody] ChartAnalysisRequest request)
+    {
+        try
+        {
+            var userId = User.FindFirst("userId")?.Value;
+            var tenantId = User.FindFirst("tenantId")?.Value;
+
+            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(tenantId))
+                return Unauthorized(new { message = "Invalid session claims" });
+
+            var response = await _chatService.ProcessChartAnalysisAsync(request, userId, tenantId);
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("!!! EXCEPTION IN CHATCONTROLLER.ANALYZECHART: " + ex.Message);
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpGet("sessions")]
     public async Task<IActionResult> GetSessions()
     {
