@@ -95,11 +95,15 @@ public class ChatService : IChatService
                     // ================================
                     // 3️⃣ CRIA O AGENTE
                     // ================================
+                    bool isFullAdmin = user?.Role == UserRole.SUPER_ADMIN || 
+                                     user?.Role == UserRole.TENANT_ADMIN || 
+                                     user?.Role == UserRole.ADMIN;
+
                     var agent = await _agentFactory.CreateAgentAsync(
                         tenant.IaToken, 
-                        user?.HasPayableChatAccess ?? false, 
-                        user?.HasReceivableChatAccess ?? false,
-                        user?.HasBankingChatAccess ?? false);
+                        isFullAdmin || (user?.HasPayableChatAccess ?? false), 
+                        isFullAdmin || (user?.HasReceivableChatAccess ?? false),
+                        isFullAdmin || (user?.HasBankingChatAccess ?? false));
 
                     // ================================
                     // 4️⃣ MONTA HISTÓRICO
@@ -171,11 +175,15 @@ public class ChatService : IChatService
 
         try
         {
+            bool isFullAdmin = user?.Role == UserRole.SUPER_ADMIN || 
+                             user?.Role == UserRole.TENANT_ADMIN || 
+                             user?.Role == UserRole.ADMIN;
+
             var agent = await _agentFactory.CreateAgentAsync(
                 tenant.IaToken,
-                user?.HasPayableChatAccess ?? false,
-                user?.HasReceivableChatAccess ?? false,
-                user?.HasBankingChatAccess ?? false);
+                isFullAdmin || (user?.HasPayableChatAccess ?? false),
+                isFullAdmin || (user?.HasReceivableChatAccess ?? false),
+                isFullAdmin || (user?.HasBankingChatAccess ?? false));
 
             var chartContext = $@"
 # CONTEXTO DO GRÁFICO ATUAL (Ground Truth)
