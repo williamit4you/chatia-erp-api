@@ -37,6 +37,7 @@ builder.Services.AddCors(options =>
                             "https://localhost:3010",
                             "http://localhost:8081",
                             "http://192.168.0.113:8081",
+                            "https://desenvolvimento-chat-erp-ia-web-dev.ykzlki.easypanel.host"
                             "https://desenvolvimento-chat-erp-ia-web.ykzlki.easypanel.host")
                         .AllowAnyMethod()
                         .AllowAnyHeader()
