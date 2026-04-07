@@ -484,18 +484,28 @@ public class ErpPlugin
         return await ExecuteQuery(sq, new[] { new SqlParameter("@ano", ano)});
     }
 
-    [Description("AGRUPAMENTO POR CLIENTE EM UM ANO: Retorna uma lista com o Valor Total a receber e a Quantidade de títulos, AGRUPADOS (quebrados) por Cliente, filtrando por um ANO específico. Use OBRIGATORIAMENTE quando o usuário pedir para 'agrupar por cliente', 'listar os clientes' ou 'ranking de clientes' de um determinado ano.")]
+    [Description("AGRUPAMENTO POR CLIENTE EM UM ANO: Retorna o Valor Total a receber e a Quantidade de títulos agrupados por Cliente, em um ANO específico. Use quando pedirem 'ranking de clientes', 'maiores clientes' ou 'listar por cliente' no ano.")]
     public async Task<string> GetResumoReceberAgrupadoPorClienteNoAno(
-        [Description("Ano com 4 digitos. Ex: 2026")] string ano)
+        [Description("Ano com 4 digitos. Ex: 2026")] string ano,
+        [Description("Critério de ordenação. Valores permitidos EXATOS: 'VALOR_DESC' (Maiores valores - PADRÃO), 'VALOR_ASC' (Menores valores), 'QTD_DESC' (Maior volume de títulos), 'QTD_ASC' (Menor volume de títulos).")] string ordenacao = "VALOR_DESC")
     {
-        var sq = @"SELECT TOP 50 
+        // Trava de Segurança: Mapeia o input da IA para um código SQL fixo, evitando SQL Injection.
+        string orderByClause = (ordenacao?.ToUpper()) switch
+        {
+            "VALOR_ASC" => "TotalAberto ASC",
+            "QTD_DESC"  => "QuantidadeTitulos DESC",
+            "QTD_ASC"   => "QuantidadeTitulos ASC",
+            _           => "TotalAberto DESC" // Fallback seguro (VALOR_DESC) caso a IA invente algo
+        };
+
+        var sq = $@"SELECT TOP 50 
                       CLIENTE, 
                       SUM(VALORORIG - ISNULL(VALORPAG, 0)) as TotalAberto, 
                       COUNT(*) as QuantidadeTitulos 
                    FROM VW_DOC_FIN_REC_ABERTO 
                    WHERE YEAR(DATAVENCIMENTO) = @ano
                    GROUP BY CLIENTE 
-                   ORDER BY TotalAberto DESC";
+                   ORDER BY {orderByClause}";
                    
         return await ExecuteQuery(sq, new[] { new SqlParameter("@ano", ano) });
     }
