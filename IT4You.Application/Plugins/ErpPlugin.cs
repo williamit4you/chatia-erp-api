@@ -308,6 +308,20 @@ public class ErpPlugin
         return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
     }
 
+    [Description("Conta quantos títulos/boletos estão à vencer.")]
+    public async Task<string> GetContagemReceberAVencer()
+    {
+        var sq = "SELECT COUNT(*) as QtdVencidosHoje, SUM(VALORORIG) as ValorTotal FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO > CAST(GETDATE() AS DATE)";
+        return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
+    }
+
+    [Description("Conta quantos títulos/boletos estão vencidos.")]
+    public async Task<string> GetContagemReceberVencidos()
+    {
+        var sq = "SELECT COUNT(*) as QtdVencidosHoje, SUM(VALORORIG) as ValorTotal FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO < CAST(GETDATE() AS DATE)";
+        return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
+    }
+
     [Description("PREVISÃO DE CAIXA: Busca o que está programado para receber em um período futuro (ou hoje).")]
     public async Task<string> GetPrevisaoRecebimentoNoPeriodo(
         [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
