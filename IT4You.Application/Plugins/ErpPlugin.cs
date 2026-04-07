@@ -471,11 +471,16 @@ public class ErpPlugin
         return await ExecuteQuery(sq, new[] { new SqlParameter("@ano", ano), new SqlParameter("@mes", mes) });
     }
 
-    [Description("Conta a Quantidade Total de recebimentos que vencem/venceram em um Ano específicos.")]
+    [Description("FILTRO EXCLUSIVO POR ANO DE VENCIMENTO: Conta a Quantidade de títulos e o Valor Total a receber de um ANO ESPECÍFICO. USE ESTA FERRAMENTA OBRIGATORIAMENTE se o usuário digitar um ano (ex: 2026), mesmo que ele também use palavras como 'vencidos', 'a vencer' ou 'em aberto'. A prioridade é sempre o ANO.")]
     public async Task<string> GetContagemReceberAbertoPorAnoVencimento(
         [Description("Ano com 4 digitos. Ex: 2026")] string ano)
     {
-        var sq = "SELECT COUNT(*) as QuantidadeReceber FROM VW_DOC_FIN_REC_ABERTO WHERE YEAR(DATAVENCIMENTO) = @ano ";
+        var sq = @"SELECT 
+                      COUNT(*) as QuantidadeTitulos, 
+                      SUM(VALORORIG - ISNULL(VALORPAG, 0)) as TotalNoAno 
+                   FROM VW_DOC_FIN_REC_ABERTO 
+                   WHERE YEAR(DATAVENCIMENTO) = @ano";
+                   
         return await ExecuteQuery(sq, new[] { new SqlParameter("@ano", ano)});
     }
 

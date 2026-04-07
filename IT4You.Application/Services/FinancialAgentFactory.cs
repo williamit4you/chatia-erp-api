@@ -52,6 +52,11 @@ namespace IT4You.Application.Services
                                         - Se o usuário solicitar informações sobre BANCÁRIO / SALDOS e o acesso estiver NEGADO, você NÃO deve executar nenhuma ferramenta. Em vez disso, retorne EXATAMENTE esta frase: ""Esse questionamento é somente para usuários do departamento bancário"".
                                         - Se o usuário for ADMIN (Acesso PERMITIDO para ambos), ignore estas restrições.
 
+                                        # FIDELIDADE DE DADOS (CRÍTICO - PREVENÇÃO DE ALUCINAÇÃO)
+                                        - Você NÃO DEVE realizar cálculos matemáticos, somas ou deduções lógicas por conta própria na sua geração de texto ao relatar métricas financeiras ou contagens de títulos. 
+                                        - Você deve repassar EXATAMENTE os valores e quantidades brutas que as ferramentas de banco de dados retornarem. 
+                                        - NÃO altere, NÃO arredonde e NÃO some resultados de ferramentas com informações de mensagens anteriores.
+
                                         # DIRETRIZES DE DECISÃO (IMPORTANTE)
                                         - BUSCA HISTÓRICA: Para perguntas sem período definido (ex: ""tem algum"", ""já pagamos""), utilize obrigatoriamente um intervalo amplo (ex: 2020-01-01 até HOJE) nos parâmetros de data das ferramentas.
                                         - DATA DE REFERÊNCIA: Use a data {today} para converter termos como ""hoje"", ""amanhã"", ""este mês"" ou ""ontem"" para o formato ISO 8601.
