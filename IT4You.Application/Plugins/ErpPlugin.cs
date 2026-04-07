@@ -487,15 +487,17 @@ public class ErpPlugin
     [Description("AGRUPAMENTO POR CLIENTE EM UM ANO: Retorna o Valor Total a receber e a Quantidade de títulos agrupados por Cliente, em um ANO específico. Use quando pedirem 'ranking de clientes', 'maiores clientes' ou 'listar por cliente' no ano.")]
     public async Task<string> GetResumoReceberAgrupadoPorClienteNoAno(
         [Description("Ano com 4 digitos. Ex: 2026")] string ano,
-        [Description("Critério de ordenação. Valores permitidos EXATOS: 'VALOR_DESC' (Maiores valores - PADRÃO), 'VALOR_ASC' (Menores valores), 'QTD_DESC' (Maior volume de títulos), 'QTD_ASC' (Menor volume de títulos).")] string ordenacao = "VALOR_DESC")
+        [Description("Critério de ordenação. Valores permitidos: 'VALOR_DESC' (Maiores valores - Padrão), 'VALOR_ASC' (Menores valores), 'QTD_DESC' (Maior volume), 'QTD_ASC' (Menor volume), 'CLIENTE_ASC' (Ordem alfabética A-Z), 'CLIENTE_DESC' (Ordem alfabética Z-A).")] string ordenacao = "VALOR_DESC")
     {
-        // Trava de Segurança: Mapeia o input da IA para um código SQL fixo, evitando SQL Injection.
+        // Trava de Segurança
         string orderByClause = (ordenacao?.ToUpper()) switch
         {
-            "VALOR_ASC" => "TotalAberto ASC",
-            "QTD_DESC"  => "QuantidadeTitulos DESC",
-            "QTD_ASC"   => "QuantidadeTitulos ASC",
-            _           => "TotalAberto DESC" // Fallback seguro (VALOR_DESC) caso a IA invente algo
+            "VALOR_ASC"    => "TotalAberto ASC",
+            "QTD_DESC"     => "QuantidadeTitulos DESC",
+            "QTD_ASC"      => "QuantidadeTitulos ASC",
+            "CLIENTE_ASC"  => "CLIENTE ASC",
+            "CLIENTE_DESC" => "CLIENTE DESC",
+            _              => "TotalAberto DESC" // Fallback seguro
         };
 
         var sq = $@"SELECT TOP 50 
