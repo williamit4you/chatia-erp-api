@@ -484,6 +484,22 @@ public class ErpPlugin
         return await ExecuteQuery(sq, new[] { new SqlParameter("@ano", ano)});
     }
 
+    [Description("AGRUPAMENTO POR CLIENTE EM UM ANO: Retorna uma lista com o Valor Total a receber e a Quantidade de títulos, AGRUPADOS (quebrados) por Cliente, filtrando por um ANO específico. Use OBRIGATORIAMENTE quando o usuário pedir para 'agrupar por cliente', 'listar os clientes' ou 'ranking de clientes' de um determinado ano.")]
+    public async Task<string> GetResumoReceberAgrupadoPorClienteNoAno(
+        [Description("Ano com 4 digitos. Ex: 2026")] string ano)
+    {
+        var sq = @"SELECT TOP 50 
+                      CLIENTE, 
+                      SUM(VALORORIG - ISNULL(VALORPAG, 0)) as TotalAberto, 
+                      COUNT(*) as QuantidadeTitulos 
+                   FROM VW_DOC_FIN_REC_ABERTO 
+                   WHERE YEAR(DATAVENCIMENTO) = @ano
+                   GROUP BY CLIENTE 
+                   ORDER BY TotalAberto DESC";
+                   
+        return await ExecuteQuery(sq, new[] { new SqlParameter("@ano", ano) });
+    }
+
     // --- VW_DOC_FIN_REC_PAGO ---
 
     [Description("Busca faturamento/recebimentos que JÁ FORAM RECEBIDOS em um período. Ex: O que recebemos hoje? Quem pagou ontem?")]
