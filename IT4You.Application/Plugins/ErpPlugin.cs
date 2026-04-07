@@ -287,7 +287,7 @@ public class ErpPlugin
         return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
     }
 
-    [Description("Busca boletos que venceram no MÊS ANTERIOR e continuam em aberto.")]
+    [Description("Busca boletos/títulos que venceram no MÊS ANTERIOR e continuam em aberto.")]
     public async Task<string> GetReceberVencidosNoMesAnterior()
     {
         var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) AND DATAVENCIMENTO >= DATEADD(month, -1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))";
@@ -439,6 +439,14 @@ public class ErpPlugin
     {
         var sq = "SELECT COUNT(*) as QuantidadeReceber FROM VW_DOC_FIN_REC_ABERTO WHERE YEAR(DATAVENCIMENTO) = @ano AND MONTH(DATAVENCIMENTO) = @mes";
         return await ExecuteQuery(sq, new[] { new SqlParameter("@ano", ano), new SqlParameter("@mes", mes) });
+    }
+
+    [Description("Conta a Quantidade Total de recebimentos que vencem/venceram em um Ano específicos.")]
+    public async Task<string> GetContagemReceberAbertoPorAnoVencimento(
+        [Description("Ano com 4 digitos. Ex: 2026")] string ano)
+    {
+        var sq = "SELECT COUNT(*) as QuantidadeReceber FROM VW_DOC_FIN_REC_ABERTO WHERE YEAR(DATAVENCIMENTO) = @ano ";
+        return await ExecuteQuery(sq, new[] { new SqlParameter("@ano", ano)});
     }
 
     // --- VW_DOC_FIN_REC_PAGO ---
