@@ -280,14 +280,14 @@ public class ErpPlugin
 
     // --- VW_DOC_FIN_REC_ABERTO ---
 
-    [Description("Busca clientes com pagamentos ATRASADOS (vencimento < hoje e sem pagamento).")]
+    [Description("Busca clientes com pagamentos ATRASADOS/(a receber, em aberto) (vencimento < hoje e sem pagamento).")]
     public async Task<string> GetReceberAtrasados()
     {
         var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO < CAST(GETDATE() AS DATE)";
         return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
     }
 
-    [Description("Busca boletos/títulos que venceram no MÊS ANTERIOR e continuam em aberto.")]
+    [Description("Busca boletos/títulos que venceram/(a receber, em aberto) no MÊS ANTERIOR e continuam em aberto.")]
     public async Task<string> GetReceberVencidosNoMesAnterior()
     {
         var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) AND DATAVENCIMENTO >= DATEADD(month, -1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))";
@@ -301,21 +301,21 @@ public class ErpPlugin
         return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
     }
 
-    [Description("Conta quantos títulos/boletos estão vencendo EXATAMENTE HOJE e não foram pagos.")]
+    [Description("Conta quantos títulos/boletos estão vencendo/(a receber, em aberto) EXATAMENTE HOJE e não foram pagos.")]
     public async Task<string> GetContagemReceberVencidosHoje()
     {
         var sq = "SELECT COUNT(*) as QtdVencidosHoje, SUM(VALORORIG) as ValorTotal FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO = CAST(GETDATE() AS DATE)";
         return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
     }
 
-    [Description("Conta quantos títulos/boletos estão à vencer.")]
+    [Description("Conta quantos títulos/boletos estão à vencer/(a receber ou em aberto).")]
     public async Task<string> GetContagemReceberAVencer()
     {
         var sq = "SELECT COUNT(*) as QtdVencidosHoje, SUM(VALORORIG) as ValorTotal FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO > CAST(GETDATE() AS DATE)";
         return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
     }
 
-    [Description("Conta quantos títulos/boletos estão vencidos.")]
+    [Description("Conta quantos títulos/boletos estão vencidos/(a receber ou em aberto).")]
     public async Task<string> GetContagemReceberVencidos()
     {
         var sq = "SELECT COUNT(*) as QtdVencidosHoje, SUM(VALORORIG) as ValorTotal FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO < CAST(GETDATE() AS DATE)";
