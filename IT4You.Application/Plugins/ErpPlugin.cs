@@ -333,7 +333,7 @@ public class ErpPlugin
             new SqlParameter("@dT", ParseDate(dataFimISO)) });
     }
 
-    [Description("Soma o valor total PENDENTE de vencer/(a receber ou em aberto) em um período.")]
+    [Description("Soma o valor total PENDENTE de vencer/(a receber ou em aberto) em um período. USE APENAS se o usuário especificar um período explícito.")]
     public async Task<string> GetSomaReceberPendente(
         [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
         [Description("Data final (ISO 8601)")] string dataFimISO)
@@ -344,10 +344,17 @@ public class ErpPlugin
             new SqlParameter("@dT", ParseDate(dataFimISO)) });
     }
 
-    [Description("Soma o valor TOTAL GERAL de documentos a receber (em aberto), indiferente de data. Inclui TUDO que está pendente (vencidos e a vencer).")]
+    [Description("OPÇÃO PRINCIPAL: Soma o valor TOTAL GERAL de documentos a receber (em aberto) incluindo TODO O FUTURO. Use esta tool OBRIGATORIAMENTE quando pedirem 'valor total a receber', 'total da carteira' ou 'quantidade a receber' sem citar período.")]
     public async Task<string> GetResumoGeralReceberAberto()
     {
         var sq = "SELECT SUM(VALORORIG) as TotalGeralEmAberto, COUNT(*) as QuantidadeTotalTitulos FROM VW_DOC_FIN_REC_ABERTO";
+        return await ExecuteQuery(sq, System.Array.Empty<SqlParameter>());
+    }
+
+    [Description("Mostra o resumo do total a receber e a quantidade de títulos, AGRUPADO (quebrado) POR ANO de vencimento (inclui anos passados, ano atual e anos futuros).")]
+    public async Task<string> GetResumoReceberAbertoAgrupadoPorAno()
+    {
+        var sq = "SELECT YEAR(DATAVENCIMENTO) as Ano, SUM(VALORORIG) as TotalEmAberto, COUNT(*) as QuantidadeTitulos FROM VW_DOC_FIN_REC_ABERTO GROUP BY YEAR(DATAVENCIMENTO) ORDER BY Ano";
         return await ExecuteQuery(sq, System.Array.Empty<SqlParameter>());
     }
 
