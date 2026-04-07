@@ -32,6 +32,186 @@ public class ErpPlugin
             new SqlParameter("@dT", ParseDate(dataFimISO)) });
     }
 
+    [Description("Busca contas a PAGAR em aberto de um Fornecedor específico que vencem em um determinado período. Ex: Quais contas da 'TechCorp' vencem na próxima semana?")]
+    public async Task<string> GetPagarAbertoPorFornecedorEPeriodo(
+        [Description("Nome do Fornecedor ou Nome Fantasia")] string fornecedor,
+        [Description("Data inicial Vencimento (ISO 8601)")] string dataInicioISO, 
+        [Description("Data final Vencimento (ISO 8601)")] string dataFimISO)
+    {
+        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_ABERTO WHERE (UPPER(CLIENTE) LIKE UPPER(@nf) OR UPPER(NOMEFANTASIA) LIKE UPPER(@nf)) AND DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT";
+        
+        return await ExecuteQuery(sq, new[] { 
+            new SqlParameter("@nf", $"%{fornecedor}%"),
+            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
+            new SqlParameter("@dT", ParseDate(dataFimISO)) 
+        });
+    }
+
+    [Description("Calcula o Valor Total Recebido filtrando simultaneamente por Meio de Pagamento (ex: PIX) e Filial/Empresa em um período específico. Ex: Quanto recebemos em PIX na filial SP-01 mês passado?")]
+    public async Task<string> GetSomaRecebidoPorMetodoEFilial(
+        [Description("Tipo de Pagamento. Ex: PIX, BOLETO, CARTAO")] string tipoPag,
+        [Description("Nome da filial (EMPRESA). Ex: SP-01")] string empresa,
+        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
+        [Description("Data final (ISO 8601)")] string dataFimISO)
+    {
+        var sq = @"SELECT 
+                      SUM(VALORPAG) as TotalRecebido, 
+                      COUNT(*) as Quantidade 
+                   FROM VW_DOC_FIN_REC_PAGO 
+                   WHERE TIPOPAG LIKE @tp 
+                     AND EMPRESA LIKE @emp 
+                     AND DATAPAGAMENTO >= @dF 
+                     AND DATAPAGAMENTO <= @dT";
+                     
+        return await ExecuteQuery(sq, new[] { 
+            new SqlParameter("@tp", $"%{tipoPag}%"),
+            new SqlParameter("@emp", $"%{empresa}%"),
+            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
+            new SqlParameter("@dT", ParseDate(dataFimISO)) 
+        });
+    }
+
+    [Description("Busca clientes de um Estado (UF) específico que estão com pagamentos ATRASADOS há mais de X dias. Ex: Clientes de MG com atraso maior que 30 dias.")]
+    public async Task<string> GetReceberAtrasadosPorEstadoEDias(
+        [Description("Sigla do Estado. Ex: MG, SP, RJ")] string uf,
+        [Description("Quantidade mínima de dias em atraso. Ex: 30")] int diasAtraso)
+    {
+        var sq = $@"SELECT 
+                      {BASE_COLUMNS}, 
+                      DATEDIFF(day, DATAVENCIMENTO, CAST(GETDATE() AS DATE)) as DiasAtraso
+                   FROM VW_DOC_FIN_REC_ABERTO 
+                   WHERE UF = @uf 
+                     AND DATAVENCIMENTO <= DATEADD(day, -@dias, CAST(GETDATE() AS DATE))
+                   ORDER BY DiasAtraso DESC";
+                     
+        return await ExecuteQuery(sq, new[] { 
+            new SqlParameter("@uf", uf),
+            new SqlParameter("@dias", diasAtraso) 
+        });
+    }
+
+    [Description("Retorna o Valor Total pendente e a Quantidade de contas a pagar AGRUPADOS POR FORNECEDOR. Use EXCLUSIVAMENTE quando o usuário pedir 'quem são os maiores credores', 'resumo por fornecedor' ou 'ranking de fornecedores a pagar'.")]
+    public async Task<string> GetResumoPagarAgrupadoPorFornecedor(
+        [Description("Critério de ordenação. Valores permitidos: 'VALOR_DESC' (Maiores credores - Padrão), 'VALOR_ASC' (Menores credores), 'QTD_DESC' (Maior volume de boletos), 'FORNECEDOR_ASC' (Ordem alfabética A-Z).")] string ordenacao = "VALOR_DESC")
+    {
+        // Trava de Segurança para evitar SQL Injection no ORDER BY
+        string orderByClause = (ordenacao?.ToUpper()) switch
+        {
+            "VALOR_ASC"      => "TotalPendente ASC",
+            "QTD_DESC"       => "QuantidadeTitulos DESC",
+            "FORNECEDOR_ASC" => "CLIENTE ASC", // No seu schema, o Fornecedor fica na coluna CLIENTE
+            _                => "TotalPendente DESC" // Fallback seguro: maiores valores no topo
+        };
+
+        var sq = $@"SELECT TOP 50 
+                      CLIENTE as NomeFornecedor, 
+                      SUM(VALORORIG) as TotalPendente, 
+                      COUNT(*) as QuantidadeTitulos 
+                   FROM VW_DOC_FIN_PAG_ABERTO 
+                   GROUP BY CLIENTE 
+                   ORDER BY {orderByClause}";
+                   
+        return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
+    }
+
+    [Description("Retorna a previsão de recebimento (títulos em aberto) AGRUPADA POR MÊS dentro de um ANO específico. Use EXCLUSIVAMENTE quando o usuário pedir visões mês a mês, previsão mensal ou distribuição do fluxo de caixa no ano.")]
+    public async Task<string> GetResumoReceberAgrupadoPorMesNoAno(
+        [Description("Ano com 4 digitos. Ex: 2026")] string ano)
+    {
+        var sq = $@"SELECT 
+                      MONTH(DATAVENCIMENTO) as Mes, 
+                      SUM(VALORORIG - ISNULL(VALORPAG, 0)) as TotalPrevisto, 
+                      COUNT(*) as QuantidadeTitulos 
+                   FROM VW_DOC_FIN_REC_ABERTO 
+                   WHERE YEAR(DATAVENCIMENTO) = @ano
+                   GROUP BY MONTH(DATAVENCIMENTO)
+                   ORDER BY Mes ASC";
+                   
+        return await ExecuteQuery(sq, new[] { new SqlParameter("@ano", ano) });
+    }
+
+    [Description("Retorna o Valor Total recebido e a Quantidade de títulos AGRUPADOS POR MEIO DE PAGAMENTO (PIX, Boleto, Cartão, etc) em um período específico. Use EXCLUSIVAMENTE quando o usuário pedir 'representatividade por forma de pagamento', 'resumo por método', ou perguntar 'quanto recebemos de cada tipo' em um mês/período.")]
+    public async Task<string> GetResumoRecebidoAgrupadoPorMetodo(
+        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
+        [Description("Data final (ISO 8601)")] string dataFimISO)
+    {
+        var sq = @"SELECT 
+                      ISNULL(TIPOPAG, 'NÃO INFORMADO') as MetodoPagamento, 
+                      SUM(VALORPAG) as TotalRecebido, 
+                      COUNT(*) as QuantidadeTitulos 
+                   FROM VW_DOC_FIN_REC_PAGO 
+                   WHERE DATAPAGAMENTO >= @dF 
+                     AND DATAPAGAMENTO <= @dT
+                   GROUP BY TIPOPAG
+                   ORDER BY TotalRecebido DESC";
+                   
+        return await ExecuteQuery(sq, new[] { 
+            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
+            new SqlParameter("@dT", ParseDate(dataFimISO)) 
+        });
+    }
+
+    [Description("Retorna o Valor Total faturado/recebido e a Quantidade de títulos AGRUPADOS POR FILIAL (EMPRESA) em um período específico. Use EXCLUSIVAMENTE quando o usuário pedir 'faturamento por filial', 'comparativo entre filiais', ou 'qual filial faturou/vendeu mais'.")]
+    public async Task<string> GetResumoFaturadoAgrupadoPorFilial(
+        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
+        [Description("Data final (ISO 8601)")] string dataFimISO)
+    {
+        var sq = @"SELECT 
+                      ISNULL(EMPRESA, 'NÃO INFORMADA') as Filial, 
+                      SUM(VALORPAG) as TotalFaturado, 
+                      COUNT(*) as QuantidadeTitulos 
+                   FROM VW_DOC_FIN_REC_PAGO 
+                   WHERE DATAPAGAMENTO >= @dF 
+                     AND DATAPAGAMENTO <= @dT
+                   GROUP BY EMPRESA
+                   ORDER BY TotalFaturado DESC";
+                   
+        return await ExecuteQuery(sq, new[] { 
+            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
+            new SqlParameter("@dT", ParseDate(dataFimISO)) 
+        });
+    }
+
+    [Description("Calcula o TICKET MÉDIO (valor médio) dos recebimentos em um período. Use EXCLUSIVAMENTE quando o usuário pedir 'ticket médio', 'média de valor pago pelos clientes' ou 'valor médio de recebimento'.")]
+    public async Task<string> GetTicketMedioRecebimento(
+        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
+        [Description("Data final (ISO 8601)")] string dataFimISO)
+    {
+        var sq = @"SELECT 
+                      ISNULL(AVG(VALORPAG), 0) as TicketMedio, 
+                      ISNULL(SUM(VALORPAG), 0) as TotalRecebido, 
+                      COUNT(*) as QuantidadeTitulos 
+                   FROM VW_DOC_FIN_REC_PAGO 
+                   WHERE DATAPAGAMENTO >= @dF 
+                     AND DATAPAGAMENTO <= @dT";
+                     
+        return await ExecuteQuery(sq, new[] { 
+            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
+            new SqlParameter("@dT", ParseDate(dataFimISO)) 
+        });
+    }
+
+    [Description("Calcula a MÉDIA de dias de atraso dos clientes que já pagaram (títulos liquidados após o vencimento) em um período. Use EXCLUSIVAMENTE quando o usuário perguntar sobre 'média de atraso', 'tempo médio que os clientes demoram para pagar atrasado' ou 'dias de atraso médio'.")]
+    public async Task<string> GetMediaDiasAtrasoRecebimento(
+        [Description("Data inicial Pagamento (ISO 8601)")] string dataInicioISO, 
+        [Description("Data final Pagamento (ISO 8601)")] string dataFimISO)
+    {
+        var sq = @"SELECT 
+                      ISNULL(AVG(DATEDIFF(day, DATAVENCIMENTO, DATAPAGAMENTO)), 0) as MediaDiasAtraso,
+                      MAX(DATEDIFF(day, DATAVENCIMENTO, DATAPAGAMENTO)) as MaiorAtrasoNoPeriodo,
+                      COUNT(*) as QuantidadeTitulosAtrasados
+                   FROM VW_DOC_FIN_REC_PAGO 
+                   WHERE DATAPAGAMENTO > DATAVENCIMENTO 
+                     AND DATAPAGAMENTO >= @dF 
+                     AND DATAPAGAMENTO <= @dT";
+                     
+        return await ExecuteQuery(sq, new[] { 
+            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
+            new SqlParameter("@dT", ParseDate(dataFimISO)) 
+        });
+    }
+
+
     [Description("Busca contas a PAGAR que já estão ATRASADAS (vencimento menor que hoje e sem data de pagamento).")]
     public async Task<string> GetAtrasados()
     {
@@ -510,6 +690,52 @@ public class ErpPlugin
                    ORDER BY {orderByClause}";
                    
         return await ExecuteQuery(sq, new[] { new SqlParameter("@ano", ano) });
+    }
+
+    [Description("FATURAMENTO / TÍTULOS EMITIDOS: Calcula o valor total GERAL de contas a receber que foram GERADAS/EMITIDAS em um determinado período de datas. ATENÇÃO: Esta ferramenta usa a Data de Emissão e ignora se está pago ou aberto. USE SEMPRE que o usuário usar as palavras 'faturamos', 'emitimos', 'vendemos', 'geramos' em um período.")]
+    public async Task<string> GetFaturamentoEmitidoNoPeriodo(
+        [Description("Data inicial da emissão (ISO 8601)")] string dataInicioISO, 
+        [Description("Data final da emissão (ISO 8601)")] string dataFimISO)
+    {
+        // Consultando direto as tabelas base para não perder os títulos que já foram pagos
+        var sq = @"SELECT 
+                      SUM(b.ParcDocFinValOrig) as TotalFaturado, 
+                      COUNT(*) as QuantidadeTitulosEmitidos 
+                   FROM doc_fin a
+                   INNER JOIN parc_doc_fin b ON a.EmpCod = b.EmpCod AND a.DocFinChv = b.DocFinChv
+                   WHERE a.DocFinTipoLanc = 'REC' 
+                     AND a.DocFinDataEmissao >= @dF AND a.DocFinDataEmissao <= @dT";
+                   
+        return await ExecuteQuery(sq, new[] { 
+            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
+            new SqlParameter("@dT", ParseDate(dataFimISO)) });
+    }
+
+    [Description("FLUXO DE CAIXA LÍQUIDO / SALDO PROJETADO: Calcula o cruzamento entre as Entradas (Receitas a Receber) e Saídas (Despesas a Pagar) de um determinado período para entregar o Saldo Líquido. USE OBRIGATORIAMENTE quando o usuário pedir 'saldo líquido', 'projeção de caixa', 'o que sobra', ou quiser comparar o receber vs pagar de um período (ex: próxima semana, próximo mês).")]
+    public async Task<string> GetFluxoCaixaLiquidoNoPeriodo(
+        [Description("Data inicial do período (ISO 8601)")] string dataInicioISO, 
+        [Description("Data final do período (ISO 8601)")] string dataFimISO)
+    {
+        // O SQL já faz todo o trabalho pesado. Usamos ISNULL para evitar que um período sem despesas quebre a conta com um valor NULL.
+        var sq = @"
+            SELECT 
+                TotalReceitas as ReceitasPrevistas, 
+                TotalDespesas as DespesasPrevistas, 
+                (TotalReceitas - TotalDespesas) as SaldoLiquidoProjetado
+            FROM (
+                SELECT 
+                    (SELECT ISNULL(SUM(VALORORIG - ISNULL(VALORPAG, 0)), 0) 
+                     FROM VW_DOC_FIN_REC_ABERTO 
+                     WHERE DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT) as TotalReceitas,
+                     
+                    (SELECT ISNULL(SUM(VALORORIG - ISNULL(VALORPAG, 0)), 0) 
+                     FROM VW_DOC_FIN_PAG_ABERTO 
+                     WHERE DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT) as TotalDespesas
+            ) FluxoBase";
+                   
+        return await ExecuteQuery(sq, new[] { 
+            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
+            new SqlParameter("@dT", ParseDate(dataFimISO)) });
     }
 
     // --- VW_DOC_FIN_REC_PAGO ---
