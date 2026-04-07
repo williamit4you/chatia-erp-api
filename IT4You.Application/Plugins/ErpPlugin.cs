@@ -333,7 +333,7 @@ public class ErpPlugin
             new SqlParameter("@dT", ParseDate(dataFimISO)) });
     }
 
-    [Description("Soma o valor total PENDENTE de recebimento em um período.")]
+    [Description("Soma o valor total PENDENTE de vencer/(a receber ou em aberto) em um período.")]
     public async Task<string> GetSomaReceberPendente(
         [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
         [Description("Data final (ISO 8601)")] string dataFimISO)
@@ -342,6 +342,13 @@ public class ErpPlugin
         return await ExecuteQuery(sq, new[] { 
             new SqlParameter("@dF", ParseDate(dataInicioISO)), 
             new SqlParameter("@dT", ParseDate(dataFimISO)) });
+    }
+
+    [Description("Soma o valor TOTAL GERAL de documentos a receber (em aberto), indiferente de data. Inclui TUDO que está pendente (vencidos e a vencer).")]
+    public async Task<string> GetResumoGeralReceberAberto()
+    {
+        var sq = "SELECT SUM(VALORORIG) as TotalGeralEmAberto, COUNT(*) as QuantidadeTotalTitulos FROM VW_DOC_FIN_REC_ABERTO";
+        return await ExecuteQuery(sq, System.Array.Empty<SqlParameter>());
     }
 
     [Description("Calcula o montante TOTAL da inadimplência (tudo que já venceu e não foi pago) até hoje.")]
