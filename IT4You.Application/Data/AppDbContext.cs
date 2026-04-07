@@ -143,6 +143,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.SessionId).HasColumnName("sessionId");
             entity.Property(e => e.Role).HasColumnName("role");
             entity.Property(e => e.Content).HasColumnName("content");
+            entity.Property(e => e.SqlQueries).HasColumnName("sqlQueries");
             entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
 
             entity.HasOne(d => d.Session)

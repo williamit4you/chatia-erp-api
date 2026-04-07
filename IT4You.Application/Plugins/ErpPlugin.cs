@@ -12,6 +12,17 @@ public class ErpPlugin
     private readonly IConfiguration _configuration;
     private readonly string _connectionString;
 
+    // SQL query tracking (safe: ErpPlugin is Scoped per-request)
+    public List<string> ExecutedQueries { get; } = new();
+
+    public void ClearExecutedQueries() => ExecutedQueries.Clear();
+
+    public string? GetExecutedQueriesJson()
+    {
+        if (ExecutedQueries.Count == 0) return null;
+        return JsonSerializer.Serialize(ExecutedQueries);
+    }
+
     public ErpPlugin(IConfiguration configuration)
     {
         _configuration = configuration;
@@ -964,6 +975,10 @@ public class ErpPlugin
         {
             Console.WriteLine($"[ErpPlugin] 🟢 EXECUTING EXACT QUERY: {queryText}");
             foreach (var p in parameters) Console.WriteLine($"   -> Param {p.ParameterName}: {p.Value}");
+
+            // Track query for SQL transparency feature
+            var paramInfo = string.Join(", ", parameters.Select(p => $"{p.ParameterName}='{p.Value}'"));
+            ExecutedQueries.Add(string.IsNullOrEmpty(paramInfo) ? queryText : $"{queryText}  -- Params: {paramInfo}");
 
             using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();

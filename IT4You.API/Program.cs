@@ -100,6 +100,26 @@ app.UseAuthentication();
 
 app.UseAuthorization();
 
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    
+    // Seed Super Admin if none exists
+    if (!context.Users.Any(u => u.Role == IT4You.Domain.Entities.UserRole.SUPER_ADMIN))
+    {
+        var superAdmin = new IT4You.Domain.Entities.User
+        {
+            Email = "admin@it4you.com",
+            Name = "Super Admin IT4You",
+            Password = BCrypt.Net.BCrypt.HashPassword("admin"),
+            Role = IT4You.Domain.Entities.UserRole.SUPER_ADMIN,
+            IsActive = true
+        };
+        context.Users.Add(superAdmin);
+        context.SaveChanges();
+    }
+}
+
 app.MapControllers();
 
 app.Run();

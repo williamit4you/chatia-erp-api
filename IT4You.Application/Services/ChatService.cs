@@ -25,12 +25,14 @@ public class ChatService : IChatService
     private readonly IConfiguration _configuration;
     private readonly ILogger<ChatService> _logger;
     private readonly IFinancialAgentFactory _agentFactory;
-    public ChatService(AppDbContext context, IConfiguration configuration, ILogger<ChatService> logger, IFinancialAgentFactory agentFactory)
+    private readonly ErpPlugin _erpPlugin;
+    public ChatService(AppDbContext context, IConfiguration configuration, ILogger<ChatService> logger, IFinancialAgentFactory agentFactory, ErpPlugin erpPlugin)
     {
         _context = context;
         _configuration = configuration;
         _logger = logger;
         _agentFactory = agentFactory;
+        _erpPlugin = erpPlugin;
     }
 
     public async Task<IT4You.Application.DTOs.ChatResponse> ProcessMessageAsync(
@@ -134,7 +136,9 @@ public class ChatService : IChatService
                     // ================================
                     _logger.LogInformation("Calling agent with {Count} messages", messages.Count);
 
+                    _erpPlugin.ClearExecutedQueries();
                     var response = await agent.RunAsync(messages);
+                    var sqlJson = _erpPlugin.GetExecutedQueriesJson();
 
                     var reply = response.Messages.LastOrDefault()?.Text ?? "(Sem resposta)";
 
@@ -145,13 +149,14 @@ public class ChatService : IChatService
                     {
                         SessionId = sessionId,
                         Role = "assistant",
-                        Content = reply
+                        Content = reply,
+                        SqlQueries = sqlJson
                     };
 
                     _context.ChatMessages.Add(modelMsg);
                     await _context.SaveChangesAsync();
 
-                    return new IT4You.Application.DTOs.ChatResponse(reply, sessionId);
+                    return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null);
                 }
                 catch (Exception ex)
                 {
@@ -173,6 +178,37 @@ public class ChatService : IChatService
 
         var user = await _context.Users.FindAsync(userId);
 
+        // ================================
+        // GERENCIAMENTO DE SESSÃO (por usuário + gráfico)
+        // ================================
+        var sessionId = request.ChartId != null 
+            ? $"chart-{request.ChartId}-{userId}" 
+            : $"chart-unknown-{userId}";
+
+        var existingSession = await _context.ChatSessions.FindAsync(sessionId);
+        if (existingSession == null)
+        {
+            var newSession = new ChatSession
+            {
+                Id = sessionId,
+                UserId = userId,
+                TenantId = tenantId,
+                Title = $"Análise: {request.ChartTitle}"
+            };
+            _context.ChatSessions.Add(newSession);
+            await _context.SaveChangesAsync();
+        }
+
+        // SALVA MENSAGEM DO USUÁRIO
+        var userMsg = new IT4You.Domain.Entities.ChatMessage
+        {
+            SessionId = sessionId,
+            Role = "user",
+            Content = request.Message
+        };
+        _context.ChatMessages.Add(userMsg);
+        await _context.SaveChangesAsync();
+
         try
         {
             bool isFullAdmin = user?.Role == UserRole.SUPER_ADMIN || 
@@ -185,10 +221,17 @@ public class ChatService : IChatService
                 isFullAdmin || (user?.HasReceivableChatAccess ?? false),
                 isFullAdmin || (user?.HasBankingChatAccess ?? false));
 
+            var dateContext = "";
+            if (!string.IsNullOrEmpty(request.StartDate) || !string.IsNullOrEmpty(request.EndDate))
+            {
+                dateContext = $"\n# FILTRO DE PERÍODO ATIVO\nO usuário está filtrando os dados de {request.StartDate ?? "(sem início)"} até {request.EndDate ?? "(sem fim)"}. Priorize consultas neste intervalo de datas.";
+            }
+
             var chartContext = $@"
 # CONTEXTO DO GRÁFICO ATUAL (Ground Truth)
 Você está analisando o gráfico: {request.ChartTitle}
 Descrição do gráfico: {request.ChartDescription}
+{dateContext}
 
 # DADOS DO GRÁFICO (JSON)
 {System.Text.Json.JsonSerializer.Serialize(request.ChartData)}
@@ -218,15 +261,28 @@ Descrição do gráfico: {request.ChartDescription}
 
             _logger.LogInformation("Calling agent for chart analysis with {Count} messages", messages.Count);
 
+            _erpPlugin.ClearExecutedQueries();
             var response = await agent.RunAsync(messages);
+            var sqlJson = _erpPlugin.GetExecutedQueriesJson();
             var reply = response.Messages.LastOrDefault()?.Text ?? "(Sem resposta)";
 
-            return new IT4You.Application.DTOs.ChatResponse(reply, "chart-analysis-" + request.ChartId);
+            // SALVA RESPOSTA DO MODELO COM SQL
+            var modelMsg = new IT4You.Domain.Entities.ChatMessage
+            {
+                SessionId = sessionId,
+                Role = "assistant",
+                Content = reply,
+                SqlQueries = sqlJson
+            };
+            _context.ChatMessages.Add(modelMsg);
+            await _context.SaveChangesAsync();
+
+            return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "ERROR IN CHART ANALYSIS: {Message}", ex.Message);
-            return new IT4You.Application.DTOs.ChatResponse("Erro ao analisar gráfico: " + ex.Message, "error");
+            return new IT4You.Application.DTOs.ChatResponse("Erro ao analisar gráfico: " + ex.Message, sessionId);
         }
     }
 
@@ -244,6 +300,48 @@ Descrição do gráfico: {request.ChartDescription}
             .Where(m => m.SessionId == sessionId)
             .OrderBy(m => m.CreatedAt)
             .ToListAsync();
+    }
+
+    public async Task<List<SqlLogDto>> GetSqlLogsAsync(string tenantId, string? filterUserId = null, DateTime? startDate = null, DateTime? endDate = null)
+    {
+        var query = from msg in _context.ChatMessages
+                    join session in _context.ChatSessions on msg.SessionId equals session.Id
+                    join usr in _context.Users on session.UserId equals usr.Id
+                    where session.TenantId == tenantId && msg.SqlQueries != null
+                    select new { msg, session, usr };
+
+        if (!string.IsNullOrEmpty(filterUserId))
+            query = query.Where(x => x.session.UserId == filterUserId);
+
+        if (startDate.HasValue)
+            query = query.Where(x => x.msg.CreatedAt >= startDate.Value);
+
+        if (endDate.HasValue)
+            query = query.Where(x => x.msg.CreatedAt <= endDate.Value);
+
+        var results = await query.OrderByDescending(x => x.msg.CreatedAt).Take(200).ToListAsync();
+
+        var logs = new List<SqlLogDto>();
+        foreach (var r in results)
+        {
+            // Find the user question that preceded this AI message in the same session
+            var prevUserMsg = await _context.ChatMessages
+                .Where(m => m.SessionId == r.session.Id && m.Role == "user" && m.CreatedAt < r.msg.CreatedAt)
+                .OrderByDescending(m => m.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            logs.Add(new SqlLogDto(
+                r.msg.Id,
+                r.msg.CreatedAt,
+                r.usr.Name,
+                r.usr.Email,
+                prevUserMsg?.Content ?? "(pergunta não encontrada)",
+                r.msg.Content,
+                r.msg.SqlQueries!
+            ));
+        }
+
+        return logs;
     }
 }
 public static class ToolRegistry

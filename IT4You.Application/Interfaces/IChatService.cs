@@ -10,4 +10,5 @@ public interface IChatService
     Task<ChatResponse> ProcessChartAnalysisAsync(ChartAnalysisRequest request, string userId, string tenantId);
     Task<List<ChatSession>> GetSessionsAsync(string userId, string tenantId);
     Task<List<ChatMessage>> GetMessagesAsync(string sessionId);
+    Task<List<SqlLogDto>> GetSqlLogsAsync(string tenantId, string? filterUserId = null, DateTime? startDate = null, DateTime? endDate = null);
 }

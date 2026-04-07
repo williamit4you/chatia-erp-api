@@ -87,4 +87,23 @@ public class ChatController : ControllerBase
         var messages = await _chatService.GetMessagesAsync(sessionId);
         return Ok(messages);
     }
+
+    [HttpGet("sql-logs")]
+    public async Task<IActionResult> GetSqlLogs([FromQuery] string? userId = null, [FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
+    {
+        var currentUserId = User.FindFirst("userId")?.Value;
+        var tenantId = User.FindFirst("tenantId")?.Value;
+
+        if (string.IsNullOrEmpty(currentUserId) || string.IsNullOrEmpty(tenantId))
+            return Unauthorized();
+
+        // Check admin role
+        var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+        var isAdmin = role == "TENANT_ADMIN" || role == "SUPER_ADMIN" || role == "ADMIN";
+        if (!isAdmin)
+            return Forbid();
+
+        var logs = await _chatService.GetSqlLogsAsync(tenantId, userId, startDate, endDate);
+        return Ok(logs);
+    }
 }

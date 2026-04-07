@@ -24,6 +24,19 @@ public class SuperAdminController : ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpGet("promote-me")]
+    public async Task<IActionResult> PromoteMe([FromQuery] string email = "william@it4you.inf.br")
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+        if (user == null) return NotFound("Usuário não encontrado.");
+        
+        user.Role = IT4You.Domain.Entities.UserRole.SUPER_ADMIN;
+        await _context.SaveChangesAsync();
+        
+        return Ok($"Usuário {email} foi promovido a SUPER ADMIN! Agora ele pode logar na tela principal.");
+    }
+
+    [AllowAnonymous]
     [HttpGet("test-db")]
     public IActionResult CheckConnection()
     {
