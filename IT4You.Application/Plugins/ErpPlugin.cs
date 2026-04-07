@@ -280,6 +280,22 @@ public class ErpPlugin
 
     // --- VW_DOC_FIN_REC_ABERTO ---
 
+    [Description("SOMA SINTÉTICA (Apenas Valores): Calcula o Valor Total de documentos que VENCEM dentro de um período específico (passado ou futuro). USE APENAS quando o usuário pedir o TOTAL/SOMA de um período e NÃO quiser a lista detalhada.")]
+    public async Task<string> GetSomaVencimentosNoPeriodo(
+        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
+        [Description("Data final (ISO 8601)")] string dataFimISO)
+    {
+        var sq = @"SELECT 
+                      SUM(VALORORIG - ISNULL(VALORPAG, 0)) as SaldoPendenteNoPeriodo, 
+                      COUNT(*) as QuantidadeTitulos 
+                   FROM VW_DOC_FIN_REC_ABERTO 
+                   WHERE DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT";
+                   
+        return await ExecuteQuery(sq, new[] { 
+            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
+            new SqlParameter("@dT", ParseDate(dataFimISO)) });
+    }
+
     [Description("Busca clientes com pagamentos ATRASADOS/(a receber, em aberto) (vencimento < hoje e sem pagamento).")]
     public async Task<string> GetReceberAtrasados()
     {
