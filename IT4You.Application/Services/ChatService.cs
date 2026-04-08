@@ -309,7 +309,7 @@ Descrição do gráfico: {request.ChartDescription}
     public async Task<List<ChatSession>> GetSessionsAsync(string userId, string tenantId)
     {
         return await _context.ChatSessions
-            .Where(s => s.UserId == userId && s.TenantId == tenantId)
+            .Where(s => s.UserId == userId && s.TenantId == tenantId && s.IsVisible)
             .OrderByDescending(s => s.CreatedAt)
             .ToListAsync();
     }
@@ -370,12 +370,7 @@ Descrição do gráfico: {request.ChartDescription}
 
         if (session != null)
         {
-            // The related messages will be deleted via cascade if configured, 
-            // but let's be explicit if not sure about EF configuration.
-            var messages = _context.ChatMessages.Where(m => m.SessionId == sessionId);
-            _context.ChatMessages.RemoveRange(messages);
-            
-            _context.ChatSessions.Remove(session);
+            session.IsVisible = false;
             await _context.SaveChangesAsync();
         }
     }

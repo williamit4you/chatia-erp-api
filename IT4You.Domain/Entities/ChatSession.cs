@@ -13,5 +13,6 @@ public class ChatSession
     public string? TenantId { get; set; }
     public Tenant? Tenant { get; set; }
 
+    public bool IsVisible { get; set; } = true;
     public ICollection<ChatMessage> Messages { get; set; } = new List<ChatMessage>();
 }
