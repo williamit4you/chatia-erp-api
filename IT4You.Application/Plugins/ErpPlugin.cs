@@ -951,6 +951,125 @@ public class ErpPlugin
     }
 
 
+    // --- FASE 3: NOVOS PLUGINS ANALÍTICOS ---
+
+    [Description("Retorna títulos a receber que estão atrasados dentro de uma faixa específica de dias. Útil ao perguntar 'quais clientes estão na faixa de 90 dias de atraso?'.")]
+    public async Task<string> GetReceivablesByAgeRange(
+        [Description("Mínimo de dias em atraso. Ex: 61")] int diasAtrasoInicio,
+        [Description("Máximo de dias em atraso. Ex: 90")] int diasAtrasoFim)
+    {
+        var sq = $@"SELECT {BASE_COLUMNS}, DATEDIFF(day, DATAVENCIMENTO, CAST(GETDATE() AS DATE)) as DiasAtraso
+                    FROM VW_DOC_FIN_REC_ABERTO 
+                    WHERE DATAVENCIMENTO <= DATEADD(day, -@dMin, CAST(GETDATE() AS DATE)) 
+                      AND DATAVENCIMENTO >= DATEADD(day, -@dMax, CAST(GETDATE() AS DATE))
+                    ORDER BY DiasAtraso DESC";
+        return await ExecuteQuery(sq, new[] { new SqlParameter("@dMin", diasAtrasoInicio), new SqlParameter("@dMax", diasAtrasoFim) });
+    }
+
+    [Description("Busca todo o histórico de contas a receber (em aberto e pagas) de um cliente para análise individual completa.")]
+    public async Task<string> GetClientReceivablesHistory(string clientId)
+    {
+        var sq = $@"SELECT 'Aberto' as Status, {BASE_COLUMNS} FROM VW_DOC_FIN_REC_ABERTO WHERE UPPER(CLIENTE) LIKE UPPER(@c) OR CPFCNPJ = @c
+                    UNION ALL 
+                    SELECT 'Pago' as Status, {BASE_COLUMNS} FROM VW_DOC_FIN_REC_PAGO WHERE UPPER(CLIENTE) LIKE UPPER(@c) OR CPFCNPJ = @c
+                    ORDER BY DATAVENCIMENTO DESC";
+        return await ExecuteQuery(sq, new[] { new SqlParameter("@c", $"%{clientId}%") });
+    }
+
+    [Description("Mede a performance e eficiência de pagamento. Compara o valor faturado com os recebimentos e atrasos de faturas.")]
+    public async Task<string> GetInvoicePaymentPerformance(string dataInicioISO, string dataFimISO)
+    {
+        var sq = $@"SELECT 
+                      COUNT(CASE WHEN DATAPAGAMENTO > DATAVENCIMENTO THEN 1 END) as FaturasPagasComAtraso,
+                      COUNT(CASE WHEN DATAPAGAMENTO <= DATAVENCIMENTO THEN 1 END) as FaturasPagasEmDia,
+                      AVG(CAST(DATEDIFF(day, DATAVENCIMENTO, DATAPAGAMENTO) AS FLOAT)) as MediaDiasAtrasoGeral
+                    FROM VW_DOC_FIN_REC_PAGO 
+                    WHERE DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT";
+        return await ExecuteQuery(sq, new[] { 
+            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
+            new SqlParameter("@dT", ParseDate(dataFimISO)) });
+    }
+
+    [Description("Busca detalhadamente os principais credores (Fornecedores que mais devemos) limitados por uma quantidade desejada.")]
+    public async Task<string> GetTopCreditorsDetails(int limit)
+    {
+        var sq = $@"SELECT TOP {limit} CLIENTE as NomeFornecedor, SUM(VALORORIG) as TotalPendente, COUNT(*) as QuantidadeTitulos
+                    FROM VW_DOC_FIN_PAG_ABERTO 
+                    GROUP BY CLIENTE ORDER BY TotalPendente DESC";
+        return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
+    }
+
+    [Description("Aviso de alertas de pagamentos que vencem num período específico (próximos pagamentos a realizar). O mesmo que contas a pagar em um período.")]
+    public async Task<string> GetUpcomingPayables(string dataInicioISO, string dataFimISO)
+    {
+        var sq = $"SELECT TOP 50 {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT ORDER BY DATAVENCIMENTO ASC";
+        return await ExecuteQuery(sq, new[] { 
+            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
+            new SqlParameter("@dT", ParseDate(dataFimISO)) });
+    }
+
+    [Description("Busca o comportamento financeiro com um fornecedor específico: títulos que já pagamos e os que estão pra vencer.")]
+    public async Task<string> GetSupplierAnalytics(string supplierIdentifier)
+    {
+        var sq = $@"SELECT 'Pendente' as Tipo, {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_ABERTO WHERE UPPER(CLIENTE) LIKE UPPER(@f)
+                    UNION ALL 
+                    SELECT 'Pago' as Tipo, {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_PAGO WHERE UPPER(CLIENTE) LIKE UPPER(@f)
+                    ORDER BY DATAVENCIMENTO DESC";
+        return await ExecuteQuery(sq, new[] { new SqlParameter("@f", $"%{supplierIdentifier}%") });
+    }
+
+    [Description("Simula o fluxo de caixa dia-a-dia cruzando Receitas e Despesas agrupadas pela Data de Vencimento.")]
+    public async Task<string> GetProjectedDailyCashFlow(int nextDays)
+    {
+        var sq = $@"
+            SELECT 
+                ISNULL(R.Dia, P.Dia) as DataFluxo,
+                ISNULL(R.TotalReceitas, 0) as ReceitasDia,
+                ISNULL(P.TotalDespesas, 0) as DespesasDia,
+                (ISNULL(R.TotalReceitas, 0) - ISNULL(P.TotalDespesas, 0)) as SaldoLiquidoDia
+            FROM (
+                SELECT CAST(DATAVENCIMENTO AS DATE) as Dia, SUM(VALORORIG - ISNULL(VALORPAG, 0)) as TotalReceitas
+                FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO >= CAST(GETDATE() AS DATE) AND DATAVENCIMENTO <= DATEADD(day, @dias, CAST(GETDATE() AS DATE))
+                GROUP BY CAST(DATAVENCIMENTO AS DATE)
+            ) R
+            FULL OUTER JOIN (
+                SELECT CAST(DATAVENCIMENTO AS DATE) as Dia, SUM(VALORORIG) as TotalDespesas
+                FROM VW_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO >= CAST(GETDATE() AS DATE) AND DATAVENCIMENTO <= DATEADD(day, @dias, CAST(GETDATE() AS DATE))
+                GROUP BY CAST(DATAVENCIMENTO AS DATE)
+            ) P ON R.Dia = P.Dia
+            ORDER BY DataFluxo ASC";
+        return await ExecuteQuery(sq, new[] { new SqlParameter("@dias", nextDays) });
+    }
+
+    [Description("Relatório global instantâneo de saúde financeira (Total Atrasado Receber vs Pagar e Inadimplência global).")]
+    public async Task<string> GetFinancialHealthReportDetails()
+    {
+        var sq = @"SELECT 
+                    (SELECT SUM(VALORORIG) FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO < CAST(GETDATE() AS DATE)) as TotalInadimplenciaClientes,
+                    (SELECT SUM(VALORORIG) FROM VW_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO < CAST(GETDATE() AS DATE)) as TotalAtrasadoFornecedores,
+                    (SELECT SUM(VALORORIG) FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO >= CAST(GETDATE() AS DATE)) as TotalReceberAberto,
+                    (SELECT SUM(VALORORIG) FROM VW_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO >= CAST(GETDATE() AS DATE)) as TotalPagarAberto";
+        return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
+    }
+
+    [Description("Analisa as pendências a pagar e a receber divididas pelas diversas EMPRESAS / Filiais registradas.")]
+    public async Task<string> GetLiquidityByBranch()
+    {
+        var sq = @"
+            SELECT 
+                ISNULL(R.EMPRESA, P.EMPRESA) as Filial,
+                ISNULL(R.TotalReceber, 0) as TotalPendenteRecebimentos,
+                ISNULL(P.TotalPagar, 0) as TotalPendenteObrigacoes,
+                (ISNULL(R.TotalReceber, 0) - ISNULL(P.TotalPagar, 0)) as LiquidezFutura
+            FROM (
+                SELECT EMPRESA, SUM(VALORORIG) as TotalReceber FROM VW_DOC_FIN_REC_ABERTO GROUP BY EMPRESA
+            ) R
+            FULL OUTER JOIN (
+                SELECT EMPRESA, SUM(VALORORIG) as TotalPagar FROM VW_DOC_FIN_PAG_ABERTO GROUP BY EMPRESA
+            ) P ON R.EMPRESA = P.EMPRESA";
+        return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
+    }
+
     // --- HELPERS E EXECUTOR BASE ---
 
     private string ParseDate(string isoDate)
