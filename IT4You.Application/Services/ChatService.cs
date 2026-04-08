@@ -181,9 +181,13 @@ public class ChatService : IChatService
         // ================================
         // GERENCIAMENTO DE SESSÃO (por usuário + gráfico)
         // ================================
-        var sessionId = request.ChartId != null 
-            ? $"chart-{request.ChartId}-{userId}" 
-            : $"chart-unknown-{userId}";
+        var sessionId = request.SessionId;
+        if (string.IsNullOrEmpty(sessionId))
+        {
+            sessionId = request.ChartId != null 
+                ? $"chart-{request.ChartId}-{userId}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}" 
+                : $"chart-unknown-{userId}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+        }
 
         var existingSession = await _context.ChatSessions.FindAsync(sessionId);
         if (existingSession == null)
@@ -277,7 +281,15 @@ Descrição do gráfico: {request.ChartDescription}
             _context.ChatMessages.Add(modelMsg);
             await _context.SaveChangesAsync();
 
-            return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null);
+            // ================================
+            // CALCULO DO SCORE DE CONTEXTO %
+            // ================================
+            // Estimativa simples: soma o length dos conteúdos enviados e da resposta.
+            // Limite seguro conversacional = 60.000 tokens ≈ 240.000 caracteres.
+            int totalChars = messages.Sum(m => m.Text?.Length ?? 0) + reply.Length;
+            int contextPercent = (int)Math.Min(100, Math.Round((double)totalChars / 240000 * 100));
+
+            return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null, contextPercent);
         }
         catch (Exception ex)
         {
@@ -341,7 +353,21 @@ Descrição do gráfico: {request.ChartDescription}
             ));
         }
 
-        return logs;
+    public async Task DeleteSessionAsync(string sessionId, string tenantId)
+    {
+        var session = await _context.ChatSessions
+            .FirstOrDefaultAsync(s => s.Id == sessionId && s.TenantId == tenantId);
+
+        if (session != null)
+        {
+            // The related messages will be deleted via cascade if configured, 
+            // but let's be explicit if not sure about EF configuration.
+            var messages = _context.ChatMessages.Where(m => m.SessionId == sessionId);
+            _context.ChatMessages.RemoveRange(messages);
+            
+            _context.ChatSessions.Remove(session);
+            await _context.SaveChangesAsync();
+        }
     }
 }
 public static class ToolRegistry

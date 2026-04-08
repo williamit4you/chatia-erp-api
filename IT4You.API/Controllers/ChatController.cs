@@ -106,4 +106,15 @@ public class ChatController : ControllerBase
         var logs = await _chatService.GetSqlLogsAsync(tenantId, userId, startDate, endDate);
         return Ok(logs);
     }
+
+    [HttpDelete("sessions/{sessionId}")]
+    public async Task<IActionResult> DeleteSession(string sessionId)
+    {
+        var tenantId = User.FindFirst("tenantId")?.Value;
+        if (string.IsNullOrEmpty(tenantId))
+            return Unauthorized();
+
+        await _chatService.DeleteSessionAsync(sessionId, tenantId);
+        return NoContent();
+    }
 }
