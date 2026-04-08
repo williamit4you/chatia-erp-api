@@ -352,6 +352,8 @@ Descrição do gráfico: {request.ChartDescription}
                 r.msg.SqlQueries!
             ));
         }
+        return logs;
+    }
 
     public async Task DeleteSessionAsync(string sessionId, string tenantId)
     {
