@@ -370,6 +370,7 @@ Descrição do gráfico: {request.ChartDescription}
 
         if (session != null)
         {
+            // Soft delete: marca como invisível para o usuário, mas mantém os dados para análise da gestão
             session.IsVisible = false;
             await _context.SaveChangesAsync();
         }

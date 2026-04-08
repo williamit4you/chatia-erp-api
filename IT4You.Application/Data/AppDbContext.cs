@@ -125,7 +125,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
             entity.Property(e => e.UpdatedAt).HasColumnName("updatedAt");
             entity.Property(e => e.IsVisible).HasColumnName("isVisible").HasDefaultValue(true);
-            
+
             entity.HasOne(d => d.Tenant)
                 .WithMany(p => p.ChatSessions)
                 .HasForeignKey(d => d.TenantId)
