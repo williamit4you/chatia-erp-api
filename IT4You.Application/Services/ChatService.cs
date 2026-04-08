@@ -156,7 +156,13 @@ public class ChatService : IChatService
                     _context.ChatMessages.Add(modelMsg);
                     await _context.SaveChangesAsync();
 
-                    return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null);
+                    // ================================
+                    // CALCULO DO SCORE DE CONTEXTO %
+                    // ================================
+                    int totalChars = messages.Sum(m => m.Text?.Length ?? 0) + reply.Length;
+                    int contextPercent = (int)Math.Min(100, Math.Round((double)totalChars / 240000 * 100));
+
+                    return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null, contextPercent);
                 }
                 catch (Exception ex)
                 {
@@ -164,7 +170,9 @@ public class ChatService : IChatService
 
                     return new IT4You.Application.DTOs.ChatResponse(
                         "Erro ao processar sua solicitação: " + ex.Message,
-                        sessionId
+                        sessionId,
+                        null,
+                        0
                     );
                 }
             }
