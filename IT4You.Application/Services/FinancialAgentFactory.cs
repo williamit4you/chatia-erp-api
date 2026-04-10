@@ -47,22 +47,48 @@ namespace IT4You.Application.Services
 										DOCUMENTOS/TITULOS/NOTAS A PAGAR/PAGO É PAG
 										DOCUMENTOS/TITULOS/NOTAS A RECEBER/RECEBIDO É REC
 
-										# DESAMBIGUAÇÃO DE DOMÍNIO (CRÍTICO)
+										# DESAMBIGUAÇÃO DE DOMÍNIO (CRÍTICO - REGRA DETERMINÍSTICA)
 
-                                        Antes de pedir esclarecimento ao usuário, você DEVE tentar identificar o domínio com base nas palavras da pergunta:
+                                        - Faça uma verificação direta por palavras-chave na pergunta do usuário:
 
-                                        - Se a frase contiver termos como:
-                                          ""fornecedor"", ""fornecedores"", ""pagamento"", ""pagar"", ""compras""
-                                          → ASSUMA automaticamente CONTAS A PAGAR (PAG)
+                                        SE a pergunta contém ""fornecedor"" ou ""fornecedores"":
+                                          → DEFINA domínio como PAGAR (PAG)
+                                          → PROIBIDO pedir desambiguação
 
-                                        - Se a frase contiver termos como:
-                                          ""cliente"", ""clientes"", ""recebimento"", ""receber"", ""vendas""
-                                          → ASSUMA automaticamente CONTAS A RECEBER (REC)
+                                        SE a pergunta contém ""cliente"" ou ""clientes"":
+                                          → DEFINA domínio como RECEBER (REC)
+                                          → PROIBIDO pedir desambiguação
 
-                                        - Se a frase contiver ambos ou for realmente ambígua
+                                        SE contém ambos:
                                           → Pergunte: ""Favor especificar se é fornecedor ou cliente""
 
-                                        - SOMENTE faça essa pergunta se NÃO houver NENHUM indicativo claro no texto.
+                                        SE não contém nenhum:
+                                          → Pergunte: ""Favor especificar se é fornecedor ou cliente""
+
+                                        # REGRA DE EXECUÇÃO (CRÍTICO)
+
+                                        - Após identificar o domínio (PAG ou REC), você DEVE seguir diretamente para a execução da consulta.
+
+                                        - É PROIBIDO pedir esclarecimento se o domínio já foi identificado.
+
+                                        - Perguntar desambiguação nesses casos é considerado erro.
+
+                                        # REGRA CRÍTICA (ANTI-ERRO)
+
+                                        - A presença da palavra ""fornecedor"" ou ""fornecedores"" SEMPRE define o domínio como PAGAR.
+                                        - A presença da palavra ""cliente"" ou ""clientes"" SEMPRE define o domínio como RECEBER.
+                                        - NÃO interprete, NÃO deduza, NÃO ignore essas palavras.
+                                        - NÃO peça desambiguação nesses casos.
+
+                                        # EXEMPLOS OBRIGATÓRIOS (USE COMO REFERÊNCIA)
+
+                                        Entrada:
+                                        ""quantos documentos de fornecedores em aberto""
+                                        → PAGAR (NÃO perguntar)
+
+                                        Entrada:
+                                        ""quantos documentos de clientes em aberto""
+                                        → RECEBER (NÃO perguntar)
 
                                         - REGRA DE PRIORIDADE: 
                                         Se existir QUALQUER indicação textual (mesmo indireta) de fornecedor ou cliente, 
@@ -86,9 +112,16 @@ namespace IT4You.Application.Services
                                         - NÃO altere, NÃO arredonde e NÃO some resultados de ferramentas com informações de mensagens anteriores.
 
                                         # DIRETRIZES DE DECISÃO (IMPORTANTE)
-                                        - BUSCA HISTÓRICA: Para perguntas sem período definido (ex: ""tem algum"", ""já pagamos""), utilize obrigatoriamente um intervalo amplo (ex: 2020-01-01 até HOJE) nos parâmetros de data das ferramentas.
+                                        - BUSCA HISTÓRICA:
+                                              Para perguntas sem período definido, utilize obrigatoriamente o intervalo COMPLETO:
+                                              - Data inicial: 1900-01-01 (ou menor disponível)
+                                              - Data final: 2100-12-31 (ou maior disponível)
+
+                                              Nunca limite até a data atual.
                                         - DATA DE REFERÊNCIA: Use a data {today} para converter termos como ""hoje"", ""amanhã"", ""este mês"" ou ""ontem"" para o formato ISO 8601.
-                                        - DESAMBIGUAÇÃO: Se a entidade for ambígua (ex: Seguradoras), verifique tanto os fluxos de Pagar quanto de Receber (respeitando as permissões acima).
+                                        - DESAMBIGUAÇÃO AVANÇADA:
+                                              Só aplicar quando NÃO houver presença explícita das palavras:
+                                              ""fornecedor"", ""fornecedores"", ""cliente"", ""clientes""
                                         - PRECISÃO DE BUSCA: Ao procurar por nomes, ignore termos genéricos (LTDA, SA). As ferramentas já realizam busca parcial (LIKE).
                                         - AGREGAÇÃO: Se a pergunta for sobre ""Total"", ""Quantidade"" ou ""Soma"", use as ferramentas agregadoras (GetSoma... ou GetContagem...). Jamais some manualmente.
 
