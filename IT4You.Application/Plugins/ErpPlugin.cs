@@ -92,8 +92,7 @@ public class ErpPlugin
             _                => "TotalPendente DESC" // Fallback seguro: maiores valores no topo
         };
 
-        var sq = $@"SELECT TOP 50 
-                      CLIENTE as NomeFornecedor, 
+        var sq = $@"SELECT CLIENTE as NomeFornecedor, 
                       SUM(VALORORIG) as TotalPendente, 
                       COUNT(*) as QuantidadeTitulos 
                    FROM VW_DOC_FIN_PAG_ABERTO 
@@ -562,7 +561,7 @@ public class ErpPlugin
     [Description("[DOMÍNIO: RECEBER ABERTO] Busca todas as faturas em aberto (pendentes) de um Cliente específico (Limitado a 50 registros).")]
     public async Task<string> GetPendenciasPorCliente([Description("Nome ou Fantasia do Cliente")] string nome)
     {
-        var sq = $"SELECT TOP 50 {BASE_COLUMNS} FROM VW_DOC_FIN_REC_ABERTO WHERE (UPPER(CLIENTE) LIKE UPPER(@n) OR UPPER(NOMEFANTASIA) LIKE UPPER(@n)) ORDER BY DATAVENCIMENTO ASC";
+        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_REC_ABERTO WHERE (UPPER(CLIENTE) LIKE UPPER(@n) OR UPPER(NOMEFANTASIA) LIKE UPPER(@n)) ORDER BY DATAVENCIMENTO ASC";
         return await ExecuteQuery(sq, new[] { new SqlParameter("@n", $"%{nome}%") });
     }
 
@@ -980,7 +979,7 @@ public class ErpPlugin
     [Description("[DOMÍNIO: PAGAR ABERTO] Aviso de alertas de pagamentos que vencem num período específico (próximos pagamentos a realizar). O mesmo que contas a pagar em um período.")]
     public async Task<string> GetUpcomingPayables(string dataInicioISO, string dataFimISO)
     {
-        var sq = $"SELECT TOP 50 {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT ORDER BY DATAVENCIMENTO ASC";
+        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT ORDER BY DATAVENCIMENTO ASC";
         return await ExecuteQuery(sq, new[] { 
             new SqlParameter("@dF", ParseDate(dataInicioISO)), 
             new SqlParameter("@dT", ParseDate(dataFimISO)) });

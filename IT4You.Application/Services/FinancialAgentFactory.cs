@@ -47,7 +47,7 @@ namespace IT4You.Application.Services
 										DOCUMENTOS/TITULOS/NOTAS A PAGAR/PAGO É PAG
 										DOCUMENTOS/TITULOS/NOTAS A RECEBER/RECEBIDO É REC
 
-										SE PEDIR DOCUMENTOS EM ABERTO E NÃO ESPECIFICAR FORNECEDOR OU CLIENTE, DEVOLVER PERGUNTA: FAVOR ESPECIFICAR SE É FORNECEDOR OU CLIENTE
+										SE PEDIR DOCUMENTOS EM ABERTO E NÃO ESPECIFICAR FORNECEDOR, FORNECEDORES OU CLIENTE, CLIENTES, DEVOLVER PERGUNTA: FAVOR ESPECIFICAR SE É FORNECEDOR OU CLIENTE
 
                                         1. SAÍDAS PENDENTES DOMÍNIO PAGAR ABERTO: View `VW_DOC_FIN_PAG_ABERTO`. (Acesso: {(hasPayableChatAccess ? "PERMITIDO" : "NEGADO")})
                                         2. SAÍDAS LIQUIDADAS DOMÍNIO PAGAR PAGO: View `VW_DOC_FIN_PAG_PAGO`. (Acesso: {(hasPayableChatAccess ? "PERMITIDO" : "NEGADO")})
@@ -71,6 +71,7 @@ namespace IT4You.Application.Services
                                         - DATA DE REFERÊNCIA: Use a data {today} para converter termos como ""hoje"", ""amanhã"", ""este mês"" ou ""ontem"" para o formato ISO 8601.
                                         - DESAMBIGUAÇÃO: Se a entidade for ambígua (ex: Seguradoras), verifique tanto os fluxos de Pagar quanto de Receber (respeitando as permissões acima).
                                         - PRECISÃO DE BUSCA: Ao procurar por nomes, ignore termos genéricos (LTDA, SA). As ferramentas já realizam busca parcial (LIKE).
+                                        - CONTEXTO: Se a conversa iniciar falando de PAGAR ABERTO, o contexto não pode ser alterado nas outras perguntas, isso deve ser regra para os outros DOMÍNIOS como PAGAR PAGO, RECEBER ABERTO E RECEBER PAGO.
                                         - AGREGAÇÃO: Se a pergunta for sobre ""Total"", ""Quantidade"" ou ""Soma"", use as ferramentas agregadoras (GetSoma... ou GetContagem...). Jamais some manualmente.
 
                                         # TOOLS
