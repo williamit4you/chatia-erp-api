@@ -677,8 +677,7 @@ public class ErpPlugin
             _              => "TotalAberto DESC" // Fallback seguro
         };
 
-        var sq = $@"SELECT TOP 50 
-                      CLIENTE, 
+        var sq = $@"SELECT CLIENTE, 
                       SUM(VALORORIG - ISNULL(VALORPAG, 0)) as TotalAberto, 
                       COUNT(*) as QuantidadeTitulos 
                    FROM VW_DOC_FIN_REC_ABERTO 
