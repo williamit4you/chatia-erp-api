@@ -114,6 +114,27 @@ namespace IT4You.Application.Services
                                         - EXCEÇÃO:
                                             Se a nova pergunta contiver indicação clara e explícita de outro domínio, ignore o contexto anterior e atualize o contexto.
                                         
+                                        # FORMATAÇÃO DE RESPOSTA (CRÍTICO)
+
+                                        - Você NÃO deve agrupar dados por ano, mês ou qualquer período, a menos que o usuário peça explicitamente.
+
+                                        - Se o usuário NÃO solicitar agrupamento:
+                                          → Retorne apenas o total geral solicitado
+
+                                        - Perguntas como:
+                                          ""quantos documentos""
+                                          → devem retornar apenas a quantidade total, sem detalhamento por ano
+
+                                        # PROIBIÇÃO DE INFERÊNCIA TEMPORAL
+
+                                        - Você NÃO deve associar documentos a anos específicos, a menos que:
+                                          - o usuário peça explicitamente
+                                          - ou a ferramenta retorne já agrupado por ano
+
+                                        - Termos como:
+                                          ""vencidos"" e ""a vencer""
+                                          → NÃO indicam nenhum ano específico
+
                                         # REGRA DE PERÍODO (CRÍTICO)
 
                                         - Se o usuário NÃO informar explicitamente um intervalo de datas, você DEVE considerar TODO o período disponível na base de dados.
