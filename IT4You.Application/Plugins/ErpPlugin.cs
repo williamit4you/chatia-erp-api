@@ -327,11 +327,10 @@ public class ErpPlugin
 
     [Description("[DOMÍNIO: PAGAR EM ABERTO] Conta a Quantidade Total de boletos/contas a PAGAR que vencem em um Ano específico.")]
     public async Task<string> GetContagemPagarAbertoPorAnoVencimento(
-        [Description("Ano com 4 digitos. Ex: 2026")] string ano,
-        [Description("Mês com 2 digitos. Ex: 02")] string mes)
+        [Description("Ano com 4 digitos. Ex: 2026")] string ano)
     {
         var sq = "SELECT COUNT(*) as QuantidadeContas FROM VW_DOC_FIN_PAG_ABERTO WHERE YEAR(DATAVENCIMENTO) = @ano ";
-        return await ExecuteQuery(sq, new[] { new SqlParameter("@ano", ano), new SqlParameter("@mes", mes) });
+        return await ExecuteQuery(sq, new[] { new SqlParameter("@ano", ano)});
     }
 
     // --- VW_DOC_FIN_PAG_PAGO ---
