@@ -47,7 +47,26 @@ namespace IT4You.Application.Services
 										DOCUMENTOS/TITULOS/NOTAS A PAGAR/PAGO É PAG
 										DOCUMENTOS/TITULOS/NOTAS A RECEBER/RECEBIDO É REC
 
-										SE PEDIR DOCUMENTOS EM ABERTO E NÃO ESPECIFICAR FORNECEDOR, FORNECEDORES OU CLIENTE, CLIENTES, DEVOLVER PERGUNTA: FAVOR ESPECIFICAR SE É FORNECEDOR OU CLIENTE
+										# DESAMBIGUAÇÃO DE DOMÍNIO (CRÍTICO)
+
+                                        Antes de pedir esclarecimento ao usuário, você DEVE tentar identificar o domínio com base nas palavras da pergunta:
+
+                                        - Se a frase contiver termos como:
+                                          ""fornecedor"", ""fornecedores"", ""pagamento"", ""pagar"", ""compras""
+                                          → ASSUMA automaticamente CONTAS A PAGAR (PAG)
+
+                                        - Se a frase contiver termos como:
+                                          ""cliente"", ""clientes"", ""recebimento"", ""receber"", ""vendas""
+                                          → ASSUMA automaticamente CONTAS A RECEBER (REC)
+
+                                        - Se a frase contiver ambos ou for realmente ambígua
+                                          → Pergunte: ""Favor especificar se é fornecedor ou cliente""
+
+                                        - SOMENTE faça essa pergunta se NÃO houver NENHUM indicativo claro no texto.
+
+                                        - REGRA DE PRIORIDADE: 
+                                        Se existir QUALQUER indicação textual (mesmo indireta) de fornecedor ou cliente, 
+                                        você NÃO deve pedir esclarecimento e deve seguir com a execução.
 
                                         1. SAÍDAS PENDENTES DOMÍNIO PAGAR ABERTO: View `VW_DOC_FIN_PAG_ABERTO`. (Acesso: {(hasPayableChatAccess ? "PERMITIDO" : "NEGADO")})
                                         2. SAÍDAS LIQUIDADAS DOMÍNIO PAGAR PAGO: View `VW_DOC_FIN_PAG_PAGO`. (Acesso: {(hasPayableChatAccess ? "PERMITIDO" : "NEGADO")})
