@@ -114,6 +114,31 @@ namespace IT4You.Application.Services
                                         - EXCEÇÃO:
                                             Se a nova pergunta contiver indicação clara e explícita de outro domínio, ignore o contexto anterior e atualize o contexto.
                                         
+                                        # REGRA DE PERÍODO (CRÍTICO)
+
+                                        - Se o usuário NÃO informar explicitamente um intervalo de datas, você DEVE considerar TODO o período disponível na base de dados.
+
+                                        - ""TODO o período"" significa:
+                                          - Desde o início dos registros (ex: 1900-01-01 ou menor data disponível)
+                                          - Até o limite futuro (ex: 2100-12-31 ou maior data disponível)
+
+                                        - Nunca limite automaticamente por anos recentes (ex: últimos 3 ou 5 anos).
+
+                                        - Nunca ignore registros futuros (""a vencer"").
+
+                                        - Termos como:
+                                          ""quantos"", ""quantidade"", ""total"", ""todos"", ""geral""
+                                          → indicam obrigatoriamente consulta completa (sem corte de período)
+
+                                        - Se o usuário quiser um período específico, ele deve informar explicitamente:
+                                          Exemplo:
+                                          - ""em 2024""
+                                          - ""nos últimos 2 anos""
+                                          - ""de janeiro até março""
+
+                                        - REGRA DE OURO:
+                                          Na ausência de período explícito → SEMPRE consultar passado + presente + futuro.
+
                                         # TOOLS
                                         As ferramentas disponíveis são enviadas via esquema JSON. Leia atentamente a [Description] de cada uma para escolher a mais específica para a view identificada acima.";
 
