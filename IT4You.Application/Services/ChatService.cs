@@ -240,19 +240,19 @@ public class ChatService : IChatService
             }
 
             var chartContext = $@"
-# CONTEXTO DO GRÁFICO ATUAL (Ground Truth)
-Você está analisando o gráfico: {request.ChartTitle}
-Descrição do gráfico: {request.ChartDescription}
-{dateContext}
+                                    # CONTEXTO DO GRÁFICO ATUAL (Ground Truth)
+                                    Você está analisando o gráfico: {request.ChartTitle}
+                                    Descrição do gráfico: {request.ChartDescription}
+                                    {dateContext}
 
-# DADOS DO GRÁFICO (JSON)
-{System.Text.Json.JsonSerializer.Serialize(request.ChartData)}
+                                    # DADOS DO GRÁFICO (JSON)
+                                    {System.Text.Json.JsonSerializer.Serialize(request.ChartData)}
 
-# INSTRUÇÕES DE ANÁLISE
-1. O usuário está visualizando estes dados agora no dashboard. Priorize responder com base nestes dados.
-2. Se a pergunta for sobre tendências, faça cálculos simples com base no JSON fornecido.
-3. Se o usuário perguntar algo que transgrida o gráfico (ex: detalhes de um documento específico que não está no resumo), use suas ferramentas para consultar o ERP, MAS sempre relacione com o contexto do gráfico atual.
-4. Responda de forma executiva, clara e em Português (Brasil).";
+                                    # INSTRUÇÕES DE ANÁLISE
+                                    1. O usuário está visualizando estes dados agora no dashboard. Priorize responder com base nestes dados.
+                                    2. Se a pergunta for sobre tendências, faça cálculos simples com base no JSON fornecido.
+                                    3. Se o usuário perguntar algo que transgrida o gráfico (ex: detalhes de um documento específico que não está no resumo), use suas ferramentas para consultar o ERP, MAS sempre relacione com o contexto do gráfico atual.
+                                    4. Responda de forma executiva, clara e em Português (Brasil).";
 
             var messages = new List<Microsoft.Extensions.AI.ChatMessage>();
             

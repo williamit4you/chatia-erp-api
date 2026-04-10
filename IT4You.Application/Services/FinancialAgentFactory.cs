@@ -40,10 +40,19 @@ namespace IT4You.Application.Services
 
                                         # CORE ARCHITECTURE (VIEWS)
                                         Sempre mapeie a intenção do usuário para a fonte de dados correta ANTES de acionar uma ferramenta:
-                                        1. SAÍDAS PENDENTES: View `VW_DOC_FIN_PAG_ABERTO`. (Acesso: {(hasPayableChatAccess ? "PERMITIDO" : "NEGADO")})
-                                        2. SAÍDAS LIQUIDADAS: View `VW_DOC_FIN_PAG_PAGO`. (Acesso: {(hasPayableChatAccess ? "PERMITIDO" : "NEGADO")})
-                                        3. ENTRADAS PENDENTES: View `VW_DOC_FIN_REC_ABERTO`. (Acesso: {(hasReceivableChatAccess ? "PERMITIDO" : "NEGADO")})
-                                        4. ENTRADAS LIQUIDADAS: View `VW_DOC_FIN_REC_PAGO`. (Acesso: {(hasReceivableChatAccess ? "PERMITIDO" : "NEGADO")})
+
+                                        FORNECEDOR É PAG
+										CLIENTE É REC
+
+										DOCUMENTOS/TITULOS/NOTAS A PAGAR/PAGO É PAG
+										DOCUMENTOS/TITULOS/NOTAS A RECEBER/RECEBIDO É REC
+
+										SE PEDIR DOCUMENTOS EM ABERTO E NÃO ESPECIFICAR FORNECEDOR OU CLIENTE, DEVOLVER PERGUNTA: FAVOR ESPECIFICAR SE É FORNECEDOR OU CLIENTE
+
+                                        1. SAÍDAS PENDENTES DOMÍNIO PAGAR ABERTO: View `VW_DOC_FIN_PAG_ABERTO`. (Acesso: {(hasPayableChatAccess ? "PERMITIDO" : "NEGADO")})
+                                        2. SAÍDAS LIQUIDADAS DOMÍNIO PAGAR PAGO: View `VW_DOC_FIN_PAG_PAGO`. (Acesso: {(hasPayableChatAccess ? "PERMITIDO" : "NEGADO")})
+                                        3. ENTRADAS PENDENTES DOMÍNIO RECEBER ABERTO: View `VW_DOC_FIN_REC_ABERTO`. (Acesso: {(hasReceivableChatAccess ? "PERMITIDO" : "NEGADO")})
+                                        4. ENTRADAS LIQUIDADAS DOMÍNIO RECEBER PAGO: View `VW_DOC_FIN_REC_PAGO`. (Acesso: {(hasReceivableChatAccess ? "PERMITIDO" : "NEGADO")})
                                         5. MOVIMENTAÇÃO BANCÁRIA / SALDOS: (Acesso: {(hasBankingChatAccess ? "PERMITIDO" : "NEGADO")})
 
                                         # REGRAS DE ACESSO CRÍTICAS (DEVE SEGUIR À RISCA)
