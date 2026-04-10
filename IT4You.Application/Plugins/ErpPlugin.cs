@@ -325,12 +325,27 @@ public class ErpPlugin
         return await ExecuteQuery(sq, new[] { new SqlParameter("@ano", ano), new SqlParameter("@mes", mes) });
     }
 
-    [Description("[DOMÍNIO: PAGAR EM ABERTO] Conta a Quantidade Total de boletos/contas a PAGAR que vencem em um Ano específico.")]
+    [Description("[DOMÍNIO: PAGAR EM ABERTO] Conta a Quantidade e o Valor Total de contas a PAGAR que vencem em um Ano específico.")]
     public async Task<string> GetContagemPagarAbertoPorAnoVencimento(
-        [Description("Ano com 4 digitos. Ex: 2026")] string ano)
+    [Description("Ano com 4 digitos. Ex: 2026")] string ano)
     {
-        var sq = "SELECT COUNT(*) as QuantidadeContas FROM VW_DOC_FIN_PAG_ABERTO WHERE YEAR(DATAVENCIMENTO) = @ano ";
-        return await ExecuteQuery(sq, new[] { new SqlParameter("@ano", ano)});
+        // Adicionado o SUM aqui
+        var sq = "SELECT COUNT(*) as QuantidadeContas, SUM(VALORORIG) as ValorTotal FROM VW_DOC_FIN_PAG_ABERTO WHERE YEAR(DATAVENCIMENTO) = @ano ";
+        return await ExecuteQuery(sq, new[] { new SqlParameter("@ano", ano) });
+    }
+
+    [Description("[DOMÍNIO: PAGAR EM ABERTO] Retorna o total a pagar e a quantidade de títulos, AGRUPADO POR ANO de vencimento. Use quando o usuário pedir 'resumo por ano', 'quanto temos por ano' ou 'total de fornecedores por ano'.")]
+    public async Task<string> GetResumoPagarAbertoAgrupadoPorAno()
+    {
+        var sq = @"SELECT 
+                  YEAR(DATAVENCIMENTO) as Ano, 
+                  SUM(VALORORIG) as TotalEmAberto, 
+                  COUNT(*) as QuantidadeTitulos 
+               FROM VW_DOC_FIN_PAG_ABERTO 
+               GROUP BY YEAR(DATAVENCIMENTO) 
+               ORDER BY Ano";
+
+        return await ExecuteQuery(sq, System.Array.Empty<SqlParameter>());
     }
 
     // --- VW_DOC_FIN_PAG_PAGO ---

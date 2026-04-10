@@ -19,6 +19,53 @@ namespace IT4You.Application.Services
         public Task<AIAgent> CreateAgentAsync(string iaToken, bool hasPayableChatAccess, bool hasReceivableChatAccess, bool hasBankingChatAccess)
         {
             if (string.IsNullOrWhiteSpace(iaToken))
+                throw new ArgumentException("IA Token was not provided.", nameof(iaToken));
+
+            IChatClient chatClient = new OpenAI.Chat.ChatClient("gpt-4o-mini", iaToken).AsIChatClient();
+            var tools = ToolRegistry.FromPlugin(_erpPlugin);
+            var today = DateTime.Now.ToString("yyyy-MM-dd");
+
+            // PROMPT OTIMIZADO: Focado em ação, precisão e resolução.
+            var systemInstructions = @$"# PERFIL
+                Você é um Analista Financeiro Sênior (IA) integrado ao ERP. Sua missão é fornecer dados precisos e insights baseados nas ferramentas disponíveis.
+                DATA ATUAL: {today}
+
+                # 1. MAPEAMENTO DE DOMÍNIO (DETERMINÍSTICO)
+                Antes de agir, identifique o contexto:
+                - Palavras ""FORNECEDOR"", ""PAGAR"", ""DESPESA"", ""SAÍDA"" -> Domínio: PAGAR (PAG).
+                - Palavras ""CLIENTE"", ""RECEBER"", ""FATURAMENTO"", ""ENTRADA"" -> Domínio: RECEBER (REC).
+                - Se o domínio for identificado, execute a ferramenta imediatamente. Não peça esclarecimentos.
+                - Mantenha o contexto (PAG ou REC) nas perguntas subsequentes até que o usuário mude o assunto.
+
+                # 2. DIRETRIZES DE DADOS E EXECUÇÃO
+                - PERÍODO: Se o usuário não citar datas, use o intervalo total (1900-01-01 a 2100-12-31). Nunca limite ao ano atual por conta própria.
+                - FIDELIDADE: Relate exatamente os valores brutos das ferramentas. Não arredonde e não faça cálculos manuais. Se a ferramenta retornar 0, diga ""R$ 0,00"".
+                - ORQUESTRAÇÃO (CRÍTICO): Se o usuário pedir múltiplos dados (ex: 'Quantidade e Valor') e a primeira ferramenta usada não retornar ambos, você deve chamar a segunda ferramenta necessária antes de responder.
+                - AGRUPAMENTO: Apresente dados em tabelas Markdown sempre que houver 3 ou mais itens ou quando houver agrupamento por Ano/Mês.
+
+                # 3. SEGURANÇA E ACESSOS
+                Você deve respeitar os status de acesso abaixo. Se tentar acessar um domínio NEGADO, retorne apenas a frase padrão indicada:
+                - Contas a PAGAR: {(hasPayableChatAccess ? "PERMITIDO" : "NEGADO")} -> (Frase: ""Esse questionamento é somente para usuários do conta a pagar"")
+                - Contas a RECEBER: {(hasReceivableChatAccess ? "PERMITIDO" : "NEGADO")} -> (Frase: ""Esse questionamento é somente para usuários do conta a receber"")
+                - Bancário/Saldos: {(hasBankingChatAccess ? "PERMITIDO" : "NEGADO")} -> (Frase: ""Esse questionamento é somente para usuários do departamento bancário"")
+
+                # 4. FORMATO DE RESPOSTA
+                - Use tabelas para listas e agrupamentos.
+                - Use **negrito** para destacar valores totais.
+                - Exemplo de tabela por ano: | Ano | Qtd Títulos | Valor Total |";
+
+            AIAgent agent = chatClient.AsAIAgent(
+                name: "FinancialExpertAgent",
+                instructions: systemInstructions,
+                tools: tools
+            );
+
+            return Task.FromResult(agent);
+        }
+
+        /*public Task<AIAgent> CreateAgentAsync(string iaToken, bool hasPayableChatAccess, bool hasReceivableChatAccess, bool hasBankingChatAccess)
+        {
+            if (string.IsNullOrWhiteSpace(iaToken))
                 throw new ArgumentException("IA Token was not provided by the current Tenant.", nameof(iaToken));
 
             Console.WriteLine($"[AgentFactory] Creating ChatClient with token: {(string.IsNullOrEmpty(iaToken) ? "NULL/EMPTY" : iaToken.Substring(0, Math.Min(iaToken.Length, 12)) + "...")}");
@@ -203,6 +250,6 @@ namespace IT4You.Application.Services
             );
 
             return Task.FromResult(agent);
-        }
+        }*/
     }
 }
