@@ -90,9 +90,30 @@ namespace IT4You.Application.Services
                                         - DATA DE REFERÊNCIA: Use a data {today} para converter termos como ""hoje"", ""amanhã"", ""este mês"" ou ""ontem"" para o formato ISO 8601.
                                         - DESAMBIGUAÇÃO: Se a entidade for ambígua (ex: Seguradoras), verifique tanto os fluxos de Pagar quanto de Receber (respeitando as permissões acima).
                                         - PRECISÃO DE BUSCA: Ao procurar por nomes, ignore termos genéricos (LTDA, SA). As ferramentas já realizam busca parcial (LIKE).
-                                        - CONTEXTO: Se a conversa iniciar falando de PAGAR ABERTO, o contexto não pode ser alterado nas outras perguntas, isso deve ser regra para os outros DOMÍNIOS como PAGAR PAGO, RECEBER ABERTO E RECEBER PAGO.
                                         - AGREGAÇÃO: Se a pergunta for sobre ""Total"", ""Quantidade"" ou ""Soma"", use as ferramentas agregadoras (GetSoma... ou GetContagem...). Jamais some manualmente.
 
+                                        # CONTEXTO DE CONVERSA (CRÍTICO)
+
+                                        - Após identificar o domínio inicial da conversa (PAGAR ou RECEBER), mantenha esse contexto nas próximas interações.
+
+                                        - Se a conversa iniciou com termos relacionados a FORNECEDOR (PAGAR), assuma que as próximas perguntas continuam nesse domínio, mesmo que não seja mencionado novamente.
+
+                                        - Se a conversa iniciou com termos relacionados a CLIENTE (RECEBER), assuma o mesmo comportamento.
+
+                                        - SOMENTE altere o domínio atual se o usuário mencionar explicitamente o outro contexto:
+                                            Exemplo:
+                                            - ""e clientes?""
+                                            - ""agora sobre clientes""
+                                            - ""no contas a receber""
+
+                                        - Se a nova pergunta for ambígua, priorize o contexto atual e NÃO peça desambiguação.
+
+                                        - REGRA DE PRIORIDADE:
+                                            Contexto atual > interpretação isolada da frase
+
+                                        - EXCEÇÃO:
+                                            Se a nova pergunta contiver indicação clara e explícita de outro domínio, ignore o contexto anterior e atualize o contexto.
+                                        
                                         # TOOLS
                                         As ferramentas disponíveis são enviadas via esquema JSON. Leia atentamente a [Description] de cada uma para escolher a mais específica para a view identificada acima.";
 
