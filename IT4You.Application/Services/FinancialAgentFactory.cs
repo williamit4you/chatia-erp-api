@@ -55,11 +55,25 @@ namespace IT4You.Application.Services
                 _ => "\nO domínio exato (Pagar ou Receber) não pôde ser pré-determinado ou abrange ambos. Avalie com cuidado ou foque em ferramentas neutras (como Fluxo de Caixa) se aplicável."
             };
 
+            // ============================================
+            // 🧠 MOTOR DE RETRIEVAL (RAG) LOCAL
+            // ============================================
+            // Futuramente, esta string virá de uma consulta ao seu banco (PgVector).
+            string ragKnowledge = "";
+            if (!string.IsNullOrEmpty(userInput) && userInput.Contains("empresa", StringComparison.OrdinalIgnoreCase))
+            {
+                ragKnowledge = @"
+                # CONHECIMENTO RECUPERADO (RAG)
+                A palavra 'empresa' é ambígua no sistema. Sempre que o usuário utilizá-la genericamente, você DEVE PARAR A EXECUÇÃO e perguntar imediatamente: 'Você se refere a uma Empresa (Cliente), Empresa (Fornecedor) ou Filial corporativa do sistema?'. Não invoque ferramentas antes da resposta do usuário.";
+            }
+
             // PROMPT OTIMIZADO: Focado em ação, precisão e resolução.
             var systemInstructions = @$"# PERFIL
                 Você é um Analista Financeiro Sênior (IA) integrado ao ERP. Sua missão é fornecer dados precisos e confiavéis.
                 DATA ATUAL: {today}
                 {avisoDominio}
+                
+                {ragKnowledge}
 
                 # 1. DIRETRIZES DE DADOS E EXECUÇÃO
                 - PERÍODO: Se o usuário não citar datas, preencha os parâmetros da ferramenta com valores nulos. Apenas defina Data Fim se o usuário explicitamente fechar o escopo.
