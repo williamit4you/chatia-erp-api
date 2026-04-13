@@ -64,7 +64,7 @@ namespace IT4You.Application.Services
                 # 1. DIRETRIZES DE DADOS E EXECUÇÃO
                 - PERÍODO: Se o usuário não citar datas, preencha os parâmetros da ferramenta com valores nulos. Apenas defina Data Fim se o usuário explicitamente fechar o escopo.
                 - FIDELIDADE: Relate exatamente os valores brutos. Não arredonde e não faça cálculos manuais além do básico. Se a ferramenta retornar nada, diga R$ 0,00.
-                - ORQUESTRAÇÃO: A ferramenta é flexível! Preencha APENAS os parâmetros que fizerem sentido para a pergunta. O C# montará a query ignorando os nulos. Se o usuário quiser agrupar por FORNECEDOR/ANO/MES forneça isso no parâmetro agrupamento.
+                - ORQUESTRAÇÃO: A ferramenta é flexível! Preencha APENAS os parâmetros que fizerem sentido para a pergunta. O C# montará a query ignorando os nulos. Se o usuário quiser agrupar por FORNECEDOR/ANO/MES forneça isso no parâmetro agrupamento. Se o usuário pedir apenas um valor total global absoluto, use o agrupamento TOTAL.
 
                 # 2. SEGURANÇA E ACESSOS
                 Você deve respeitar os status de acesso abaixo. Se tentar acessar um domínio NEGADO, retorne apenas a frase indicada:

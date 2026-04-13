@@ -44,7 +44,7 @@ public class ErpPlugin
         [Description("Nome da Filial. Vazio para ignorar.")] string filial = null,
         [Description("CNPJ do Fornecedor (somente números). Vazio para ignorar.")] string cnpj = null,
         [Description("Apenas contas com atraso (verdadeiro/falso).")] bool apenasAtrasados = false,
-        [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'ANO', 'MES' ou 'FILIAL'")] string agrupamento = "NENHUM"
+[Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'ANO', 'MES', 'FILIAL' ou 'TOTAL' (apenas a soma global)")] string agrupamento = "NENHUM"
     )
     {
         return await ExecuteDynamicQuery(
@@ -62,7 +62,7 @@ public class ErpPlugin
         [Description("Nome da Filial. Vazio para ignorar.")] string filial = null,
         [Description("CNPJ do Fornecedor (somente números). Vazio para ignorar.")] string cnpj = null,
         [Description("Tipo de Pagamento (Ex: PIX, BOLETO). Vazio para ignorar.")] string tipoPagamento = null,
-        [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'ANO', 'MES', 'FILIAL' ou 'METODO_PAGAMENTO'")] string agrupamento = "NENHUM"
+        [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO' ou 'TOTAL' (apenas a soma global)")] string agrupamento = "NENHUM"
     )
     {
         return await ExecuteDynamicQuery(
@@ -80,7 +80,7 @@ public class ErpPlugin
         [Description("Nome da Filial. Vazio para ignorar.")] string filial = null,
         [Description("CNPJ/CPF do Cliente (somente números). Vazio para ignorar.")] string cnpj = null,
         [Description("Apenas contas com atraso (verdadeiro/falso).")] bool apenasAtrasados = false,
-        [Description("Agrupar resultados por: 'NENHUM', 'CLIENTE', 'ANO', 'MES' ou 'FILIAL'")] string agrupamento = "NENHUM"
+        [Description("Agrupar resultados por: 'NENHUM', 'CLIENTE', 'ANO', 'MES', 'FILIAL' ou 'TOTAL' (apenas a soma global)")] string agrupamento = "NENHUM"
     )
     {
         return await ExecuteDynamicQuery(
@@ -98,7 +98,7 @@ public class ErpPlugin
         [Description("Nome da Filial. Vazio para ignorar.")] string filial = null,
         [Description("CNPJ/CPF do Cliente (somente números). Vazio para ignorar.")] string cnpj = null,
         [Description("Tipo de Pagamento/Meio do Recebimento (Ex: PIX, BOLETO). Vazio para ignorar.")] string tipoPagamento = null,
-        [Description("Agrupar resultados por: 'NENHUM', 'CLIENTE', 'ANO', 'MES', 'FILIAL' ou 'METODO_PAGAMENTO'")] string agrupamento = "NENHUM"
+        [Description("Agrupar resultados por: 'NENHUM', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO' ou 'TOTAL' (apenas a soma global)")] string agrupamento = "NENHUM"
     )
     {
         return await ExecuteDynamicQuery(
@@ -201,6 +201,8 @@ public class ErpPlugin
             sql.Append($"SELECT EMPRESA as Filial, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName} {where} GROUP BY EMPRESA ORDER BY Total DESC");
         else if (agrupamento.Equals("METODO_PAGAMENTO", StringComparison.OrdinalIgnoreCase))
             sql.Append($"SELECT TIPOPAG as MetodoPagamento, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName} {where} GROUP BY TIPOPAG ORDER BY Total DESC");
+        else if (agrupamento.Equals("TOTAL", StringComparison.OrdinalIgnoreCase))
+            sql.Append($"SELECT SUM({sumColumn}) as ValorTotalGeral, COUNT(*) as QuantidadeTotal FROM {viewName} {where}");
         else
             sql.Append($"SELECT {BASE_COLUMNS} FROM {viewName} {where} ORDER BY {dateColumn} ASC");
 
@@ -220,6 +222,17 @@ public class ErpPlugin
         return new string(input.Where(char.IsDigit).ToArray());
     }
 
+    private string BuildRunnableQuery(string queryText, SqlParameter[] parameters)
+    {
+        var finalQuery = queryText;
+        foreach (var p in parameters.OrderByDescending(p => p.ParameterName.Length))
+        {
+            var val = p.Value == null || p.Value == DBNull.Value ? "NULL" : $"'{p.Value.ToString().Replace("'", "''")}'";
+            finalQuery = finalQuery.Replace(p.ParameterName, val);
+        }
+        return finalQuery;
+    }
+
     private async Task<string> ExecuteQuery(string queryText, SqlParameter[] parameters)
     {
         if (string.IsNullOrEmpty(_connectionString))
@@ -227,12 +240,11 @@ public class ErpPlugin
 
         try
         {
-            Console.WriteLine($"[ErpPlugin] 🟢 EXECUTING EXACT QUERY: {queryText}");
-            foreach (var p in parameters) Console.WriteLine($"   -> Param {p.ParameterName}: {p.Value}");
+            string runnableQuery = BuildRunnableQuery(queryText, parameters);
+            Console.WriteLine($"[ErpPlugin] 🟢 EXECUTING EXACT QUERY: {runnableQuery}");
 
             // Track query for SQL transparency feature
-            var paramInfo = string.Join(", ", parameters.Select(p => $"{p.ParameterName}='{p.Value}'"));
-            ExecutedQueries.Add(string.IsNullOrEmpty(paramInfo) ? queryText : $"{queryText}  -- Params: {paramInfo}");
+            ExecutedQueries.Add(runnableQuery);
 
             using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
