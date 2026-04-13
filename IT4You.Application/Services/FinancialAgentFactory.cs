@@ -16,43 +16,66 @@ namespace IT4You.Application.Services
             _erpPlugin = erpPlugin;
         }
 
-        public Task<AIAgent> CreateAgentAsync(string iaToken, bool hasPayableChatAccess, bool hasReceivableChatAccess, bool hasBankingChatAccess)
+        public Task<AIAgent> CreateAgentAsync(string iaToken, bool hasPayableChatAccess, bool hasReceivableChatAccess, bool hasBankingChatAccess, string userInput = null)
         {
             if (string.IsNullOrWhiteSpace(iaToken))
                 throw new ArgumentException("IA Token was not provided.", nameof(iaToken));
 
             IChatClient chatClient = new OpenAI.Chat.ChatClient("gpt-4o-mini", iaToken).AsIChatClient();
-            var tools = ToolRegistry.FromPlugin(_erpPlugin);
+            var allTools = ToolRegistry.FromPlugin(_erpPlugin);
             var today = DateTime.Now.ToString("yyyy-MM-dd");
+
+            string dominio = "INDEFINIDO";
+            if (!string.IsNullOrEmpty(userInput))
+            {
+                string pergunta = userInput.ToLower();
+                if (pergunta.Contains("fornecedor") || pergunta.Contains("pagar") || pergunta.Contains("despesa") || pergunta.Contains("saída") || pergunta.Contains("saida"))
+                {
+                    dominio = "PAGAR";
+                }
+                else if (pergunta.Contains("cliente") || pergunta.Contains("receber") || pergunta.Contains("faturamento") || pergunta.Contains("entrada"))
+                {
+                    dominio = "RECEBER";
+                }
+            }
+
+            var tools = new List<AITool>();
+            foreach (var t in allTools)
+            {
+                // Isola a ferramenta baseada no nome (cortamos as ferramentas inversas ao domínio)
+                if (dominio == "PAGAR" && t.Name.Contains("Receber", StringComparison.OrdinalIgnoreCase)) continue;
+                if (dominio == "RECEBER" && t.Name.Contains("Pagar", StringComparison.OrdinalIgnoreCase)) continue;
+                tools.Add(t);
+            }
+
+            string avisoDominio = dominio switch
+            {
+                "PAGAR" => "\nATENÇÃO: O domínio atual, identificado com base na mensagem do usuário, é **PAGAR**. FOQUE EXCLUSIVAMENTE em contabilidade de SAÍDAS/DESPESAS/FORNECEDORES e execute a ferramenta correta.",
+                "RECEBER" => "\nATENÇÃO: O domínio atual, identificado com base na mensagem do usuário, é **RECEBER**. FOQUE EXCLUSIVAMENTE em contabilidade de ENTRADAS/RECEBIMENTOS/CLIENTES e execute a ferramenta correta.",
+                _ => "\nO domínio exato (Pagar ou Receber) não pôde ser pré-determinado ou abrange ambos. Avalie com cuidado ou foque em ferramentas neutras (como Fluxo de Caixa) se aplicável."
+            };
 
             // PROMPT OTIMIZADO: Focado em ação, precisão e resolução.
             var systemInstructions = @$"# PERFIL
-                Você é um Analista Financeiro Sênior (IA) integrado ao ERP. Sua missão é fornecer dados precisos e insights baseados nas ferramentas disponíveis.
+                Você é um Analista Financeiro Sênior (IA) integrado ao ERP. Sua missão é fornecer dados precisos e confiavéis.
                 DATA ATUAL: {today}
+                {avisoDominio}
 
-                # 1. MAPEAMENTO DE DOMÍNIO (DETERMINÍSTICO)
-                Antes de agir, identifique o contexto:
-                - Palavras ""FORNECEDOR"", ""PAGAR"", ""DESPESA"", ""SAÍDA"" -> Domínio: PAGAR (PAG).
-                - Palavras ""CLIENTE"", ""RECEBER"", ""FATURAMENTO"", ""ENTRADA"" -> Domínio: RECEBER (REC).
-                - Se o domínio for identificado, execute a ferramenta imediatamente. Não peça esclarecimentos.
-                - Mantenha o contexto (PAG ou REC) nas perguntas subsequentes até que o usuário mude o assunto.
+                # 1. DIRETRIZES DE DADOS E EXECUÇÃO
+                - PERÍODO: Se o usuário não citar datas, preencha os parâmetros da ferramenta com valores nulos. Apenas defina Data Fim se o usuário explicitamente fechar o escopo.
+                - FIDELIDADE: Relate exatamente os valores brutos. Não arredonde e não faça cálculos manuais além do básico. Se a ferramenta retornar nada, diga R$ 0,00.
+                - ORQUESTRAÇÃO: A ferramenta é flexível! Preencha APENAS os parâmetros que fizerem sentido para a pergunta. O C# montará a query ignorando os nulos. Se o usuário quiser agrupar por FORNECEDOR/ANO/MES forneça isso no parâmetro agrupamento.
 
-                # 2. DIRETRIZES DE DADOS E EXECUÇÃO
-                - PERÍODO: Se o usuário não citar datas, use o intervalo total (1900-01-01 a 2100-12-31). Nunca limite ao ano atual por conta própria.
-                - FIDELIDADE: Relate exatamente os valores brutos das ferramentas. Não arredonde e não faça cálculos manuais. Se a ferramenta retornar 0, diga ""R$ 0,00"".
-                - ORQUESTRAÇÃO (CRÍTICO): Se o usuário pedir múltiplos dados (ex: 'Quantidade e Valor') e a primeira ferramenta usada não retornar ambos, você deve chamar a segunda ferramenta necessária antes de responder.
-                - AGRUPAMENTO: Apresente dados em tabelas Markdown sempre que houver 3 ou mais itens ou quando houver agrupamento por Ano/Mês.
-
-                # 3. SEGURANÇA E ACESSOS
-                Você deve respeitar os status de acesso abaixo. Se tentar acessar um domínio NEGADO, retorne apenas a frase padrão indicada:
+                # 2. SEGURANÇA E ACESSOS
+                Você deve respeitar os status de acesso abaixo. Se tentar acessar um domínio NEGADO, retorne apenas a frase indicada:
                 - Contas a PAGAR: {(hasPayableChatAccess ? "PERMITIDO" : "NEGADO")} -> (Frase: ""Esse questionamento é somente para usuários do conta a pagar"")
                 - Contas a RECEBER: {(hasReceivableChatAccess ? "PERMITIDO" : "NEGADO")} -> (Frase: ""Esse questionamento é somente para usuários do conta a receber"")
                 - Bancário/Saldos: {(hasBankingChatAccess ? "PERMITIDO" : "NEGADO")} -> (Frase: ""Esse questionamento é somente para usuários do departamento bancário"")
 
-                # 4. FORMATO DE RESPOSTA
-                - Use tabelas para listas e agrupamentos.
+                # 3. FORMATO DE RESPOSTA
+                - Use tabelas formatadas em Markdown sempre que houver 3 ou mais itens ou quando for retornado um agrupamento.
                 - Use **negrito** para destacar valores totais.
-                - Exemplo de tabela por ano: | Ano | Qtd Títulos | Valor Total |";
+                - Mostre o montante no formato de moeda local (R$).";
 
             AIAgent agent = chatClient.AsAIAgent(
                 name: "FinancialExpertAgent",

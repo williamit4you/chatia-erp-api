@@ -105,7 +105,8 @@ public class ChatService : IChatService
                         tenant.IaToken, 
                         isFullAdmin || (user?.HasPayableChatAccess ?? false), 
                         isFullAdmin || (user?.HasReceivableChatAccess ?? false),
-                        isFullAdmin || (user?.HasBankingChatAccess ?? false));
+                        isFullAdmin || (user?.HasBankingChatAccess ?? false),
+                        request.Message);
 
                     // ================================
                     // 4️⃣ MONTA HISTÓRICO
@@ -231,7 +232,8 @@ public class ChatService : IChatService
                 tenant.IaToken,
                 isFullAdmin || (user?.HasPayableChatAccess ?? false),
                 isFullAdmin || (user?.HasReceivableChatAccess ?? false),
-                isFullAdmin || (user?.HasBankingChatAccess ?? false));
+                isFullAdmin || (user?.HasBankingChatAccess ?? false),
+                request.Message);
 
             var dateContext = "";
             if (!string.IsNullOrEmpty(request.StartDate) || !string.IsNullOrEmpty(request.EndDate))
