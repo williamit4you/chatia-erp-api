@@ -8,6 +8,7 @@ using IT4You.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System.Security.Claims;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,12 +44,13 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var connString = builder.Configuration.GetConnectionString("AppConnection");
-var dataSourceBuilder = new Npgsql.NpgsqlDataSourceBuilder(connString);
+var dataSourceBuilder = new NpgsqlDataSourceBuilder(connString);
+dataSourceBuilder.UseVector(); // RE-ADDING WITH USING NPGSQL
 dataSourceBuilder.MapEnum<UserRole>("RoleName", nameTranslator: new Npgsql.NameTranslation.NpgsqlNullNameTranslator());
 var dataSource = dataSourceBuilder.Build();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(dataSource));
+    options.UseNpgsql(dataSource, o => o.UseVector()));
 
 // Register Services
 builder.Services.AddScoped<IAuthService, AuthService>();

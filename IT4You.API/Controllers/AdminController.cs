@@ -1,5 +1,8 @@
 using IT4You.Application.DTOs;
 using IT4You.Application.Interfaces;
+using IT4You.Application.Data;
+using IT4You.Domain.Entities;
+using Pgvector;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,10 +14,12 @@ namespace IT4You.API.Controllers;
 public class AdminController : ControllerBase
 {
     private readonly ITenantService _tenantService;
+    private readonly AppDbContext _context;
 
-    public AdminController(ITenantService tenantService)
+    public AdminController(ITenantService tenantService, AppDbContext context)
     {
         _tenantService = tenantService;
+        _context = context;
     }
 
     [HttpGet("settings")]

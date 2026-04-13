@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<ChatSession> ChatSessions { get; set; }
     public DbSet<ChatMessage> ChatMessages { get; set; }
     public DbSet<FavoriteQuestion> FavoriteQuestions { get; set; }
+    public DbSet<AgentMemory> AgentMemories { get; set; }
 
     public override int SaveChanges()
     {
@@ -64,6 +65,7 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
         
+        modelBuilder.HasPostgresExtension("vector");
         modelBuilder.HasPostgresEnum<UserRole>(name: "RoleName", nameTranslator: new Npgsql.NameTranslation.NpgsqlNullNameTranslator());
 
         // --- MAP TABLE NAMES (Singular like Prisma) ---
@@ -71,7 +73,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>().ToTable("User");
         modelBuilder.Entity<ChatSession>().ToTable("ChatSession");
         modelBuilder.Entity<ChatMessage>().ToTable("ChatMessage");
+        modelBuilder.Entity<ChatMessage>().ToTable("ChatMessage");
         modelBuilder.Entity<FavoriteQuestion>().ToTable("FavoriteQuestion");
+        modelBuilder.Entity<AgentMemory>().ToTable("AgentMemory");
 
         // --- COMPREHENSIVE COLUMN MAPPING (Match Prisma camelCase) ---
 
@@ -163,6 +167,22 @@ public class AppDbContext : DbContext
 
             entity.HasOne(d => d.User)
                 .WithMany(p => p.FavoriteQuestions)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // AgentMemory
+        modelBuilder.Entity<AgentMemory>(entity => {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.UserId).HasColumnName("userId");
+            entity.Property(e => e.Content).HasColumnName("content");
+            entity.Property(e => e.Embedding).HasColumnName("embedding").HasColumnType("vector(1536)");
+            entity.Property(e => e.IsActive).HasColumnName("isActive");
+            entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
+
+            entity.HasOne(d => d.User)
+                .WithMany() // Ajustado para ser unilateral sem Navigation Property no lado de User
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });

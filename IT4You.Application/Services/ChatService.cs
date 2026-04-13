@@ -106,7 +106,7 @@ public class ChatService : IChatService
                         isFullAdmin || (user?.HasPayableChatAccess ?? false), 
                         isFullAdmin || (user?.HasReceivableChatAccess ?? false),
                         isFullAdmin || (user?.HasBankingChatAccess ?? false),
-                        request.Message);
+                        request.Message, userId);
 
                     // ================================
                     // 4️⃣ MONTA HISTÓRICO
@@ -233,7 +233,7 @@ public class ChatService : IChatService
                 isFullAdmin || (user?.HasPayableChatAccess ?? false),
                 isFullAdmin || (user?.HasReceivableChatAccess ?? false),
                 isFullAdmin || (user?.HasBankingChatAccess ?? false),
-                request.Message);
+                request.Message, userId);
 
             var dateContext = "";
             if (!string.IsNullOrEmpty(request.StartDate) || !string.IsNullOrEmpty(request.EndDate))

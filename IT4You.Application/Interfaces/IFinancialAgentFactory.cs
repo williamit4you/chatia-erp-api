@@ -9,6 +9,6 @@ namespace IT4You.Application.Interfaces
 {
     public interface IFinancialAgentFactory
     {
-        Task<AIAgent> CreateAgentAsync(string iaToken, bool hasPayableChatAccess, bool hasReceivableChatAccess, bool hasBankingChatAccess, string userInput = null);
+        Task<AIAgent> CreateAgentAsync(string iaToken, bool hasPayableChatAccess, bool hasReceivableChatAccess, bool hasBankingChatAccess, string userInput = null, string userId = null);
     }
 }

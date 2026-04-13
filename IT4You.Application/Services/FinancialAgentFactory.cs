@@ -2,21 +2,27 @@
 using IT4You.Application.Interfaces;
 using IT4You.Application.Plugins;
 using Microsoft.Agents.AI;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using OpenAI;
+using Pgvector.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 
 namespace IT4You.Application.Services
 {
     public class FinancialAgentFactory : IFinancialAgentFactory
     {
         private readonly ErpPlugin _erpPlugin;
+        private readonly IT4You.Application.Data.AppDbContext _context;
 
         // Injetamos o plugin aqui para ele já vir com a Configuration/DB injetada
-        public FinancialAgentFactory(ErpPlugin erpPlugin)
+        public FinancialAgentFactory(ErpPlugin erpPlugin, IT4You.Application.Data.AppDbContext context)
         {
             _erpPlugin = erpPlugin;
+            _context = context;
         }
 
-        public Task<AIAgent> CreateAgentAsync(string iaToken, bool hasPayableChatAccess, bool hasReceivableChatAccess, bool hasBankingChatAccess, string userInput = null)
+        public async Task<AIAgent> CreateAgentAsync(string iaToken, bool hasPayableChatAccess, bool hasReceivableChatAccess, bool hasBankingChatAccess, string userInput = null, string userId = null)
         {
             if (string.IsNullOrWhiteSpace(iaToken))
                 throw new ArgumentException("IA Token was not provided.", nameof(iaToken));
@@ -56,15 +62,40 @@ namespace IT4You.Application.Services
             };
 
             // ============================================
-            // 🧠 MOTOR DE RETRIEVAL (RAG) LOCAL
+            // 🧠 MOTOR DE RETRIEVAL (RAG) LOCAL P/ OPENAI
             // ============================================
-            // Futuramente, esta string virá de uma consulta ao seu banco (PgVector).
             string ragKnowledge = "";
-            if (!string.IsNullOrEmpty(userInput) && userInput.Contains("empresa", StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(userInput))
             {
-                ragKnowledge = @"
-                # CONHECIMENTO RECUPERADO (RAG)
-                A palavra 'empresa' é ambígua no sistema. Sempre que o usuário utilizá-la genericamente, você DEVE PARAR A EXECUÇÃO e perguntar imediatamente: 'Você se refere a uma Empresa (Cliente), Empresa (Fornecedor) ou Filial corporativa do sistema?'. Não invoque ferramentas antes da resposta do usuário.";
+                try
+                {
+                    // 1. Gera Embedding da mensagem
+                    var embeddingClient = new OpenAI.Embeddings.EmbeddingClient("text-embedding-3-small", iaToken);
+                    var userEmbeddingResult = await embeddingClient.GenerateEmbeddingAsync(userInput);
+                    var userVector = new Pgvector.Vector(userEmbeddingResult.Value.ToFloats().ToArray());
+
+                    // 2. Busca Vetorial via EF Core + Cosine Distance
+                    var fetchedMemories = await _context.AgentMemories
+                        .Where(m => m.IsActive)
+                        .Where(m => m.UserId == null || m.UserId == userId)
+                        .OrderBy(m => m.Embedding!.CosineDistance(userVector))
+                        .Take(3)
+                        .ToListAsync();
+
+                    // 3. Monta string RAG
+                    if (fetchedMemories.Any())
+                    {
+                        var joined = string.Join("\n", fetchedMemories.Select(m => $"- {m.Content}"));
+                        ragKnowledge = $@"
+                        # CONHECIMENTO ESPECÍFICO (RAG) - Prioridade Alta
+                        As seguintes regras/memórias foram puxadas do seu cérebro para responder esta pergunta. Respeite-as acima de tudo:
+                        {joined}";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[RAG FAIL] {ex.Message}");
+                }
             }
 
             // PROMPT OTIMIZADO: Focado em ação, precisão e resolução.
@@ -97,7 +128,7 @@ namespace IT4You.Application.Services
                 tools: tools
             );
 
-            return Task.FromResult(agent);
+            return agent;
         }
 
         /*public Task<AIAgent> CreateAgentAsync(string iaToken, bool hasPayableChatAccess, bool hasReceivableChatAccess, bool hasBankingChatAccess)
