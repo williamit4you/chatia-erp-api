@@ -138,6 +138,7 @@ public class ChatService : IChatService
                     _logger.LogInformation("Calling agent with {Count} messages", messages.Count);
 
                     _erpPlugin.ClearExecutedQueries();
+
                     var response = await agent.RunAsync(messages);
                     var sqlJson = _erpPlugin.GetExecutedQueriesJson();
 

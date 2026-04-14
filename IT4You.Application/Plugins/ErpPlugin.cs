@@ -233,7 +233,7 @@ public class ErpPlugin
         else if (agrupar.Equals("TOTAL", StringComparison.OrdinalIgnoreCase))
             sql.Append($"SELECT SUM({sumColumn}) as ValorTotalGeral, COUNT(*) as QuantidadeTotal FROM {viewName}{whereClause}");
         else
-            sql.Append($"SELECT {BASE_COLUMNS} FROM {viewName}{whereClause} ORDER BY {dateColumn} ASC");
+            sql.Append($"SELECT TOP 50 {BASE_COLUMNS} FROM {viewName}{whereClause} ORDER BY {dateColumn} ASC");
 
         return await ExecuteQuery(sql.ToString(), parameters.ToArray());
     }
@@ -297,8 +297,15 @@ public class ErpPlugin
                 results.Add(row);
             }
 
-            var jsonResult = JsonSerializer.Serialize(results, new JsonSerializerOptions { WriteIndented = true });
+            var payload = new {
+                TotalRows = results.Count,
+                Data = results
+            };
+
+            var jsonResult = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
             Console.WriteLine($"[ErpPlugin] 🟢 QUERY SUCCESS. Returned {results.Count} rows.");
+            Console.WriteLine($"[ErpPlugin] 🟢 QUERY RESULTS:");
+            Console.WriteLine(jsonResult);
             return jsonResult;
         }
         catch (Exception ex)
