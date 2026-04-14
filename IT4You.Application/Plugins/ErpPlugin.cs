@@ -25,6 +25,13 @@ public class ErpPlugin
     public string? GetExecutedQueriesJson()
     {
         if (ExecutedQueries.Count == 0) return null;
+
+        var options = new JsonSerializerOptions 
+        { 
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            WriteIndented = true
+        };
+
         return JsonSerializer.Serialize(ExecutedQueries);
     }
 
@@ -175,7 +182,10 @@ public class ErpPlugin
         if (apenasAtrasados && dateColumn == "DATAVENCIMENTO") { where.Append(" AND DATAVENCIMENTO < CAST(GETDATE() AS DATE)"); }
         if (!string.IsNullOrEmpty(tipoPagamento)) { where.Append(" AND UPPER(TIPOPAG) LIKE UPPER(@tpag)"); parameters.Add(new SqlParameter("@tpag", $"%{tipoPagamento}%")); }
 
+        string whereClause = conditions.Count > 0 ? " WHERE " + string.Join(" AND ", conditions) : "";
         string sumColumn = viewName.Contains("PAGO") ? "VALORPAG" : "VALORORIG";
+
+        string agrupar = string.IsNullOrEmpty(agrupamento) ? "NENHUM" : agrupamento;
 
         if (agrupamento.Equals("FORNECEDOR", StringComparison.OrdinalIgnoreCase) || agrupamento.Equals("CLIENTE", StringComparison.OrdinalIgnoreCase))
             sql.Append($"SELECT CLIENTE as Entidade, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName} {where} GROUP BY CLIENTE ORDER BY Total DESC");
@@ -213,8 +223,11 @@ public class ErpPlugin
         var finalQuery = queryText;
         foreach (var p in parameters.OrderByDescending(p => p.ParameterName.Length))
         {
+            // Garante que o C# sempre procure pelo parâmetro com "@", mesmo que a classe se perca internamente
+            string pName = p.ParameterName.StartsWith("@") ? p.ParameterName : "@" + p.ParameterName;
+            
             var val = p.Value == null || p.Value == DBNull.Value ? "NULL" : $"'{p.Value.ToString().Replace("'", "''")}'";
-            finalQuery = finalQuery.Replace(p.ParameterName, val);
+            finalQuery = finalQuery.Replace(pName, val);
         }
         return finalQuery;
     }
