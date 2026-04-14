@@ -52,7 +52,7 @@ public class ErpPlugin
             [Description("Nome da Filial. Vazio para ignorar.")] string filial = null,
             [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = null,
             [Description("Apenas contas com atraso (verdadeiro/falso).")] bool apenasAtrasados = false,
-            [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO' ou 'TOTAL'. REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM"
+            [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO', 'TOTAL' ou 'SITUACAO_VENCIMENTO'. USE 'SITUACAO_VENCIMENTO' quando o usuário perguntar sobre vencidos e a vencer ao mesmo tempo (ex: 'quantos vencidos e a vencer?'). REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM"
         )
         {
             // 🚨 TRAVA DE SEGURANÇA: Se a IA não souber, ela cai aqui e devolve a pergunta pro chat
@@ -81,7 +81,7 @@ public class ErpPlugin
             [Description("Nome da Filial. Vazio para ignorar.")] string filial = null,
             [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = null,
             [Description("Tipo de Pagamento/Meio (Ex: PIX, BOLETO). Vazio para ignorar.")] string tipoPagamento = null,
-            [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO' ou 'TOTAL'. REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM"
+            [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO', 'TOTAL' ou 'SITUACAO_VENCIMENTO'. USE 'SITUACAO_VENCIMENTO' quando o usuário perguntar sobre vencidos e a vencer ao mesmo tempo. REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM"
         )
         {
             // 🚨 TRAVA DE SEGURANÇA: Se a IA não souber, ela cai aqui e devolve a pergunta pro chat
@@ -232,6 +232,15 @@ public class ErpPlugin
             sql.Append($"SELECT TIPOPAG as MetodoPagamento, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName}{whereClause} GROUP BY TIPOPAG ORDER BY Total DESC");
         else if (agrupar.Equals("TOTAL", StringComparison.OrdinalIgnoreCase))
             sql.Append($"SELECT SUM({sumColumn}) as ValorTotalGeral, COUNT(*) as QuantidadeTotal FROM {viewName}{whereClause}");
+        else if (agrupar.Equals("SITUACAO_VENCIMENTO", StringComparison.OrdinalIgnoreCase))
+            // Uma única query que divide vencidos vs a vencer — evita que a IA faça aritmética errada
+            sql.Append($@"SELECT
+                CASE WHEN DATAVENCIMENTO < CAST(GETDATE() AS DATE) THEN 'Vencido' ELSE 'A Vencer' END as SituacaoVencimento,
+                COUNT(*) as Quantidade,
+                SUM({sumColumn}) as ValorTotal
+            FROM {viewName}{whereClause}
+            GROUP BY CASE WHEN DATAVENCIMENTO < CAST(GETDATE() AS DATE) THEN 'Vencido' ELSE 'A Vencer' END
+            ORDER BY SituacaoVencimento");
         else
         {
             // Listagem: retorna TOP 50 + COUNT(*) real para a IA saber o total exato
