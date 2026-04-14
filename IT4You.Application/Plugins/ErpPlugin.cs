@@ -35,130 +35,104 @@ public class ErpPlugin
     }
     private const string BASE_COLUMNS = "EMPRESA, CLIENTE, NOMEFANTASIA, CPFCNPJ, CIDADE, UF, DOCUMENTO, EMISSAO, VALORDOC, PARCELA, VALORORIG, VALORPAG, DATAVENCIMENTO, DATAPAGAMENTO, CONDPAG, TIPOPAG, SITUACAO";
 
-    [Description("[DOMÍNIO: PAGAR EM ABERTO] Consulta flexível de contas a pagar em aberto. Preencha apenas os parâmetros necessários.")]
-    public async Task<string> ConsultarContasPagarAberto(
-        [Description("Data inicial Vencimento (ISO 8601). Vazio para ignorar.")] string dataInicioISO = null,
-        [Description("Data final Vencimento (ISO 8601). Vazio para ignorar.")] string dataFimISO = null,
-        [Description("Nome ou Fantasia do Fornecedor. Vazio para ignorar.")] string fornecedor = null,
-        [Description("Sigla do Estado (Ex: SP). Vazio para ignorar.")] string uf = null,
-        [Description("Nome da Filial. Vazio para ignorar.")] string filial = null,
-        [Description("CNPJ do Fornecedor (somente números). Vazio para ignorar.")] string cnpj = null,
-        [Description("Apenas contas com atraso (verdadeiro/falso).")] bool apenasAtrasados = false,
-[Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'ANO', 'MES', 'FILIAL' ou 'TOTAL' (apenas a soma global)")] string agrupamento = "NENHUM"
-    )
-    {
-        return await ExecuteDynamicQuery(
-            "VW_DOC_FIN_PAG_ABERTO", 
-            "DATAVENCIMENTO", 
-            dataInicioISO, dataFimISO, fornecedor, uf, filial, cnpj, agrupamento, apenasAtrasados, null, null);
-    }
+        [Description("[DOMÍNIO: ABERTO] Consulta flexível de contas EM ABERTO (vencidas ou a vencer). É OBRIGATÓRIO informar se é a PAGAR ou RECEBER.")]
+        public async Task<string> ConsultarContasEmAberto(
+            [Description("OBRIGATÓRIO: O domínio da consulta. Aceita estritamente 'PAGAR' (fornecedores/despesas) ou 'RECEBER' (clientes/receitas).")] string tipoDominio,
+            [Description("Data inicial Vencimento (ISO 8601). Vazio para ignorar.")] string dataInicioISO = null,
+            [Description("Data final Vencimento (ISO 8601). Vazio para ignorar.")] string dataFimISO = null,
+            [Description("Nome ou Fantasia do Fornecedor ou Cliente. Vazio para ignorar.")] string nomePessoa = null,
+            [Description("Sigla do Estado (Ex: SP). Vazio para ignorar.")] string uf = null,
+            [Description("Nome da Filial. Vazio para ignorar.")] string filial = null,
+            [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = null,
+            [Description("Apenas contas com atraso (verdadeiro/falso).")] bool apenasAtrasados = false,
+            [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR' (se pagar), 'CLIENTE' (se receber), 'ANO', 'MES', 'FILIAL' ou 'TOTAL'")] string agrupamento = "NENHUM"
+        )
+        {
+            string viewName = tipoDominio.Equals("PAGAR", StringComparison.OrdinalIgnoreCase) 
+                ? "VW_DOC_FIN_PAG_ABERTO" 
+                : "VW_DOC_FIN_REC_ABERTO";
 
-    [Description("[DOMÍNIO: PAGAR PAGO] Consulta flexível de contas já pagas/liquidadas. Preencha apenas os parâmetros necessários.")]
-    public async Task<string> ConsultarContasPagarPago(
-        [Description("Data inicial do Pagamento (ISO 8601). Vazio para ignorar.")] string dataPagamentoInicioISO = null,
-        [Description("Data final do Pagamento (ISO 8601). Vazio para ignorar.")] string dataPagamentoFimISO = null,
-        [Description("Nome ou Fantasia do Fornecedor. Vazio para ignorar.")] string fornecedor = null,
-        [Description("Sigla do Estado (Ex: SP). Vazio para ignorar.")] string uf = null,
-        [Description("Nome da Filial. Vazio para ignorar.")] string filial = null,
-        [Description("CNPJ do Fornecedor (somente números). Vazio para ignorar.")] string cnpj = null,
-        [Description("Tipo de Pagamento (Ex: PIX, BOLETO). Vazio para ignorar.")] string tipoPagamento = null,
-        [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO' ou 'TOTAL' (apenas a soma global)")] string agrupamento = "NENHUM"
-    )
-    {
-        return await ExecuteDynamicQuery(
-            "VW_DOC_FIN_PAG_PAGO", 
-            "DATAPAGAMENTO", 
-            dataPagamentoInicioISO, dataPagamentoFimISO, fornecedor, uf, filial, cnpj, agrupamento, false, tipoPagamento, null);
-    }
+            return await ExecuteDynamicQuery(
+                viewName, 
+                "DATAVENCIMENTO", 
+                dataInicioISO, dataFimISO, nomePessoa, uf, filial, cnpj, agrupamento, apenasAtrasados, null, null);
+        }
 
-    [Description("[DOMÍNIO: RECEBER ABERTO] Consulta flexível de contas a receber em aberto. Preencha apenas os parâmetros necessários.")]
-    public async Task<string> ConsultarContasReceberAberto(
-        [Description("Data inicial Vencimento (ISO 8601). Vazio para ignorar.")] string dataInicioISO = null,
-        [Description("Data final Vencimento (ISO 8601). Vazio para ignorar.")] string dataFimISO = null,
-        [Description("Nome ou Fantasia do Cliente. Vazio para ignorar.")] string cliente = null,
-        [Description("Sigla do Estado (Ex: SP). Vazio para ignorar.")] string uf = null,
-        [Description("Nome da Filial. Vazio para ignorar.")] string filial = null,
-        [Description("CNPJ/CPF do Cliente (somente números). Vazio para ignorar.")] string cnpj = null,
-        [Description("Apenas contas com atraso (verdadeiro/falso).")] bool apenasAtrasados = false,
-        [Description("Agrupar resultados por: 'NENHUM', 'CLIENTE', 'ANO', 'MES', 'FILIAL' ou 'TOTAL' (apenas a soma global)")] string agrupamento = "NENHUM"
-    )
-    {
-        return await ExecuteDynamicQuery(
-            "VW_DOC_FIN_REC_ABERTO", 
-            "DATAVENCIMENTO", 
-            dataInicioISO, dataFimISO, cliente, uf, filial, cnpj, agrupamento, apenasAtrasados, null, null);
-    }
+        [Description("[DOMÍNIO: PAGO] Consulta flexível de contas JÁ PAGAS/LIQUIDADAS. É OBRIGATÓRIO informar se é a PAGAR ou RECEBER.")]
+        public async Task<string> ConsultarContasPagas(
+            [Description("OBRIGATÓRIO: O domínio da consulta. Aceita estritamente 'PAGAR' (fornecedores/despesas) ou 'RECEBER' (clientes/receitas).")] string tipoDominio,
+            [Description("Data inicial do Pagamento (ISO 8601). Vazio para ignorar.")] string dataPagamentoInicioISO = null,
+            [Description("Data final do Pagamento (ISO 8601). Vazio para ignorar.")] string dataPagamentoFimISO = null,
+            [Description("Nome ou Fantasia do Fornecedor ou Cliente. Vazio para ignorar.")] string nomePessoa = null,
+            [Description("Sigla do Estado (Ex: SP). Vazio para ignorar.")] string uf = null,
+            [Description("Nome da Filial. Vazio para ignorar.")] string filial = null,
+            [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = null,
+            [Description("Tipo de Pagamento/Meio (Ex: PIX, BOLETO). Vazio para ignorar.")] string tipoPagamento = null,
+            [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR' (se pagar), 'CLIENTE' (se receber), 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO' ou 'TOTAL'")] string agrupamento = "NENHUM"
+        )
+        {
+            string viewName = tipoDominio.Equals("PAGAR", StringComparison.OrdinalIgnoreCase) 
+                ? "VW_DOC_FIN_PAG_PAGO" 
+                : "VW_DOC_FIN_REC_PAGO";
 
-    [Description("[DOMÍNIO: RECEBER PAGO] Consulta flexível de contas já recebidas/liquidadas. Preencha apenas os parâmetros necessários.")]
-    public async Task<string> ConsultarContasReceberPago(
-        [Description("Data inicial do Pagamento recebido (ISO 8601). Vazio para ignorar.")] string dataPagamentoInicioISO = null,
-        [Description("Data final do Pagamento recebido (ISO 8601). Vazio para ignorar.")] string dataPagamentoFimISO = null,
-        [Description("Nome ou Fantasia do Cliente. Vazio para ignorar.")] string cliente = null,
-        [Description("Sigla do Estado (Ex: SP). Vazio para ignorar.")] string uf = null,
-        [Description("Nome da Filial. Vazio para ignorar.")] string filial = null,
-        [Description("CNPJ/CPF do Cliente (somente números). Vazio para ignorar.")] string cnpj = null,
-        [Description("Tipo de Pagamento/Meio do Recebimento (Ex: PIX, BOLETO). Vazio para ignorar.")] string tipoPagamento = null,
-        [Description("Agrupar resultados por: 'NENHUM', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO' ou 'TOTAL' (apenas a soma global)")] string agrupamento = "NENHUM"
-    )
-    {
-        return await ExecuteDynamicQuery(
-            "VW_DOC_FIN_REC_PAGO", 
-            "DATAPAGAMENTO", 
-            dataPagamentoInicioISO, dataPagamentoFimISO, cliente, uf, filial, cnpj, agrupamento, false, tipoPagamento, null);
-    }
+            return await ExecuteDynamicQuery(
+                viewName, 
+                "DATAPAGAMENTO", 
+                dataPagamentoInicioISO, dataPagamentoFimISO, nomePessoa, uf, filial, cnpj, agrupamento, false, tipoPagamento, null);
+        }
 
-    [Description("[DOMÍNIO: AMBOS] Simula o fluxo de caixa cruzando Receitas e Despesas agrupadas pela Data.")]
-    public async Task<string> GetFluxoCaixaLiquidoNoPeriodo(
-        [Description("Data inicial (ISO 8601). Feriados/FDS não são filtrados automaticamente.")] string dataInicioISO,
-        [Description("Data final (ISO 8601).")] string dataFimISO)
-    {
-        var sq = $@"
-            SELECT 
-                ISNULL(R.Dia, P.Dia) as DataFluxo,
-                ISNULL(R.TotalReceitas, 0) as ReceitasDia,
-                ISNULL(P.TotalDespesas, 0) as DespesasDia,
-                (ISNULL(R.TotalReceitas, 0) - ISNULL(P.TotalDespesas, 0)) as SaldoLiquidoDia
-            FROM (
-                SELECT CAST(DATAVENCIMENTO AS DATE) as Dia, SUM(VALORORIG - ISNULL(VALORPAG, 0)) as TotalReceitas
-                FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT
-                GROUP BY CAST(DATAVENCIMENTO AS DATE)
-            ) R
-            FULL OUTER JOIN (
-                SELECT CAST(DATAVENCIMENTO AS DATE) as Dia, SUM(VALORORIG) as TotalDespesas
-                FROM VW_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT
-                GROUP BY CAST(DATAVENCIMENTO AS DATE)
-            ) P ON R.Dia = P.Dia
-            ORDER BY DataFluxo ASC";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
+        [Description("[DOMÍNIO: AMBOS] Simula o fluxo de caixa cruzando Receitas e Despesas agrupadas pela Data.")]
+        public async Task<string> GetFluxoCaixaLiquidoNoPeriodo(
+            [Description("Data inicial (ISO 8601). Feriados/FDS não são filtrados automaticamente.")] string dataInicioISO,
+            [Description("Data final (ISO 8601).")] string dataFimISO)
+        {
+            var sq = $@"
+                SELECT 
+                    ISNULL(R.Dia, P.Dia) as DataFluxo,
+                    ISNULL(R.TotalReceitas, 0) as ReceitasDia,
+                    ISNULL(P.TotalDespesas, 0) as DespesasDia,
+                    (ISNULL(R.TotalReceitas, 0) - ISNULL(P.TotalDespesas, 0)) as SaldoLiquidoDia
+                FROM (
+                    SELECT CAST(DATAVENCIMENTO AS DATE) as Dia, SUM(VALORORIG - ISNULL(VALORPAG, 0)) as TotalReceitas
+                    FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT
+                    GROUP BY CAST(DATAVENCIMENTO AS DATE)
+                ) R
+                FULL OUTER JOIN (
+                    SELECT CAST(DATAVENCIMENTO AS DATE) as Dia, SUM(VALORORIG) as TotalDespesas
+                    FROM VW_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT
+                    GROUP BY CAST(DATAVENCIMENTO AS DATE)
+                ) P ON R.Dia = P.Dia
+                ORDER BY DataFluxo ASC";
+            return await ExecuteQuery(sq, new[] { 
+                new SqlParameter("@dF", ParseDate(dataInicioISO)), 
+                new SqlParameter("@dT", ParseDate(dataFimISO)) });
+        }
 
-    [Description("[DOMÍNIO: AMBOS] Relatório global instantâneo de saúde financeira e liquidez dividida por Filial/Empresa.")]
-    public async Task<string> GetLiquidezEInadimplenciaGeral()
-    {
-        var sq = @"
-            SELECT 
-                ISNULL(R.EMPRESA, P.EMPRESA) as Filial,
-                ISNULL(R.TotalReceber, 0) as TotalPendenteRecebimentos,
-                ISNULL(R.TotalAtrasadoCliente, 0) as TotalAtrasadoCliente,
-                ISNULL(P.TotalPagar, 0) as TotalPendenteObrigacoes,
-                ISNULL(P.TotalAtrasadoFornecedor, 0) as TotalAtrasadoFornecedor,
-                (ISNULL(R.TotalReceber, 0) - ISNULL(P.TotalPagar, 0)) as LiquidezFutura
-            FROM (
-                SELECT EMPRESA, 
-                       SUM(VALORORIG) as TotalReceber,
-                       SUM(CASE WHEN DATAVENCIMENTO < CAST(GETDATE() AS DATE) THEN VALORORIG ELSE 0 END) as TotalAtrasadoCliente
-                FROM VW_DOC_FIN_REC_ABERTO GROUP BY EMPRESA
-            ) R
-            FULL OUTER JOIN (
-                SELECT EMPRESA, 
-                       SUM(VALORORIG) as TotalPagar,
-                       SUM(CASE WHEN DATAVENCIMENTO < CAST(GETDATE() AS DATE) THEN VALORORIG ELSE 0 END) as TotalAtrasadoFornecedor
-                FROM VW_DOC_FIN_PAG_ABERTO GROUP BY EMPRESA
-            ) P ON R.EMPRESA = P.EMPRESA";
-        return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
-    }
+        [Description("[DOMÍNIO: AMBOS] Relatório global instantâneo de saúde financeira e liquidez dividida por Filial/Empresa.")]
+        public async Task<string> GetLiquidezEInadimplenciaGeral()
+        {
+            var sq = @"
+                SELECT 
+                    ISNULL(R.EMPRESA, P.EMPRESA) as Filial,
+                    ISNULL(R.TotalReceber, 0) as TotalPendenteRecebimentos,
+                    ISNULL(R.TotalAtrasadoCliente, 0) as TotalAtrasadoCliente,
+                    ISNULL(P.TotalPagar, 0) as TotalPendenteObrigacoes,
+                    ISNULL(P.TotalAtrasadoFornecedor, 0) as TotalAtrasadoFornecedor,
+                    (ISNULL(R.TotalReceber, 0) - ISNULL(P.TotalPagar, 0)) as LiquidezFutura
+                FROM (
+                    SELECT EMPRESA, 
+                        SUM(VALORORIG) as TotalReceber,
+                        SUM(CASE WHEN DATAVENCIMENTO < CAST(GETDATE() AS DATE) THEN VALORORIG ELSE 0 END) as TotalAtrasadoCliente
+                    FROM VW_DOC_FIN_REC_ABERTO GROUP BY EMPRESA
+                ) R
+                FULL OUTER JOIN (
+                    SELECT EMPRESA, 
+                        SUM(VALORORIG) as TotalPagar,
+                        SUM(CASE WHEN DATAVENCIMENTO < CAST(GETDATE() AS DATE) THEN VALORORIG ELSE 0 END) as TotalAtrasadoFornecedor
+                    FROM VW_DOC_FIN_PAG_ABERTO GROUP BY EMPRESA
+                ) P ON R.EMPRESA = P.EMPRESA";
+            return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
+        }
 
     // --- MÉTODOS BASE ---
 
