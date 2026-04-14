@@ -156,51 +156,84 @@ public class ErpPlugin
     // --- MÉTODOS BASE ---
 
     private async Task<string> ExecuteDynamicQuery(
-        string viewName, 
-        string dateColumn, 
-        string dataInicioISO, 
-        string dataFimISO, 
-        string entidade, 
-        string uf, 
-        string filial, 
-        string cnpj, 
-        string agrupamento, 
+        string viewName,
+        string dateColumn,
+        string dataInicioISO,
+        string dataFimISO,
+        string entidade,
+        string uf,
+        string filial,
+        string cnpj,
+        string agrupamento,
         bool apenasAtrasados,
         string tipoPagamento,
         string situacao)
     {
         var sql = new StringBuilder();
-        var where = new StringBuilder(" WHERE 1=1");
+        var conditions = new List<string>(); // Usar lista remove a necessidade do "WHERE 1=1"
         var parameters = new List<SqlParameter>();
 
-        if (!string.IsNullOrEmpty(dataInicioISO)) { where.Append($" AND {dateColumn} >= @dI"); parameters.Add(new SqlParameter("@dI", ParseDate(dataInicioISO))); }
-        if (!string.IsNullOrEmpty(dataFimISO)) { where.Append($" AND {dateColumn} <= @dF"); parameters.Add(new SqlParameter("@dF", ParseDate(dataFimISO))); }
-        if (!string.IsNullOrEmpty(entidade)) { where.Append(" AND (UPPER(CLIENTE) LIKE UPPER(@ent) OR UPPER(NOMEFANTASIA) LIKE UPPER(@ent))"); parameters.Add(new SqlParameter("@ent", $"%{entidade}%")); }
-        if (!string.IsNullOrEmpty(uf)) { where.Append(" AND UF = @uf"); parameters.Add(new SqlParameter("@uf", uf.ToUpper())); }
-        if (!string.IsNullOrEmpty(filial)) { where.Append(" AND UPPER(EMPRESA) LIKE UPPER(@fil)"); parameters.Add(new SqlParameter("@fil", $"%{filial}%")); }
-        if (!string.IsNullOrEmpty(cnpj)) { where.Append(" AND CPFCNPJ = @cnpj"); parameters.Add(new SqlParameter("@cnpj", LimparCnpj(cnpj))); }
-        if (apenasAtrasados && dateColumn == "DATAVENCIMENTO") { where.Append(" AND DATAVENCIMENTO < CAST(GETDATE() AS DATE)"); }
-        if (!string.IsNullOrEmpty(tipoPagamento)) { where.Append(" AND UPPER(TIPOPAG) LIKE UPPER(@tpag)"); parameters.Add(new SqlParameter("@tpag", $"%{tipoPagamento}%")); }
+        if (!string.IsNullOrEmpty(dataInicioISO))
+        {
+            conditions.Add($"{dateColumn} >= @dI");
+            parameters.Add(new SqlParameter("@dI", ParseDate(dataInicioISO)));
+        }
+        if (!string.IsNullOrEmpty(dataFimISO))
+        {
+            conditions.Add($"{dateColumn} <= @dF");
+            parameters.Add(new SqlParameter("@dF", ParseDate(dataFimISO)));
+        }
+        if (!string.IsNullOrEmpty(entidade))
+        {
+            conditions.Add("(UPPER(CLIENTE) LIKE UPPER(@ent) OR UPPER(NOMEFANTASIA) LIKE UPPER(@ent))");
+            parameters.Add(new SqlParameter("@ent", $"%{entidade}%"));
+        }
+        if (!string.IsNullOrEmpty(uf))
+        {
+            conditions.Add("UF = @uf");
+            parameters.Add(new SqlParameter("@uf", uf.ToUpper()));
+        }
+        if (!string.IsNullOrEmpty(filial))
+        {
+            conditions.Add("UPPER(EMPRESA) LIKE UPPER(@fil)");
+            parameters.Add(new SqlParameter("@fil", $"%{filial}%"));
+        }
+        if (!string.IsNullOrEmpty(cnpj))
+        {
+            conditions.Add("CPFCNPJ = @cnpj");
+            parameters.Add(new SqlParameter("@cnpj", LimparCnpj(cnpj)));
+        }
+        if (apenasAtrasados && dateColumn == "DATAVENCIMENTO")
+        {
+            conditions.Add("DATAVENCIMENTO < CAST(GETDATE() AS DATE)");
+        }
+        if (!string.IsNullOrEmpty(tipoPagamento))
+        {
+            conditions.Add("UPPER(TIPOPAG) LIKE UPPER(@tpag)");
+            parameters.Add(new SqlParameter("@tpag", $"%{tipoPagamento}%"));
+        }
 
+        // Monta o WHERE apenas se tiver condições, limpíssimo
         string whereClause = conditions.Count > 0 ? " WHERE " + string.Join(" AND ", conditions) : "";
         string sumColumn = viewName.Contains("PAGO") ? "VALORPAG" : "VALORORIG";
 
+        // 🚨 TRAVA DE SEGURANÇA: Previne erro fatal se a IA omitir a propriedade e passar NULL
         string agrupar = string.IsNullOrEmpty(agrupamento) ? "NENHUM" : agrupamento;
 
-        if (agrupamento.Equals("FORNECEDOR", StringComparison.OrdinalIgnoreCase) || agrupamento.Equals("CLIENTE", StringComparison.OrdinalIgnoreCase))
-            sql.Append($"SELECT CLIENTE as Entidade, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName} {where} GROUP BY CLIENTE ORDER BY Total DESC");
-        else if (agrupamento.Equals("ANO", StringComparison.OrdinalIgnoreCase))
-            sql.Append($"SELECT YEAR({dateColumn}) as Ano, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName} {where} GROUP BY YEAR({dateColumn}) ORDER BY Ano DESC");
-        else if (agrupamento.Equals("MES", StringComparison.OrdinalIgnoreCase))
-            sql.Append($"SELECT YEAR({dateColumn}) as Ano, MONTH({dateColumn}) as Mes, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName} {where} GROUP BY YEAR({dateColumn}), MONTH({dateColumn}) ORDER BY Ano DESC, Mes DESC");
-        else if (agrupamento.Equals("FILIAL", StringComparison.OrdinalIgnoreCase))
-            sql.Append($"SELECT EMPRESA as Filial, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName} {where} GROUP BY EMPRESA ORDER BY Total DESC");
-        else if (agrupamento.Equals("METODO_PAGAMENTO", StringComparison.OrdinalIgnoreCase))
-            sql.Append($"SELECT TIPOPAG as MetodoPagamento, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName} {where} GROUP BY TIPOPAG ORDER BY Total DESC");
-        else if (agrupamento.Equals("TOTAL", StringComparison.OrdinalIgnoreCase))
-            sql.Append($"SELECT SUM({sumColumn}) as ValorTotalGeral, COUNT(*) as QuantidadeTotal FROM {viewName} {where}");
+        if (agrupar.Equals("FORNECEDOR", StringComparison.OrdinalIgnoreCase) || agrupar.Equals("CLIENTE", StringComparison.OrdinalIgnoreCase))
+            sql.Append($"SELECT CLIENTE as Entidade, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName}{whereClause} GROUP BY CLIENTE ORDER BY Total DESC");
+        else if (agrupar.Equals("ANO", StringComparison.OrdinalIgnoreCase))
+            sql.Append($"SELECT YEAR({dateColumn}) as Ano, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName}{whereClause} GROUP BY YEAR({dateColumn}) ORDER BY Ano DESC");
+        else if (agrupar.Equals("MES", StringComparison.OrdinalIgnoreCase))
+            sql.Append($"SELECT YEAR({dateColumn}) as Ano, MONTH({dateColumn}) as Mes, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName}{whereClause} GROUP BY YEAR({dateColumn}), MONTH({dateColumn}) ORDER BY Ano DESC, Mes DESC");
+        else if (agrupar.Equals("FILIAL", StringComparison.OrdinalIgnoreCase))
+            sql.Append($"SELECT EMPRESA as Filial, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName}{whereClause} GROUP BY EMPRESA ORDER BY Total DESC");
+        else if (agrupar.Equals("METODO_PAGAMENTO", StringComparison.OrdinalIgnoreCase))
+            sql.Append($"SELECT TIPOPAG as MetodoPagamento, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName}{whereClause} GROUP BY TIPOPAG ORDER BY Total DESC");
+        else if (agrupar.Equals("TOTAL", StringComparison.OrdinalIgnoreCase))
+            sql.Append($"SELECT SUM({sumColumn}) as ValorTotalGeral, COUNT(*) as QuantidadeTotal FROM {viewName}{whereClause}");
         else
-            sql.Append($"SELECT {BASE_COLUMNS} FROM {viewName} {where} ORDER BY {dateColumn} ASC");
+            sql.Append($"SELECT {BASE_COLUMNS} FROM {viewName}{whereClause} ORDER BY {dateColumn} ASC");
 
         return await ExecuteQuery(sql.ToString(), parameters.ToArray());
     }
