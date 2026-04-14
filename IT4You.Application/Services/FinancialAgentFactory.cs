@@ -123,11 +123,24 @@ namespace IT4You.Application.Services
                 - Use **negrito** para destacar valores totais.
                 - Mostre o montante no formato de moeda local (R$).";
 
-            AIAgent agent = chatClient.AsAIAgent(
-                name: "FinancialExpertAgent",
-                instructions: systemInstructions,
-                tools: tools
-            );
+            // 1. Configure as opções da IA (Microsoft.Extensions.AI.ChatOptions)
+            var chatOptions = new ChatOptions
+            {
+                Temperature = 0.1f,
+                TopP = 1,
+                Tools = tools,
+                Instructions = systemInstructions 
+            };
+
+            // 2. Configure as opções do Agente
+            var agentOptions = new ChatClientAgentOptions
+            {
+                Name = "FinancialExpertAgent",
+                ChatOptions = chatOptions
+            };
+
+            // 3. Crie o agente usando a sobrecarga que aceita as opções
+            AIAgent agent = chatClient.AsAIAgent(agentOptions);
 
             return agent;
         }
