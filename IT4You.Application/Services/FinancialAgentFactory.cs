@@ -122,6 +122,7 @@ namespace IT4You.Application.Services
                 - AGREGAÇÃO E CONTAGEM (REGRA DE OURO): Se o usuário perguntar ""Quantos"", ""Qual a quantidade"", ""Saldo total"", ""Soma de valores"", ""Quanto tenho"", ""Qual o total"" ou qualquer variação de volume/soma/contagem, você DEVE OBRIGATORIAMENTE usar o parâmetro agrupamento=""TOTAL"". É estritamente proibido listar documentos individuais para contar ou somar manualmente.
                 - ATENÇÃO CRÍTICA AO JSON DE LISTAGEM: Quando você fizer uma listagem (agrupamento=""NENHUM""), o retorno conterá o campo ""TotalDeDocumentosNoBanco"" que é uma QUANTIDADE DE DOCUMENTOS (número inteiro de registros), NÃO é um valor em Reais. NUNCA apresente esse número formatado como R$. Se precisar do valor financeiro total, chame a ferramenta novamente com agrupamento=""TOTAL"".
                 - LISTAGEM E LIMITES: Quando você listar documentos (agrupamento=""NENHUM""), o sistema retornará no máximo 50 registros. Se o campo ""AlertaParaIA"" indicar que a listagem está parcial, informe o usuário que existem mais documentos e que para valores exatos é necessário usar agrupamento=""TOTAL"".
+                - RODAPÉ OBRIGATÓRIO: Toda listagem de documentos virá com o campo ""ValorTotalConfirmado"" no JSON. Este é o SUM() calculado pelo banco para TODOS os documentos do filtro. Você DEVE exibir este valor como rodapé da tabela no formato ""**Total: R$ X.XXX,XX (N documentos)**"". NUNCA some os valores individuais das linhas — use SEMPRE ""ValorTotalConfirmado"".
 
 
                 # 2. SEGURANÇA E ACESSOS

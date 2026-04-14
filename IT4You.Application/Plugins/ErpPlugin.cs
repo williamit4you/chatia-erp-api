@@ -243,10 +243,10 @@ public class ErpPlugin
             ORDER BY SituacaoVencimento");
         else
         {
-            // Listagem: retorna TOP 50 + COUNT(*) real para a IA saber o total exato
-            var countSql = $"SELECT COUNT(*) FROM {viewName}{whereClause}";
+            // Listagem: retorna TOP 50 + COUNT(*) + SUM() reais para a IA fechar o total sem aritmética
+            var countSql = $"SELECT COUNT(*) AS Quantidade, SUM({sumColumn}) AS ValorTotal FROM {viewName}{whereClause}";
             sql.Append($"SELECT TOP 50 {BASE_COLUMNS} FROM {viewName}{whereClause} ORDER BY {dateColumn} ASC");
-            return await ExecuteListQueryWithCount(sql.ToString(), countSql, parameters.ToArray());
+            return await ExecuteListQueryWithCount(sql.ToString(), countSql, parameters.ToArray(), sumColumn);
         }
 
         return await ExecuteQuery(sql.ToString(), parameters.ToArray());
@@ -330,7 +330,7 @@ public class ErpPlugin
         }
     }
 
-    private async Task<string> ExecuteListQueryWithCount(string listQuery, string countQuery, SqlParameter[] parameters)
+    private async Task<string> ExecuteListQueryWithCount(string listQuery, string countQuery, SqlParameter[] parameters, string sumColumn = "VALORORIG")
     {
         if (string.IsNullOrEmpty(_connectionString))
             return "{\"error\": \"Connection string 'DefaultConnection' not found.\"}";
@@ -339,8 +339,8 @@ public class ErpPlugin
         {
             string runnableListQuery = BuildRunnableQuery(listQuery, parameters);
             string runnableCountQuery = BuildRunnableQuery(countQuery, parameters);
-            Console.WriteLine($"[ErpPlugin] 🟢 EXECUTING COUNT: {runnableCountQuery}");
-            Console.WriteLine($"[ErpPlugin] 🟢 EXECUTING LIST:  {runnableListQuery}");
+            Console.WriteLine($"[ErpPlugin] 🟢 EXECUTING COUNT+SUM: {runnableCountQuery}");
+            Console.WriteLine($"[ErpPlugin] 🟢 EXECUTING LIST:      {runnableListQuery}");
 
             ExecutedQueries.Add(runnableCountQuery);
             ExecutedQueries.Add(runnableListQuery);
@@ -348,21 +348,26 @@ public class ErpPlugin
             using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
-            // 1. COUNT(*) real — custo quase zero pro SQL Server
+            // 1. COUNT(*) + SUM() reais — uma só query, custo mínimo
             int totalReal = 0;
+            decimal valorTotalConfirmado = 0;
             using (var countCmd = new SqlCommand(countQuery, connection))
             {
                 foreach (var p in parameters)
                     countCmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
-                var scalar = await countCmd.ExecuteScalarAsync();
-                totalReal = Convert.ToInt32(scalar);
+
+                using var countReader = await countCmd.ExecuteReaderAsync();
+                if (await countReader.ReadAsync())
+                {
+                    totalReal = countReader["Quantidade"] == DBNull.Value ? 0 : Convert.ToInt32(countReader["Quantidade"]);
+                    valorTotalConfirmado = countReader["ValorTotal"] == DBNull.Value ? 0 : Convert.ToDecimal(countReader["ValorTotal"]);
+                }
             }
 
             // 2. TOP 50 para exibição
             var results = new List<Dictionary<string, object>>();
             using (var listCmd = new SqlCommand(listQuery, connection))
             {
-                // Parâmetros precisam ser recriados (SqlParameter não pode ser reusado entre commands)
                 foreach (var p in parameters)
                     listCmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
 
@@ -378,20 +383,22 @@ public class ErpPlugin
 
             var payload = new
             {
-                // ATENÇÃO IA: Este número é uma QUANTIDADE DE DOCUMENTOS (contagem), NÃO é um valor monetário.
-                // Para obter o valor financeiro total (R$), use agrupamento='TOTAL'.
+                // TotalDeDocumentosNoBanco é CONTAGEM de registros, NÃO é valor monetário
                 TotalDeDocumentosNoBanco = totalReal,
+                // ValorTotalConfirmado é o SUM() exato calculado pelo banco — use SEMPRE este para fechar o total em R$
+                // NÃO some os valores individuais da coluna Data — use este campo
+                ValorTotalConfirmado = valorTotalConfirmado,
                 ExibindoPrimeirosDocumentos = results.Count,
                 AlertaParaIA = totalReal > results.Count
-                    ? $"LISTAGEM PARCIAL: Existem {totalReal} DOCUMENTOS (não R$) no banco, mas apenas {results.Count} estão listados. " +
-                      $"NÃO some os valores desta lista — ela está incompleta. " +
-                      $"Para o VALOR FINANCEIRO TOTAL ou QUANTIDADE EXATA, chame a ferramenta novamente com agrupamento='TOTAL'."
-                    : $"LISTAGEM COMPLETA: Todos os {totalReal} documentos estão exibidos.",
+                    ? $"LISTAGEM PARCIAL: Existem {totalReal} documentos no banco, mostrando apenas {results.Count}. " +
+                      $"O ValorTotalConfirmado = {valorTotalConfirmado:F2} é o total EXATO de TODOS os {totalReal} documentos. " +
+                      $"NÃO some os valores da lista — use ValorTotalConfirmado para apresentar o total ao usuário."
+                    : $"LISTAGEM COMPLETA: Todos os {totalReal} documentos estão exibidos. Total confirmado: R$ {valorTotalConfirmado:F2}.",
                 Data = results
             };
 
             var jsonResult = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
-            Console.WriteLine($"[ErpPlugin] 🟢 LIST SUCCESS. Showing {results.Count} of {totalReal} total rows.");
+            Console.WriteLine($"[ErpPlugin] 🟢 LIST SUCCESS. {results.Count} of {totalReal} rows. Total R$ {valorTotalConfirmado:F2}");
             return jsonResult;
         }
         catch (Exception ex)
