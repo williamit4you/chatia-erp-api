@@ -76,10 +76,12 @@ namespace IT4You.Application.Services
                     var fetchedMemories = await _context.AgentMemories
                         .Where(m => m.IsActive)
                         .Where(m => m.UserId == null || m.UserId == userId)
-                        .Where(m => m.Embedding!.CosineDistance(userVector) < 0.65) // Só traz o que for REALMENTE similar ao contexto
+                        .Where(m => m.Embedding!.CosineDistance(userVector) < 0.75) // Só traz o que for REALMENTE similar ao contexto
                         .OrderBy(m => m.Embedding!.CosineDistance(userVector))
                         .Take(3)
                         .ToListAsync();
+
+                    
 
                     // 3. Monta string RAG
                     if (fetchedMemories.Any())
@@ -89,6 +91,17 @@ namespace IT4You.Application.Services
                         # CONHECIMENTO ESPECÍFICO (RAG) - Prioridade Alta
                         As seguintes regras/memórias foram puxadas do seu cérebro para responder esta pergunta. Respeite-as acima de tudo:
                         {joined}";
+                    }
+
+                    if (fetchedMemories.Any())
+                    {
+                        // ... seu código atual ...
+                        Console.WriteLine("=== MEMÓRIAS RECUPERADAS ===");
+                        Console.WriteLine(ragKnowledge);
+                    }
+                    else
+                    {
+                        Console.WriteLine("=== NENHUMA MEMÓRIA PASSOU NO CORTE DE 0.65 ===");
                     }
                 }
                 catch (Exception ex)
@@ -126,7 +139,6 @@ namespace IT4You.Application.Services
             var chatOptions = new ChatOptions
             {
                 Temperature = 0.1f,
-                TopP = 1,
                 Tools = tools,
                 Instructions = systemInstructions 
             };
