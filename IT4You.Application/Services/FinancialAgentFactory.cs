@@ -61,9 +61,7 @@ namespace IT4You.Application.Services
                 _ => "\nO domínio exato (Pagar ou Receber) não pôde ser pré-determinado ou abrange ambos. Avalie com cuidado ou foque em ferramentas neutras (como Fluxo de Caixa) se aplicável."
             };
 
-            // ============================================
-            // 🧠 MOTOR DE RETRIEVAL (RAG) LOCAL P/ OPENAI
-            // ============================================
+
             string ragKnowledge = "";
             if (!string.IsNullOrWhiteSpace(userInput))
             {
@@ -108,6 +106,7 @@ namespace IT4You.Application.Services
                 {ragKnowledge}
 
                 # 1. DIRETRIZES DE DADOS E EXECUÇÃO
+                - ORDEM DE PRIORIDADE: Antes de tentar preencher qualquer parâmetro de ferramenta, você DEVE ler o [CONHECIMENTO ESPECÍFICO (RAG)]. Se houver uma regra mandando você parar ou fazer uma pergunta ao usuário, IGNORE AS FERRAMENTAS e responda apenas com a pergunta solicitada.
                 - PERÍODO: Se o usuário não citar datas, preencha os parâmetros da ferramenta com valores nulos. Apenas defina Data Fim se o usuário explicitamente fechar o escopo.
                 - FIDELIDADE: Relate exatamente os valores brutos. Não arredonde e não faça cálculos manuais além do básico. Se a ferramenta retornar nada, diga R$ 0,00.
                 - ORQUESTRAÇÃO: A ferramenta é flexível! Preencha APENAS os parâmetros que fizerem sentido para a pergunta. O C# montará a query ignorando os nulos. Se o usuário quiser agrupar por FORNECEDOR/ANO/MES forneça isso no parâmetro agrupamento. Se o usuário pedir apenas um valor total global absoluto, use o agrupamento TOTAL.
