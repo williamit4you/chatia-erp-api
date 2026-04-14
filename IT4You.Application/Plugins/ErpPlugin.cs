@@ -35,9 +35,9 @@ public class ErpPlugin
     }
     private const string BASE_COLUMNS = "EMPRESA, CLIENTE, NOMEFANTASIA, CPFCNPJ, CIDADE, UF, DOCUMENTO, EMISSAO, VALORDOC, PARCELA, VALORORIG, VALORPAG, DATAVENCIMENTO, DATAPAGAMENTO, CONDPAG, TIPOPAG, SITUACAO";
 
-        [Description("[DOMÍNIO: ABERTO] Consulta flexível de contas EM ABERTO (vencidas ou a vencer). É OBRIGATÓRIO informar se é a PAGAR ou RECEBER.")]
+        [Description("[DOMÍNIO: ABERTO] Consulta flexível de contas EM ABERTO (vencidas ou a vencer).")]
         public async Task<string> ConsultarContasEmAberto(
-            [Description("OBRIGATÓRIO: O domínio da consulta. Aceita estritamente 'PAGAR' (fornecedores/despesas) ou 'RECEBER' (clientes/receitas).")] string tipoDominio,
+            [Description("OBRIGATÓRIO: Use 'PAGAR' (fornecedores), 'RECEBER' (clientes). Se o usuário citar apenas um nome e você não tiver certeza, envie 'INDEFINIDO'. PROIBIDO ADIVINHAR.")] string tipoDominio,
             [Description("Data inicial Vencimento (ISO 8601). Vazio para ignorar.")] string dataInicioISO = null,
             [Description("Data final Vencimento (ISO 8601). Vazio para ignorar.")] string dataFimISO = null,
             [Description("Nome ou Fantasia do Fornecedor ou Cliente. Vazio para ignorar.")] string nomePessoa = null,
@@ -48,6 +48,12 @@ public class ErpPlugin
             [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR' (se pagar), 'CLIENTE' (se receber), 'ANO', 'MES', 'FILIAL' ou 'TOTAL'")] string agrupamento = "NENHUM"
         )
         {
+            // 🚨 TRAVA DE SEGURANÇA: Se a IA não souber, ela cai aqui e devolve a pergunta pro chat
+            if (tipoDominio.Equals("INDEFINIDO", StringComparison.OrdinalIgnoreCase))
+            {
+                return "SISTEMA: Pare a execução. Pergunte ao usuário se ele deseja consultar o Contas a Pagar (fornecedor) ou o Contas a Receber (cliente).";
+            }
+
             string viewName = tipoDominio.Equals("PAGAR", StringComparison.OrdinalIgnoreCase) 
                 ? "VW_DOC_FIN_PAG_ABERTO" 
                 : "VW_DOC_FIN_REC_ABERTO";
@@ -58,9 +64,9 @@ public class ErpPlugin
                 dataInicioISO, dataFimISO, nomePessoa, uf, filial, cnpj, agrupamento, apenasAtrasados, null, null);
         }
 
-        [Description("[DOMÍNIO: PAGO] Consulta flexível de contas JÁ PAGAS/LIQUIDADAS. É OBRIGATÓRIO informar se é a PAGAR ou RECEBER.")]
+        [Description("[DOMÍNIO: PAGO] Consulta flexível de contas JÁ PAGAS/LIQUIDADAS.")]
         public async Task<string> ConsultarContasPagas(
-            [Description("OBRIGATÓRIO: O domínio da consulta. Aceita estritamente 'PAGAR' (fornecedores/despesas) ou 'RECEBER' (clientes/receitas).")] string tipoDominio,
+            [Description("OBRIGATÓRIO: Use 'PAGAR' (fornecedores), 'RECEBER' (clientes). Se o usuário citar apenas um nome e você não tiver certeza, envie 'INDEFINIDO'. PROIBIDO ADIVINHAR.")] string tipoDominio,
             [Description("Data inicial do Pagamento (ISO 8601). Vazio para ignorar.")] string dataPagamentoInicioISO = null,
             [Description("Data final do Pagamento (ISO 8601). Vazio para ignorar.")] string dataPagamentoFimISO = null,
             [Description("Nome ou Fantasia do Fornecedor ou Cliente. Vazio para ignorar.")] string nomePessoa = null,
@@ -71,6 +77,12 @@ public class ErpPlugin
             [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR' (se pagar), 'CLIENTE' (se receber), 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO' ou 'TOTAL'")] string agrupamento = "NENHUM"
         )
         {
+            // 🚨 TRAVA DE SEGURANÇA: Se a IA não souber, ela cai aqui e devolve a pergunta pro chat
+            if (tipoDominio.Equals("INDEFINIDO", StringComparison.OrdinalIgnoreCase))
+            {
+                return "SISTEMA: Pare a execução. Pergunte ao usuário se ele deseja consultar o Contas a Pagar (fornecedor) ou o Contas a Receber (cliente).";
+            }
+
             string viewName = tipoDominio.Equals("PAGAR", StringComparison.OrdinalIgnoreCase) 
                 ? "VW_DOC_FIN_PAG_PAGO" 
                 : "VW_DOC_FIN_REC_PAGO";
