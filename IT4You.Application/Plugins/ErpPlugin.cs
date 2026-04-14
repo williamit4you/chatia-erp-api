@@ -369,11 +369,15 @@ public class ErpPlugin
 
             var payload = new
             {
-                TotalRealNoBanco = totalReal,
-                ExibindoPrimeiros = results.Count,
-                AlertaQuantidade = totalReal > results.Count
-                    ? $"ATENÇÃO: Existem {totalReal} registros no total, mas apenas os {results.Count} primeiros estão listados abaixo. Para obter valores ou contagens EXATAS, refaça a consulta usando agrupamento='TOTAL'."
-                    : "Ok - todos os registros estão exibidos.",
+                // ATENÇÃO IA: Este número é uma QUANTIDADE DE DOCUMENTOS (contagem), NÃO é um valor monetário.
+                // Para obter o valor financeiro total (R$), use agrupamento='TOTAL'.
+                TotalDeDocumentosNoBanco = totalReal,
+                ExibindoPrimeirosDocumentos = results.Count,
+                AlertaParaIA = totalReal > results.Count
+                    ? $"LISTAGEM PARCIAL: Existem {totalReal} DOCUMENTOS (não R$) no banco, mas apenas {results.Count} estão listados. " +
+                      $"NÃO some os valores desta lista — ela está incompleta. " +
+                      $"Para o VALOR FINANCEIRO TOTAL ou QUANTIDADE EXATA, chame a ferramenta novamente com agrupamento='TOTAL'."
+                    : $"LISTAGEM COMPLETA: Todos os {totalReal} documentos estão exibidos.",
                 Data = results
             };
 

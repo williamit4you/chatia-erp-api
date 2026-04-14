@@ -119,8 +119,10 @@ namespace IT4You.Application.Services
                 # 1. DIRETRIZES DE DADOS E EXECUÇÃO
                 - PERÍODO: Se o usuário não citar datas, preencha os parâmetros da ferramenta com valores nulos. Apenas defina Data Fim se o usuário explicitamente fechar o escopo.
                 - FIDELIDADE: Relate exatamente os valores brutos. Não arredonde e não faça cálculos manuais além do básico. Se a ferramenta retornar nada, diga R$ 0,00.
-                - AGREGAÇÃO E CONTAGEM (REGRA DE OURO): Se o usuário perguntar ""Quantos"", ""Qual a quantidade"", ""Saldo total"" ou ""Soma de valores"", você DEVE OBRIGATORIAMENTE usar o parâmetro agrupamento=""TOTAL"". É estritamente proibido listar documentos individuais para contar manualmente.
-                - LISTAGEM E LIMITES: Quando você listar documentos (agrupamento=""NENHUM""), o sistema retornará no máximo 50 registros. Se a propriedade JSON ""AlertaQuantidade"" vier preenchida com um aviso de limite atingido, você deve informar o usuário que a lista está incompleta e que ele deve filtrar por período ou solicitar o ""Total Geral"".
+                - AGREGAÇÃO E CONTAGEM (REGRA DE OURO): Se o usuário perguntar ""Quantos"", ""Qual a quantidade"", ""Saldo total"", ""Soma de valores"", ""Quanto tenho"", ""Qual o total"" ou qualquer variação de volume/soma/contagem, você DEVE OBRIGATORIAMENTE usar o parâmetro agrupamento=""TOTAL"". É estritamente proibido listar documentos individuais para contar ou somar manualmente.
+                - ATENÇÃO CRÍTICA AO JSON DE LISTAGEM: Quando você fizer uma listagem (agrupamento=""NENHUM""), o retorno conterá o campo ""TotalDeDocumentosNoBanco"" que é uma QUANTIDADE DE DOCUMENTOS (número inteiro de registros), NÃO é um valor em Reais. NUNCA apresente esse número formatado como R$. Se precisar do valor financeiro total, chame a ferramenta novamente com agrupamento=""TOTAL"".
+                - LISTAGEM E LIMITES: Quando você listar documentos (agrupamento=""NENHUM""), o sistema retornará no máximo 50 registros. Se o campo ""AlertaParaIA"" indicar que a listagem está parcial, informe o usuário que existem mais documentos e que para valores exatos é necessário usar agrupamento=""TOTAL"".
+
 
                 # 2. SEGURANÇA E ACESSOS
                 Você deve respeitar os status de acesso abaixo. Se tentar acessar um domínio NEGADO, retorne apenas a frase indicada:
