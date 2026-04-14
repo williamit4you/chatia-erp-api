@@ -233,7 +233,12 @@ public class ErpPlugin
         else if (agrupar.Equals("TOTAL", StringComparison.OrdinalIgnoreCase))
             sql.Append($"SELECT SUM({sumColumn}) as ValorTotalGeral, COUNT(*) as QuantidadeTotal FROM {viewName}{whereClause}");
         else
+        {
+            // Listagem: retorna TOP 50 + COUNT(*) real para a IA saber o total exato
+            var countSql = $"SELECT COUNT(*) FROM {viewName}{whereClause}";
             sql.Append($"SELECT TOP 50 {BASE_COLUMNS} FROM {viewName}{whereClause} ORDER BY {dateColumn} ASC");
+            return await ExecuteListQueryWithCount(sql.ToString(), countSql, parameters.ToArray());
+        }
 
         return await ExecuteQuery(sql.ToString(), parameters.ToArray());
     }
@@ -298,7 +303,8 @@ public class ErpPlugin
             }
 
             var payload = new {
-                TotalRows = results.Count,
+                TotalEncontradoNestaBusca = results.Count,
+                AlertaQuantidade = "Ok",
                 Data = results
             };
 
@@ -306,6 +312,73 @@ public class ErpPlugin
             Console.WriteLine($"[ErpPlugin] 🟢 QUERY SUCCESS. Returned {results.Count} rows.");
             Console.WriteLine($"[ErpPlugin] 🟢 QUERY RESULTS:");
             Console.WriteLine(jsonResult);
+            return jsonResult;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ErpPlugin] 🔴 FATAL QUERY ERROR: {ex.Message}");
+            return $"{{\"error\": \"Database error: {ex.Message}\"}}";
+        }
+    }
+
+    private async Task<string> ExecuteListQueryWithCount(string listQuery, string countQuery, SqlParameter[] parameters)
+    {
+        if (string.IsNullOrEmpty(_connectionString))
+            return "{\"error\": \"Connection string 'DefaultConnection' not found.\"}";
+
+        try
+        {
+            string runnableListQuery = BuildRunnableQuery(listQuery, parameters);
+            string runnableCountQuery = BuildRunnableQuery(countQuery, parameters);
+            Console.WriteLine($"[ErpPlugin] 🟢 EXECUTING COUNT: {runnableCountQuery}");
+            Console.WriteLine($"[ErpPlugin] 🟢 EXECUTING LIST:  {runnableListQuery}");
+
+            ExecutedQueries.Add(runnableCountQuery);
+            ExecutedQueries.Add(runnableListQuery);
+
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            // 1. COUNT(*) real — custo quase zero pro SQL Server
+            int totalReal = 0;
+            using (var countCmd = new SqlCommand(countQuery, connection))
+            {
+                foreach (var p in parameters)
+                    countCmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
+                var scalar = await countCmd.ExecuteScalarAsync();
+                totalReal = Convert.ToInt32(scalar);
+            }
+
+            // 2. TOP 50 para exibição
+            var results = new List<Dictionary<string, object>>();
+            using (var listCmd = new SqlCommand(listQuery, connection))
+            {
+                // Parâmetros precisam ser recriados (SqlParameter não pode ser reusado entre commands)
+                foreach (var p in parameters)
+                    listCmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
+
+                using var reader = await listCmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var row = new Dictionary<string, object>();
+                    for (int i = 0; i < reader.FieldCount; i++)
+                        row[reader.GetName(i)] = reader.GetValue(i) == DBNull.Value ? null! : reader.GetValue(i);
+                    results.Add(row);
+                }
+            }
+
+            var payload = new
+            {
+                TotalRealNoBanco = totalReal,
+                ExibindoPrimeiros = results.Count,
+                AlertaQuantidade = totalReal > results.Count
+                    ? $"ATENÇÃO: Existem {totalReal} registros no total, mas apenas os {results.Count} primeiros estão listados abaixo. Para obter valores ou contagens EXATAS, refaça a consulta usando agrupamento='TOTAL'."
+                    : "Ok - todos os registros estão exibidos.",
+                Data = results
+            };
+
+            var jsonResult = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
+            Console.WriteLine($"[ErpPlugin] 🟢 LIST SUCCESS. Showing {results.Count} of {totalReal} total rows.");
             return jsonResult;
         }
         catch (Exception ex)
