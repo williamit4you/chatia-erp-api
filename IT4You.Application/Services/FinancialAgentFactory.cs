@@ -137,9 +137,9 @@ namespace IT4You.Application.Services
             // 1. Configure as opções da IA (Microsoft.Extensions.AI.ChatOptions)
             var chatOptions = new ChatOptions
             {
-                Temperature = 1,
+                Temperature = 0,
                 Tools = tools,
-                Instructions = systemInstructions 
+                Instructions = systemInstructions
             };
 
             // 2. Configure as opções do Agente
