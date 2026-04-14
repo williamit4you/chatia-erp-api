@@ -37,7 +37,7 @@ public class ErpPlugin
 
         [Description("[DOMÍNIO: ABERTO] Consulta flexível de contas EM ABERTO (vencidas ou a vencer).")]
         public async Task<string> ConsultarContasEmAberto(
-            [Description("OBRIGATÓRIO: Use 'PAGAR' (fornecedores), 'RECEBER' (clientes). Se o usuário citar apenas um nome e você não tiver certeza, envie 'INDEFINIDO'. PROIBIDO ADIVINHAR.")] string tipoDominio,
+            [Description("OBRIGATÓRIO: 'PAGAR', 'RECEBER' ou 'INDEFINIDO'. REGRA: NUNCA presuma se um nome (ex: Minerva) é Cliente ou Fornecedor. No nosso sistema, qualquer pessoa pode ser ambos. Se o usuário não disser explicitamente o lado, PASSE O VALOR 'INDEFINIDO'.")] string tipoDominio = "INDEFINIDO",
             [Description("Data inicial Vencimento (ISO 8601). Vazio para ignorar.")] string dataInicioISO = null,
             [Description("Data final Vencimento (ISO 8601). Vazio para ignorar.")] string dataFimISO = null,
             [Description("Nome ou Fantasia do Fornecedor ou Cliente. Vazio para ignorar.")] string nomePessoa = null,
@@ -66,7 +66,7 @@ public class ErpPlugin
 
         [Description("[DOMÍNIO: PAGO] Consulta flexível de contas JÁ PAGAS/LIQUIDADAS.")]
         public async Task<string> ConsultarContasPagas(
-            [Description("OBRIGATÓRIO: Use 'PAGAR' (fornecedores), 'RECEBER' (clientes). Se o usuário citar apenas um nome e você não tiver certeza, envie 'INDEFINIDO'. PROIBIDO ADIVINHAR.")] string tipoDominio,
+            [Description("OBRIGATÓRIO: 'PAGAR', 'RECEBER' ou 'INDEFINIDO'. REGRA: NUNCA presuma se um nome (ex: Minerva) é Cliente ou Fornecedor. No nosso sistema, qualquer pessoa pode ser ambos. Se o usuário não disser explicitamente o lado, PASSE O VALOR 'INDEFINIDO'.")] string tipoDominio = "INDEFINIDO",
             [Description("Data inicial do Pagamento (ISO 8601). Vazio para ignorar.")] string dataPagamentoInicioISO = null,
             [Description("Data final do Pagamento (ISO 8601). Vazio para ignorar.")] string dataPagamentoFimISO = null,
             [Description("Nome ou Fantasia do Fornecedor ou Cliente. Vazio para ignorar.")] string nomePessoa = null,
