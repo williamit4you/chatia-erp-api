@@ -42,6 +42,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddMemoryCache();
 
 var connString = builder.Configuration.GetConnectionString("AppConnection");
 var dataSourceBuilder = new NpgsqlDataSourceBuilder(connString);

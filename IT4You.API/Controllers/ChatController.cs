@@ -2,6 +2,7 @@ using IT4You.Application.DTOs;
 using IT4You.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using System.Security.Claims;
 
 namespace IT4You.API.Controllers;
@@ -12,10 +13,12 @@ namespace IT4You.API.Controllers;
 public class ChatController : ControllerBase
 {
     private readonly IChatService _chatService;
+    private readonly IMemoryCache _cache;
 
-    public ChatController(IChatService chatService)
+    public ChatController(IChatService chatService, IMemoryCache cache)
     {
         _chatService = chatService;
+        _cache = cache;
     }
 
     [HttpPost]
@@ -116,5 +119,25 @@ public class ChatController : ControllerBase
 
         await _chatService.DeleteSessionAsync(sessionId, tenantId);
         return NoContent();
+    }
+
+    /// <summary>
+    /// Download de relatório Excel gerado pelo ErpPlugin (export bypass).
+    /// Requer JWT válido. O arquivo fica disponível por 30 minutos no cache.
+    /// </summary>
+    [HttpGet("export/{exportId}")]
+    public IActionResult DownloadExport(string exportId)
+    {
+        if (string.IsNullOrWhiteSpace(exportId))
+            return BadRequest(new { message = "exportId inválido." });
+
+        if (!_cache.TryGetValue($"export:{exportId}", out byte[]? excelBytes) || excelBytes == null)
+            return NotFound(new { message = "Relatório expirado ou não encontrado. Solicite a listagem novamente." });
+
+        var fileName = $"relatorio_{exportId[..8]}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+        return File(
+            excelBytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            fileName);
     }
 }

@@ -6,6 +6,13 @@ public record ChartAnalysisRequest(string Message, List<ChatMessageDto>? History
 
 public record ChatMessageDto(string Role, string Content);
 
-public record ChatResponse(string Reply, string SessionId, string? SqlQueries = null, int? ContextUsageScore = null);
+public record ChatResponse(
+    string Reply,
+    string SessionId,
+    string? SqlQueries = null,
+    int? ContextUsageScore = null,
+    string? ExportId = null,
+    int ExportTotalLinhas = 0,
+    decimal ExportValorTotal = 0);
 
 public record SqlLogDto(string MessageId, DateTime Date, string UserName, string UserEmail, string UserQuestion, string AiReply, string SqlQueries);

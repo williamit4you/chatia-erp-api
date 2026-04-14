@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using Microsoft.SemanticKernel;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Data.SqlClient;
 using System.Text.Json;
 using System.Data;
@@ -9,6 +10,7 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using ClosedXML.Excel;
 
 namespace IT4You.Application.Plugins;
 
@@ -16,6 +18,11 @@ public class ErpPlugin
 {
     private readonly IConfiguration _configuration;
     private readonly string _connectionString;
+    private readonly IMemoryCache _cache;
+
+    // Acima deste número de linhas, o sistema gera um Excel e envia link direto ao usuário.
+    // A IA não procôessa as linhas — recebe apenas os metadados.
+    private const int EXPORT_THRESHOLD = 50;
 
     // SQL query tracking (safe: ErpPlugin is Scoped per-request)
     public List<string> ExecutedQueries { get; } = new();
@@ -25,19 +32,18 @@ public class ErpPlugin
     public string? GetExecutedQueriesJson()
     {
         if (ExecutedQueries.Count == 0) return null;
-
         var options = new JsonSerializerOptions 
         { 
             Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
             WriteIndented = true
         };
-
         return JsonSerializer.Serialize(ExecutedQueries);
     }
 
-    public ErpPlugin(IConfiguration configuration)
+    public ErpPlugin(IConfiguration configuration, IMemoryCache cache)
     {
         _configuration = configuration;
+        _cache = cache;
         _connectionString = _configuration.GetConnectionString("DefaultConnection") ?? "";
     }
     private const string BASE_COLUMNS = "EMPRESA, CLIENTE, NOMEFANTASIA, CPFCNPJ, CIDADE, UF, DOCUMENTO, EMISSAO, VALORDOC, PARCELA, VALORORIG, VALORPAG, DATAVENCIMENTO, DATAPAGAMENTO, CONDPAG, TIPOPAG, SITUACAO";
@@ -243,10 +249,22 @@ public class ErpPlugin
             ORDER BY SituacaoVencimento");
         else
         {
-            // Listagem: retorna TOP 50 + COUNT(*) + SUM() reais para a IA fechar o total sem aritmética
+            // Passo 1: conta e soma primeiro (barato para o SQL Server)
             var countSql = $"SELECT COUNT(*) AS Quantidade, SUM({sumColumn}) AS ValorTotal FROM {viewName}{whereClause}";
-            sql.Append($"SELECT TOP 50 {BASE_COLUMNS} FROM {viewName}{whereClause} ORDER BY {dateColumn} ASC");
-            return await ExecuteListQueryWithCount(sql.ToString(), countSql, parameters.ToArray(), sumColumn);
+            var (totalReal, valorTotal) = await ExecuteCountAndSum(countSql, parameters.ToArray());
+
+            if (totalReal <= EXPORT_THRESHOLD)
+            {
+                // Pequeno: envia inline para a IA (tabela no chat)
+                var listSql = $"SELECT TOP {EXPORT_THRESHOLD} {BASE_COLUMNS} FROM {viewName}{whereClause} ORDER BY {dateColumn} ASC";
+                return await ExecuteListQueryInline(listSql, countSql, parameters.ToArray());
+            }
+            else
+            {
+                // Grande: gera Excel, salva em cache, retorna só metadados para a IA
+                var fullSql = $"SELECT {BASE_COLUMNS} FROM {viewName}{whereClause} ORDER BY {dateColumn} ASC";
+                return await ExecuteExportToCache(fullSql, totalReal, valorTotal, parameters.ToArray(), viewName, dateColumn);
+            }
         }
 
         return await ExecuteQuery(sql.ToString(), parameters.ToArray());
@@ -330,47 +348,73 @@ public class ErpPlugin
         }
     }
 
-    private async Task<string> ExecuteListQueryWithCount(string listQuery, string countQuery, SqlParameter[] parameters, string sumColumn = "VALORORIG")
-    {
-        if (string.IsNullOrEmpty(_connectionString))
-            return "{\"error\": \"Connection string 'DefaultConnection' not found.\"}";
+    // ---------- HELPERS DE LISTAGEM ----------
 
+    /// <summary>Executa COUNT + SUM em uma única query leve.</summary>
+    private async Task<(int total, decimal valorTotal)> ExecuteCountAndSum(string countSql, SqlParameter[] parameters)
+    {
+        if (string.IsNullOrEmpty(_connectionString)) return (0, 0);
         try
         {
-            string runnableListQuery = BuildRunnableQuery(listQuery, parameters);
-            string runnableCountQuery = BuildRunnableQuery(countQuery, parameters);
-            Console.WriteLine($"[ErpPlugin] 🟢 EXECUTING COUNT+SUM: {runnableCountQuery}");
-            Console.WriteLine($"[ErpPlugin] 🟢 EXECUTING LIST:      {runnableListQuery}");
+            string runnable = BuildRunnableQuery(countSql, parameters);
+            ExecutedQueries.Add(runnable);
+            Console.WriteLine($"[ErpPlugin] 🟢 COUNT+SUM: {runnable}");
 
-            ExecutedQueries.Add(runnableCountQuery);
-            ExecutedQueries.Add(runnableListQuery);
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+            using var cmd = new SqlCommand(countSql, connection);
+            foreach (var p in parameters)
+                cmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                int total = reader["Quantidade"] == DBNull.Value ? 0 : Convert.ToInt32(reader["Quantidade"]);
+                decimal valor = reader["ValorTotal"] == DBNull.Value ? 0 : Convert.ToDecimal(reader["ValorTotal"]);
+                return (total, valor);
+            }
+            return (0, 0);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ErpPlugin] 🔴 COUNT ERRO: {ex.Message}");
+            return (0, 0);
+        }
+    }
+
+    /// <summary>Listagem inline para conjuntos pequenos (≤ EXPORT_THRESHOLD). A IA recebe as linhas + totais.</summary>
+    private async Task<string> ExecuteListQueryInline(string listQuery, string countQuery, SqlParameter[] parameters)
+    {
+        if (string.IsNullOrEmpty(_connectionString))
+            return "{\"error\": \"Connection string not found.\"}";
+        try
+        {
+            string runnableList = BuildRunnableQuery(listQuery, parameters);
+            Console.WriteLine($"[ErpPlugin] 🟢 LIST INLINE: {runnableList}");
+            ExecutedQueries.Add(runnableList);
 
             using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
-            // 1. COUNT(*) + SUM() reais — uma só query, custo mínimo
-            int totalReal = 0;
-            decimal valorTotalConfirmado = 0;
+            // Re-executa COUNT+SUM (já foi feito antes, mas precisamos dos números aqui)
+            int totalReal = 0; decimal valorTotal = 0;
             using (var countCmd = new SqlCommand(countQuery, connection))
             {
                 foreach (var p in parameters)
                     countCmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
-
-                using var countReader = await countCmd.ExecuteReaderAsync();
-                if (await countReader.ReadAsync())
+                using var cr = await countCmd.ExecuteReaderAsync();
+                if (await cr.ReadAsync())
                 {
-                    totalReal = countReader["Quantidade"] == DBNull.Value ? 0 : Convert.ToInt32(countReader["Quantidade"]);
-                    valorTotalConfirmado = countReader["ValorTotal"] == DBNull.Value ? 0 : Convert.ToDecimal(countReader["ValorTotal"]);
+                    totalReal = cr["Quantidade"] == DBNull.Value ? 0 : Convert.ToInt32(cr["Quantidade"]);
+                    valorTotal = cr["ValorTotal"] == DBNull.Value ? 0 : Convert.ToDecimal(cr["ValorTotal"]);
                 }
             }
 
-            // 2. TOP 50 para exibição
             var results = new List<Dictionary<string, object>>();
             using (var listCmd = new SqlCommand(listQuery, connection))
             {
                 foreach (var p in parameters)
                     listCmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
-
                 using var reader = await listCmd.ExecuteReaderAsync();
                 while (await reader.ReadAsync())
                 {
@@ -383,28 +427,146 @@ public class ErpPlugin
 
             var payload = new
             {
-                // TotalDeDocumentosNoBanco é CONTAGEM de registros, NÃO é valor monetário
                 TotalDeDocumentosNoBanco = totalReal,
-                // ValorTotalConfirmado é o SUM() exato calculado pelo banco — use SEMPRE este para fechar o total em R$
-                // NÃO some os valores individuais da coluna Data — use este campo
-                ValorTotalConfirmado = valorTotalConfirmado,
+                ValorTotalConfirmado = valorTotal,
                 ExibindoPrimeirosDocumentos = results.Count,
-                AlertaParaIA = totalReal > results.Count
-                    ? $"LISTAGEM PARCIAL: Existem {totalReal} documentos no banco, mostrando apenas {results.Count}. " +
-                      $"O ValorTotalConfirmado = {valorTotalConfirmado:F2} é o total EXATO de TODOS os {totalReal} documentos. " +
-                      $"NÃO some os valores da lista — use ValorTotalConfirmado para apresentar o total ao usuário."
-                    : $"LISTAGEM COMPLETA: Todos os {totalReal} documentos estão exibidos. Total confirmado: R$ {valorTotalConfirmado:F2}.",
+                AlertaParaIA = $"LISTAGEM COMPLETA: Todos os {totalReal} documentos estão exibidos. " +
+                               $"Total confirmado: R$ {valorTotal:F2}. " +
+                               $"EXIBA este valor como rodapé da tabela: **Total: R$ {valorTotal:N2} ({totalReal} documentos)**",
                 Data = results
             };
 
-            var jsonResult = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
-            Console.WriteLine($"[ErpPlugin] 🟢 LIST SUCCESS. {results.Count} of {totalReal} rows. Total R$ {valorTotalConfirmado:F2}");
-            return jsonResult;
+            var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
+            Console.WriteLine($"[ErpPlugin] 🟢 INLINE OK. {results.Count} rows. Total R$ {valorTotal:F2}");
+            return json;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ErpPlugin] 🔴 FATAL QUERY ERROR: {ex.Message}");
-            return $"{{\"error\": \"Database error: {ex.Message}\"}}";
+            Console.WriteLine($"[ErpPlugin] 🔴 INLINE ERRO: {ex.Message}");
+            return $"{{\"error\": \"{ex.Message}\"}}";
         }
+    }
+
+    /// <summary>Gera Excel com TODOS os registros, salva no IMemoryCache (TTL 30 min) e retorna apenas metadados para a IA.</summary>
+    private async Task<string> ExecuteExportToCache(string fullQuery, int totalReal, decimal valorTotal,
+        SqlParameter[] parameters, string viewName, string dateColumn)
+    {
+        if (string.IsNullOrEmpty(_connectionString))
+            return "{\"error\": \"Connection string not found.\"}";
+        try
+        {
+            string runnable = BuildRunnableQuery(fullQuery, parameters);
+            Console.WriteLine($"[ErpPlugin] 🟢 EXPORT FULL QUERY ({totalReal} rows): {runnable}");
+            ExecutedQueries.Add(runnable);
+
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            var results = new List<Dictionary<string, object>>();
+            using (var cmd = new SqlCommand(fullQuery, connection))
+            {
+                foreach (var p in parameters)
+                    cmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var row = new Dictionary<string, object>();
+                    for (int i = 0; i < reader.FieldCount; i++)
+                        row[reader.GetName(i)] = reader.GetValue(i) == DBNull.Value ? null! : reader.GetValue(i);
+                    results.Add(row);
+                }
+            }
+
+            // Gera Excel em memória com ClosedXML
+            var excelBytes = GerarExcel(results, viewName, totalReal, valorTotal);
+
+            // Salva no cache com TTL de 30 minutos
+            var exportId = Guid.NewGuid().ToString();
+            var cacheKey = $"export:{exportId}";
+            _cache.Set(cacheKey, excelBytes, TimeSpan.FromMinutes(30));
+
+            Console.WriteLine($"[ErpPlugin] 🟢 EXPORT CACHED. Id={exportId}, Rows={totalReal}, Size={excelBytes.Length} bytes");
+
+            // Retorna só os metadados para a IA — ela nunca processa as linhas
+            return JsonSerializer.Serialize(new
+            {
+                tipo = "EXPORT_PRONTO",
+                exportId = exportId,
+                totalLinhas = totalReal,
+                valorTotalConfirmado = valorTotal,
+                instrucaoParaIA =
+                    $"Um arquivo Excel com {totalReal} documentos (valor total R$ {valorTotal:N2}) foi gerado e estará disponível por 30 minutos. " +
+                    $"Informe ao usuário que o download está pronto e que o exportId é {exportId}. " +
+                    $"NÃO tente processar ou listar os dados — eles foram enviados diretamente ao usuário via download."
+            }, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ErpPlugin] 🔴 EXPORT ERRO: {ex.Message}");
+            return $"{{\"error\": \"{ex.Message}\"}}";
+        }
+    }
+
+    /// <summary>Gera arquivo Excel (.xlsx) em memória usando ClosedXML.</summary>
+    private static byte[] GerarExcel(List<Dictionary<string, object>> rows, string viewName, int total, decimal valorTotal)
+    {
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Relatório");
+
+        if (rows.Count == 0)
+        {
+            ws.Cell(1, 1).Value = "Nenhum registro encontrado.";
+        }
+        else
+        {
+            // Cabeçalho
+            var columns = rows[0].Keys.ToList();
+            for (int col = 0; col < columns.Count; col++)
+            {
+                var headerCell = ws.Cell(1, col + 1);
+                headerCell.Value = columns[col];
+                headerCell.Style.Font.Bold = true;
+                headerCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#1E293B");
+                headerCell.Style.Font.FontColor = XLColor.White;
+                headerCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            }
+
+            // Dados
+            for (int row = 0; row < rows.Count; row++)
+            {
+                for (int col = 0; col < columns.Count; col++)
+                {
+                    var val = rows[row].GetValueOrDefault(columns[col]);
+                    var cell = ws.Cell(row + 2, col + 1);
+
+                    if (val is DateTime dt)       cell.Value = dt;
+                    else if (val is decimal dec)  cell.Value = dec;
+                    else if (val is double dbl)   cell.Value = dbl;
+                    else if (val is int integer)  cell.Value = integer;
+                    else if (val is long lng)      cell.Value = lng;
+                    else                           cell.Value = val?.ToString() ?? "";
+
+                    // Zebra stripes
+                    if (row % 2 == 1)
+                        cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#F8FAFC");
+                }
+            }
+
+            // Rodapé com totais
+            int footerRow = rows.Count + 3;
+            ws.Cell(footerRow, 1).Value = $"Total de Documentos: {total}";
+            ws.Cell(footerRow, 1).Style.Font.Bold = true;
+            ws.Cell(footerRow + 1, 1).Value = $"Valor Total: R$ {valorTotal:N2}";
+            ws.Cell(footerRow + 1, 1).Style.Font.Bold = true;
+
+            ws.Columns().AdjustToContents();
+        }
+
+        // Informações da planilha
+        ws.Cell("A1").WorksheetColumn().Width = Math.Max(ws.Cell("A1").WorksheetColumn().Width, 15);
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
     }
 }

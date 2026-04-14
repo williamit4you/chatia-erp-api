@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System;
+using System.Text.RegularExpressions;
 using IT4You.Application.Interfaces;
 using IT4You.Domain.Entities;
 using IT4You.Application.Plugins;
@@ -10,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.SemanticKernel;
 using Microsoft.Extensions.AI;
 // 👇 Importação do novo Microsoft Agent Framework
@@ -26,13 +28,17 @@ public class ChatService : IChatService
     private readonly ILogger<ChatService> _logger;
     private readonly IFinancialAgentFactory _agentFactory;
     private readonly ErpPlugin _erpPlugin;
-    public ChatService(AppDbContext context, IConfiguration configuration, ILogger<ChatService> logger, IFinancialAgentFactory agentFactory, ErpPlugin erpPlugin)
+    private readonly IMemoryCache _cache;
+
+    public ChatService(AppDbContext context, IConfiguration configuration, ILogger<ChatService> logger,
+        IFinancialAgentFactory agentFactory, ErpPlugin erpPlugin, IMemoryCache cache)
     {
         _context = context;
         _configuration = configuration;
         _logger = logger;
         _agentFactory = agentFactory;
         _erpPlugin = erpPlugin;
+        _cache = cache;
     }
 
     public async Task<IT4You.Application.DTOs.ChatResponse> ProcessMessageAsync(
@@ -144,6 +150,12 @@ public class ChatService : IChatService
 
                     var reply = response.Messages.LastOrDefault()?.Text ?? "(Sem resposta)";
 
+                    // Extrai exportId se a IA mencionar um export gerado pelo ErpPlugin
+                    string? exportId = ExtrairExportId(reply);
+                    int exportTotal = 0; decimal exportValor = 0;
+                    if (exportId != null && _cache.TryGetValue($"export:meta:{exportId}", out (int t, decimal v) meta))
+                        (exportTotal, exportValor) = meta;
+
                     // ================================
                     // 6️⃣ SALVA RESPOSTA DO MODELO
                     // ================================
@@ -164,7 +176,7 @@ public class ChatService : IChatService
                     int totalChars = messages.Sum(m => m.Text?.Length ?? 0) + reply.Length;
                     int contextPercent = (int)Math.Min(100, Math.Round((double)totalChars / 240000 * 100));
 
-                    return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null, contextPercent);
+                    return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null, contextPercent, exportId, exportTotal, exportValor);
                 }
                 catch (Exception ex)
                 {
@@ -281,6 +293,12 @@ public class ChatService : IChatService
             var sqlJson = _erpPlugin.GetExecutedQueriesJson();
             var reply = response.Messages.LastOrDefault()?.Text ?? "(Sem resposta)";
 
+            // Extrai exportId se a IA mencionar um export gerado pelo ErpPlugin
+            string? exportId = ExtrairExportId(reply);
+            int exportTotal = 0; decimal exportValor = 0;
+            if (exportId != null && _cache.TryGetValue($"export:meta:{exportId}", out (int t2, decimal v2) meta2))
+                (exportTotal, exportValor) = (meta2.t2, meta2.v2);
+
             // SALVA RESPOSTA DO MODELO COM SQL
             var modelMsg = new IT4You.Domain.Entities.ChatMessage
             {
@@ -300,7 +318,7 @@ public class ChatService : IChatService
             int totalChars = messages.Sum(m => m.Text?.Length ?? 0) + reply.Length;
             int contextPercent = (int)Math.Min(100, Math.Round((double)totalChars / 240000 * 100));
 
-            return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null, contextPercent);
+            return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null, contextPercent, exportId, exportTotal, exportValor);
         }
         catch (Exception ex)
         {
@@ -378,7 +396,17 @@ public class ChatService : IChatService
             await _context.SaveChangesAsync();
         }
     }
+    /// <summary>Extrai o exportId (GUID UUID) da resposta textual da IA, se presente.</summary>
+    private static string? ExtrairExportId(string reply)
+    {
+        if (string.IsNullOrEmpty(reply)) return null;
+        var match = Regex.Match(reply,
+            @"exportId[\s:=]+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
+            RegexOptions.IgnoreCase);
+        return match.Success ? match.Groups[1].Value : null;
+    }
 }
+
 public static class ToolRegistry
 {
     public static List<AITool> FromPlugin(object pluginInstance)
