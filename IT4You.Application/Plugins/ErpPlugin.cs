@@ -52,7 +52,7 @@ public class ErpPlugin
             [Description("Nome da Filial. Vazio para ignorar.")] string filial = null,
             [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = null,
             [Description("Apenas contas com atraso (verdadeiro/falso).")] bool apenasAtrasados = false,
-            [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR' (se pagar), 'CLIENTE' (se receber), 'ANO', 'MES', 'FILIAL' ou 'TOTAL'")] string agrupamento = "NENHUM"
+            [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO' ou 'TOTAL'. REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM"
         )
         {
             // 🚨 TRAVA DE SEGURANÇA: Se a IA não souber, ela cai aqui e devolve a pergunta pro chat
@@ -81,7 +81,7 @@ public class ErpPlugin
             [Description("Nome da Filial. Vazio para ignorar.")] string filial = null,
             [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = null,
             [Description("Tipo de Pagamento/Meio (Ex: PIX, BOLETO). Vazio para ignorar.")] string tipoPagamento = null,
-            [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR' (se pagar), 'CLIENTE' (se receber), 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO' ou 'TOTAL'")] string agrupamento = "NENHUM"
+            [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO' ou 'TOTAL'. REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM"
         )
         {
             // 🚨 TRAVA DE SEGURANÇA: Se a IA não souber, ela cai aqui e devolve a pergunta pro chat
