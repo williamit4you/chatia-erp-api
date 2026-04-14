@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System;
-using System.Text.RegularExpressions;
 using IT4You.Application.Interfaces;
 using IT4You.Domain.Entities;
 using IT4You.Application.Plugins;
@@ -144,17 +143,17 @@ public class ChatService : IChatService
                     _logger.LogInformation("Calling agent with {Count} messages", messages.Count);
 
                     _erpPlugin.ClearExecutedQueries();
+                    _erpPlugin.ClearExportMetadata(); // limpa estado do export anterior
 
                     var response = await agent.RunAsync(messages);
                     var sqlJson = _erpPlugin.GetExecutedQueriesJson();
 
                     var reply = response.Messages.LastOrDefault()?.Text ?? "(Sem resposta)";
 
-                    // Extrai exportId se a IA mencionar um export gerado pelo ErpPlugin
-                    string? exportId = ExtrairExportId(reply);
-                    int exportTotal = 0; decimal exportValor = 0;
-                    if (exportId != null && _cache.TryGetValue($"export:meta:{exportId}", out (int t, decimal v) meta))
-                        (exportTotal, exportValor) = meta;
+                    // Lê export metadata diretamente do plugin (confiável, sem regex no texto da IA)
+                    string? exportId = _erpPlugin.LastExportId;
+                    int exportTotal = _erpPlugin.LastExportTotalLinhas;
+                    decimal exportValor = _erpPlugin.LastExportValorTotal;
 
                     // ================================
                     // 6️⃣ SALVA RESPOSTA DO MODELO
@@ -289,15 +288,15 @@ public class ChatService : IChatService
             _logger.LogInformation("Calling agent for chart analysis with {Count} messages", messages.Count);
 
             _erpPlugin.ClearExecutedQueries();
+            _erpPlugin.ClearExportMetadata();
             var response = await agent.RunAsync(messages);
             var sqlJson = _erpPlugin.GetExecutedQueriesJson();
             var reply = response.Messages.LastOrDefault()?.Text ?? "(Sem resposta)";
 
-            // Extrai exportId se a IA mencionar um export gerado pelo ErpPlugin
-            string? exportId = ExtrairExportId(reply);
-            int exportTotal = 0; decimal exportValor = 0;
-            if (exportId != null && _cache.TryGetValue($"export:meta:{exportId}", out (int t2, decimal v2) meta2))
-                (exportTotal, exportValor) = (meta2.t2, meta2.v2);
+            // Lê export metadata diretamente do plugin
+            string? exportId = _erpPlugin.LastExportId;
+            int exportTotal = _erpPlugin.LastExportTotalLinhas;
+            decimal exportValor = _erpPlugin.LastExportValorTotal;
 
             // SALVA RESPOSTA DO MODELO COM SQL
             var modelMsg = new IT4You.Domain.Entities.ChatMessage
@@ -395,15 +394,6 @@ public class ChatService : IChatService
             session.IsVisible = false;
             await _context.SaveChangesAsync();
         }
-    }
-    /// <summary>Extrai o exportId (GUID UUID) da resposta textual da IA, se presente.</summary>
-    private static string? ExtrairExportId(string reply)
-    {
-        if (string.IsNullOrEmpty(reply)) return null;
-        var match = Regex.Match(reply,
-            @"exportId[\s:=]+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
-            RegexOptions.IgnoreCase);
-        return match.Success ? match.Groups[1].Value : null;
     }
 }
 

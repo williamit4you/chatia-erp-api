@@ -20,14 +20,23 @@ public class ErpPlugin
     private readonly string _connectionString;
     private readonly IMemoryCache _cache;
 
-    // Acima deste número de linhas, o sistema gera um Excel e envia link direto ao usuário.
-    // A IA não procôessa as linhas — recebe apenas os metadados.
-    private const int EXPORT_THRESHOLD = 50;
+    // A partir deste número o sistema gera Excel direto ao usuário (bypass da IA)
+    private const int EXPORT_THRESHOLD = 10;
 
-    // SQL query tracking (safe: ErpPlugin is Scoped per-request)
+    // SQL query tracking
     public List<string> ExecutedQueries { get; } = new();
-
     public void ClearExecutedQueries() => ExecutedQueries.Clear();
+
+    // Export metadata — preenchido por ExecuteExportToCache, lido pelo ChatService
+    public string? LastExportId { get; private set; }
+    public int LastExportTotalLinhas { get; private set; }
+    public decimal LastExportValorTotal { get; private set; }
+    public void ClearExportMetadata()
+    {
+        LastExportId = null;
+        LastExportTotalLinhas = 0;
+        LastExportValorTotal = 0;
+    }
 
     public string? GetExecutedQueriesJson()
     {
@@ -484,6 +493,11 @@ public class ErpPlugin
             var exportId = Guid.NewGuid().ToString();
             var cacheKey = $"export:{exportId}";
             _cache.Set(cacheKey, excelBytes, TimeSpan.FromMinutes(30));
+
+            // Expõe metadados para o ChatService ler diretamente (não depende do texto da IA)
+            LastExportId = exportId;
+            LastExportTotalLinhas = totalReal;
+            LastExportValorTotal = valorTotal;
 
             Console.WriteLine($"[ErpPlugin] 🟢 EXPORT CACHED. Id={exportId}, Rows={totalReal}, Size={excelBytes.Length} bytes");
 
