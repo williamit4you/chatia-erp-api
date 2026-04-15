@@ -72,6 +72,7 @@ public class ErpPlugin
         [Description("Nome da Filial. Vazio para ignorar.")] string filial = "",
         [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = "",
         [Description("Apenas contas com atraso (verdadeiro/falso).")] bool apenasAtrasados = false,
+        [Description("Número do documento específico. Use para localizar UM documento exato.")] string numeroDocumento = "",
         [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO', 'TOTAL' ou 'SITUACAO_VENCIMENTO'. USE 'SITUACAO_VENCIMENTO' quando o usuário perguntar sobre vencidos e a vencer ao mesmo tempo (ex: 'quantos vencidos e a vencer?'). REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM"
         )
     {
@@ -88,7 +89,7 @@ public class ErpPlugin
         return await ExecuteDynamicQuery(
             viewName, 
             "DATAVENCIMENTO", 
-            dataInicioISO, dataFimISO, nomePessoa, uf, filial, cnpj, agrupamento, apenasAtrasados, null, null);
+            dataInicioISO, dataFimISO, nomePessoa, uf, filial, cnpj, agrupamento, apenasAtrasados, null, null, numeroDocumento);
     }
 
     [Description("[DOMÍNIO: PAGO] Consulta flexível de contas JÁ PAGAS/LIQUIDADAS.")]
@@ -100,6 +101,7 @@ public class ErpPlugin
         [Description("Sigla do Estado (Ex: SP). Vazio para ignorar.")] string uf = "",
         [Description("Nome da Filial. Vazio para ignorar.")] string filial = "",
         [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = "",
+        [Description("Número do documento específico. Use para localizar UM documento exato.")] string numeroDocumento = "",
         [Description("Tipo de Pagamento/Meio (Ex: PIX, BOLETO). Vazio para ignorar.")] string tipoPagamento = "",
         [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO', 'TOTAL' ou 'SITUACAO_VENCIMENTO'. USE 'SITUACAO_VENCIMENTO' quando o usuário perguntar sobre vencidos e a vencer ao mesmo tempo. REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM"
         )
@@ -117,7 +119,7 @@ public class ErpPlugin
         return await ExecuteDynamicQuery(
             viewName, 
             "DATAPAGAMENTO", 
-            dataPagamentoInicioISO, dataPagamentoFimISO, nomePessoa, uf, filial, cnpj, agrupamento, false, tipoPagamento, null);
+            dataPagamentoInicioISO, dataPagamentoFimISO, nomePessoa, uf, filial, cnpj, agrupamento, false, tipoPagamento, null, numeroDocumento);
     }
 
         [Description("[DOMÍNIO: AMBOS] Simula o fluxo de caixa cruzando Receitas e Despesas agrupadas pela Data.")]
@@ -187,7 +189,8 @@ public class ErpPlugin
         string agrupamento,
         bool apenasAtrasados,
         string tipoPagamento,
-        string situacao)
+        string situacao,
+        string numeroDocumento = "")
     {
         var sql = new StringBuilder();
         var conditions = new List<string>(); // Usar lista remove a necessidade do "WHERE 1=1"
@@ -234,6 +237,11 @@ public class ErpPlugin
         {
             conditions.Add("UPPER(TIPOPAG) LIKE UPPER(@tpag)");
             parameters.Add(new SqlParameter("@tpag", $"%{tipoPagamento}%"));
+        }
+        if (!string.IsNullOrEmpty(numeroDocumento))
+        {
+            conditions.Add("DOCUMENTO LIKE @doc");
+            parameters.Add(new SqlParameter("@doc", $"%{numeroDocumento}%"));
         }
 
         // Monta o WHERE apenas se tiver condições, limpíssimo
