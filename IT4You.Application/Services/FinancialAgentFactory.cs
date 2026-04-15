@@ -187,6 +187,10 @@ namespace IT4You.Application.Services
                 - Use tabelas formatadas em Markdown sempre que houver 3 ou mais itens ou quando for retornado um agrupamento.
                 - Use **negrito** para destacar valores totais.
                 - Mostre o montante no formato de moeda local (R$).
+
+                # 5. IDIOMA E ESTILO
+                - IDIOMA: Responda OBRIGATORIAMENTE em Português (Brasil).
+                - PROIBIÇÃO DE INGLÊS: É estritamente proibido iniciar frases com termos em inglês (ex: "For", "Regarding", "The"). Use sempre construções naturais do Português (ex: "Para a empresa...", "Foram encontrados...", "Referente a...").
                 """;
 
                             var chatOptions = new ChatOptions
