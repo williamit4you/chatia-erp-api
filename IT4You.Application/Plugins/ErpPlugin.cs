@@ -58,65 +58,67 @@ public class ErpPlugin
         _cache = cache;
         _connectionString = _configuration.GetConnectionString("DefaultConnection") ?? "";
     }
-    private const string BASE_COLUMNS = "EMPRESA, CLIENTE, NOMEFANTASIA, CPFCNPJ, CIDADE, UF, DOCUMENTO, EMISSAO, VALORDOC, PARCELA, VALORORIG, VALORPAG, DATAVENCIMENTO, DATAPAGAMENTO, CONDPAG, TIPOPAG, SITUACAO";
 
-            [Description("[DOMÍNIO: ABERTO] Consulta flexível de contas EM ABERTO (vencidas ou a vencer).")]
-            public async Task<string> ConsultarContasEmAberto(
-                [Description("OBRIGATÓRIO: 'PAGAR', 'RECEBER' ou 'INDEFINIDO'. REGRA: NUNCA presuma se um nome (ex: Minerva) é Cliente ou Fornecedor. No nosso sistema, qualquer pessoa pode ser ambos. Se o usuário não disser explicitamente o lado, PASSE O VALOR 'INDEFINIDO'.")] string tipoDominio = "INDEFINIDO",
-                [Description("Data inicial Vencimento (ISO 8601). Vazio para ignorar.")] string dataInicioISO = "",
-                [Description("Data final Vencimento (ISO 8601). Vazio para ignorar.")] string dataFimISO = "",
-                [Description("Nome ou Fantasia do Fornecedor ou Cliente. Vazio para ignorar.")] string nomePessoa = "",
-                [Description("Sigla do Estado (Ex: SP). Vazio para ignorar.")] string uf = "",
-                [Description("Nome da Filial. Vazio para ignorar.")] string filial = "",
-                [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = "",
-                [Description("Apenas contas com atraso (verdadeiro/falso).")] bool apenasAtrasados = false,
-                [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO', 'TOTAL' ou 'SITUACAO_VENCIMENTO'. USE 'SITUACAO_VENCIMENTO' quando o usuário perguntar sobre vencidos e a vencer ao mesmo tempo (ex: 'quantos vencidos e a vencer?'). REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM"
-                )
-            {
-            // 🚨 TRAVA DE SEGURANÇA: Se a IA não souber, ela cai aqui e devolve a pergunta pro chat
-                if (tipoDominio.Equals("INDEFINIDO", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "SISTEMA: Pare a execução. Pergunte ao usuário se ele deseja consultar o Contas a Pagar (fornecedor) ou o Contas a Receber (cliente).";
-                }
+    // Omitimos a coluna CLIENTE/FORNECEDOR do BASE_COLUMNS fixo pois ela varia por View
+    private const string BASE_COLUMNS_PARTIAL = "EMPRESA, NOMEFANTASIA, CPFCNPJ, CIDADE, UF, DOCUMENTO, EMISSAO, VALORDOC, PARCELA, VALORORIG, VALORPAG, DATAVENCIMENTO, DATAPAGAMENTO, CONDPAG, TIPOPAG, SITUACAO";
 
-                string viewName = tipoDominio.Equals("PAGAR", StringComparison.OrdinalIgnoreCase) 
-                    ? "VW_SWIA_DOC_FIN_PAG_ABERTO"
-                    : "VW_SWIA_DOC_FIN_REC_ABERTO";
-
-            return await ExecuteDynamicQuery(
-                viewName, 
-                "DATAVENCIMENTO", 
-                dataInicioISO, dataFimISO, nomePessoa, uf, filial, cnpj, agrupamento, apenasAtrasados, null, null);
-            }
-
-            [Description("[DOMÍNIO: PAGO] Consulta flexível de contas JÁ PAGAS/LIQUIDADAS.")]
-            public async Task<string> ConsultarContasPagas(
-                [Description("OBRIGATÓRIO: 'PAGAR', 'RECEBER' ou 'INDEFINIDO'. REGRA: NUNCA presuma se um nome (ex: Minerva) é Cliente ou Fornecedor. No nosso sistema, qualquer pessoa pode ser ambos. Se o usuário não disser explicitamente o lado, PASSE O VALOR 'INDEFINIDO'.")] string tipoDominio = "INDEFINIDO",
-                [Description("Data inicial do Pagamento (ISO 8601). Vazio para ignorar.")] string dataPagamentoInicioISO = "",
-                [Description("Data final do Pagamento (ISO 8601). Vazio para ignorar.")] string dataPagamentoFimISO = "",
-                [Description("Nome ou Fantasia do Fornecedor ou Cliente. Vazio para ignorar.")] string nomePessoa = "",
-                [Description("Sigla do Estado (Ex: SP). Vazio para ignorar.")] string uf = "",
-                [Description("Nome da Filial. Vazio para ignorar.")] string filial = "",
-                [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = "",
-                [Description("Tipo de Pagamento/Meio (Ex: PIX, BOLETO). Vazio para ignorar.")] string tipoPagamento = "",
-                [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO', 'TOTAL' ou 'SITUACAO_VENCIMENTO'. USE 'SITUACAO_VENCIMENTO' quando o usuário perguntar sobre vencidos e a vencer ao mesmo tempo. REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM"
-                )
-            {
-            // 🚨 TRAVA DE SEGURANÇA: Se a IA não souber, ela cai aqui e devolve a pergunta pro chat
-            if (tipoDominio.Equals("INDEFINIDO", StringComparison.OrdinalIgnoreCase))
-            {
-                return "SISTEMA: Pare a execução. Pergunte ao usuário se ele deseja consultar o Contas a Pagar (fornecedor) ou o Contas a Receber (cliente).";
-            }
-
-            string viewName = tipoDominio.Equals("PAGAR", StringComparison.OrdinalIgnoreCase) 
-                ? "VW_SWIA_DOC_FIN_PAG_PAGO"
-                : "VW_SWIA_DOC_FIN_REC_PAGO";
-
-            return await ExecuteDynamicQuery(
-                viewName, 
-                "DATAPAGAMENTO", 
-                dataPagamentoInicioISO, dataPagamentoFimISO, nomePessoa, uf, filial, cnpj, agrupamento, false, tipoPagamento, null);
+    [Description("[DOMÍNIO: ABERTO] Consulta flexível de contas EM ABERTO (vencidas ou a vencer).")]
+    public async Task<string> ConsultarContasEmAberto(
+        [Description("OBRIGATÓRIO: 'PAGAR', 'RECEBER' ou 'INDEFINIDO'. REGRA: NUNCA presuma se um nome (ex: Minerva) é Cliente ou Fornecedor. No nosso sistema, qualquer pessoa pode ser ambos. Se o usuário não disser explicitamente o lado, PASSE O VALOR 'INDEFINIDO'.")] string tipoDominio = "INDEFINIDO",
+        [Description("Data inicial Vencimento (ISO 8601). Vazio para ignorar.")] string dataInicioISO = "",
+        [Description("Data final Vencimento (ISO 8601). Vazio para ignorar.")] string dataFimISO = "",
+        [Description("Nome ou Fantasia do Fornecedor ou Cliente. Vazio para ignorar.")] string nomePessoa = "",
+        [Description("Sigla do Estado (Ex: SP). Vazio para ignorar.")] string uf = "",
+        [Description("Nome da Filial. Vazio para ignorar.")] string filial = "",
+        [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = "",
+        [Description("Apenas contas com atraso (verdadeiro/falso).")] bool apenasAtrasados = false,
+        [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO', 'TOTAL' ou 'SITUACAO_VENCIMENTO'. USE 'SITUACAO_VENCIMENTO' quando o usuário perguntar sobre vencidos e a vencer ao mesmo tempo (ex: 'quantos vencidos e a vencer?'). REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM"
+        )
+    {
+        // 🚨 TRAVA DE SEGURANÇA: Se a IA não souber, ela cai aqui e devolve a pergunta pro chat
+        if (tipoDominio.Equals("INDEFINIDO", StringComparison.OrdinalIgnoreCase))
+        {
+            return "SISTEMA: Pare a execução. Pergunte ao usuário se ele deseja consultar o Contas a Pagar (fornecedor) ou o Contas a Receber (cliente).";
         }
+
+        string viewName = tipoDominio.Equals("PAGAR", StringComparison.OrdinalIgnoreCase) 
+            ? "VW_SWIA_DOC_FIN_PAG_ABERTO"
+            : "VW_SWIA_DOC_FIN_REC_ABERTO";
+
+        return await ExecuteDynamicQuery(
+            viewName, 
+            "DATAVENCIMENTO", 
+            dataInicioISO, dataFimISO, nomePessoa, uf, filial, cnpj, agrupamento, apenasAtrasados, null, null);
+    }
+
+    [Description("[DOMÍNIO: PAGO] Consulta flexível de contas JÁ PAGAS/LIQUIDADAS.")]
+    public async Task<string> ConsultarContasPagas(
+        [Description("OBRIGATÓRIO: 'PAGAR', 'RECEBER' ou 'INDEFINIDO'. REGRA: NUNCA presuma se um nome (ex: Minerva) é Cliente ou Fornecedor. No nosso sistema, qualquer pessoa pode ser ambos. Se o usuário não disser explicitamente o lado, PASSE O VALOR 'INDEFINIDO'.")] string tipoDominio = "INDEFINIDO",
+        [Description("Data inicial do Pagamento (ISO 8601). Vazio para ignorar.")] string dataPagamentoInicioISO = "",
+        [Description("Data final do Pagamento (ISO 8601). Vazio para ignorar.")] string dataPagamentoFimISO = "",
+        [Description("Nome ou Fantasia do Fornecedor ou Cliente. Vazio para ignorar.")] string nomePessoa = "",
+        [Description("Sigla do Estado (Ex: SP). Vazio para ignorar.")] string uf = "",
+        [Description("Nome da Filial. Vazio para ignorar.")] string filial = "",
+        [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = "",
+        [Description("Tipo de Pagamento/Meio (Ex: PIX, BOLETO). Vazio para ignorar.")] string tipoPagamento = "",
+        [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO', 'TOTAL' ou 'SITUACAO_VENCIMENTO'. USE 'SITUACAO_VENCIMENTO' quando o usuário perguntar sobre vencidos e a vencer ao mesmo tempo. REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM"
+        )
+    {
+        // 🚨 TRAVA DE SEGURANÇA: Se a IA não souber, ela cai aqui e devolve a pergunta pro chat
+        if (tipoDominio.Equals("INDEFINIDO", StringComparison.OrdinalIgnoreCase))
+        {
+            return "SISTEMA: Pare a execução. Pergunte ao usuário se ele deseja consultar o Contas a Pagar (fornecedor) ou o Contas a Receber (cliente).";
+        }
+
+        string viewName = tipoDominio.Equals("PAGAR", StringComparison.OrdinalIgnoreCase) 
+            ? "VW_SWIA_DOC_FIN_PAG_PAGO"
+            : "VW_SWIA_DOC_FIN_REC_PAGO";
+
+        return await ExecuteDynamicQuery(
+            viewName, 
+            "DATAPAGAMENTO", 
+            dataPagamentoInicioISO, dataPagamentoFimISO, nomePessoa, uf, filial, cnpj, agrupamento, false, tipoPagamento, null);
+    }
 
         [Description("[DOMÍNIO: AMBOS] Simula o fluxo de caixa cruzando Receitas e Despesas agrupadas pela Data.")]
         public async Task<string> GetFluxoCaixaLiquidoNoPeriodo(
@@ -201,9 +203,12 @@ public class ErpPlugin
             conditions.Add($"{dateColumn} <= @dF");
             parameters.Add(new SqlParameter("@dF", ParseDate(dataFimISO)));
         }
+        // Identifica o nome da coluna de entidade baseado na View (FORNECEDOR para PAGAR, CLIENTE para RECEBER)
+        string personCol = viewName.Contains("_PAG_") ? "FORNECEDOR" : "CLIENTE";
+
         if (!string.IsNullOrEmpty(entidade))
         {
-            conditions.Add("(UPPER(CLIENTE) LIKE UPPER(@ent) OR UPPER(NOMEFANTASIA) LIKE UPPER(@ent))");
+            conditions.Add($"(UPPER({personCol}) LIKE UPPER(@ent) OR UPPER(NOMEFANTASIA) LIKE UPPER(@ent))");
             parameters.Add(new SqlParameter("@ent", $"%{entidade}%"));
         }
         if (!string.IsNullOrEmpty(uf))
@@ -234,12 +239,13 @@ public class ErpPlugin
         // Monta o WHERE apenas se tiver condições, limpíssimo
         string whereClause = conditions.Count > 0 ? " WHERE " + string.Join(" AND ", conditions) : "";
         string sumColumn = viewName.Contains("PAGO") ? "VALORPAG" : "VALORORIG";
+        string fullBaseColumns = $"{personCol}, {BASE_COLUMNS_PARTIAL}";
 
         // 🚨 TRAVA DE SEGURANÇA: Previne erro fatal se a IA omitir a propriedade e passar NULL
         string agrupar = string.IsNullOrEmpty(agrupamento) ? "NENHUM" : agrupamento;
 
         if (agrupar.Equals("FORNECEDOR", StringComparison.OrdinalIgnoreCase) || agrupar.Equals("CLIENTE", StringComparison.OrdinalIgnoreCase))
-            sql.Append($"SELECT CLIENTE as Entidade, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName}{whereClause} GROUP BY CLIENTE ORDER BY Total DESC");
+            sql.Append($"SELECT {personCol} as Entidade, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName}{whereClause} GROUP BY {personCol} ORDER BY Total DESC");
         else if (agrupar.Equals("ANO", StringComparison.OrdinalIgnoreCase))
             sql.Append($"SELECT YEAR({dateColumn}) as Ano, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName}{whereClause} GROUP BY YEAR({dateColumn}) ORDER BY Ano DESC");
         else if (agrupar.Equals("MES", StringComparison.OrdinalIgnoreCase))
@@ -268,13 +274,13 @@ public class ErpPlugin
             if (totalReal <= EXPORT_THRESHOLD)
             {
                 // Pequeno: envia inline para a IA (tabela no chat)
-                var listSql = $"SELECT TOP {EXPORT_THRESHOLD} {BASE_COLUMNS} FROM {viewName}{whereClause} ORDER BY {dateColumn} ASC";
+                var listSql = $"SELECT TOP {EXPORT_THRESHOLD} {fullBaseColumns} FROM {viewName}{whereClause} ORDER BY {dateColumn} ASC";
                 return await ExecuteListQueryInline(listSql, countSql, parameters.ToArray());
             }
             else
             {
                 // Grande: gera Excel, salva em cache, retorna só metadados para a IA
-                var fullSql = $"SELECT {BASE_COLUMNS} FROM {viewName}{whereClause} ORDER BY {dateColumn} ASC";
+                var fullSql = $"SELECT {fullBaseColumns} FROM {viewName}{whereClause} ORDER BY {dateColumn} ASC";
                 return await ExecuteExportToCache(fullSql, totalReal, valorTotal, parameters.ToArray(), viewName, dateColumn);
             }
         }
