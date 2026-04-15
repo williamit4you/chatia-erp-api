@@ -7,6 +7,7 @@ using Microsoft.Extensions.AI;
 using OpenAI;
 using Pgvector.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using System.ClientModel;
 
 namespace IT4You.Application.Services
 {
@@ -22,12 +23,26 @@ namespace IT4You.Application.Services
             _context = context;
         }
 
-        public async Task<AIAgent> CreateAgentAsync(string iaToken, bool hasPayableChatAccess, bool hasReceivableChatAccess, bool hasBankingChatAccess, string userInput = null, string userId = null)
+        public async Task<AIAgent> CreateAgentAsync(string chatAiToken, string ragAiToken, bool hasPayableChatAccess, bool hasReceivableChatAccess, bool hasBankingChatAccess, string userInput = null, string userId = null)
         {
-            if (string.IsNullOrWhiteSpace(iaToken))
-                throw new ArgumentException("IA Token was not provided.", nameof(iaToken));
+            if (string.IsNullOrWhiteSpace(chatAiToken))
+                throw new ArgumentException("Chat AI Token (Groq) was not provided.", nameof(chatAiToken));
 
-            IChatClient chatClient = new OpenAI.Chat.ChatClient("gpt-4o-mini", iaToken).AsIChatClient();
+            //IChatClient chatClient = new OpenAI.Chat.ChatClient("gpt-4o-mini", iaToken).AsIChatClient();
+
+            // 1. Redirecionamos a URL base da OpenAI para a URL de compatibilidade do Groq
+            var groqOptions = new OpenAIClientOptions
+            {
+                Endpoint = new Uri("https://api.groq.com/openai/v1")
+            };
+
+            // 2. Instanciamos usando o nome do modelo no Groq e as novas opções
+            IChatClient chatClient = new OpenAI.Chat.ChatClient(
+                "openai/gpt-oss-120b", // O ID do modelo conforme a documentação do Groq
+                new ApiKeyCredential(chatAiToken), // Usando o token do inquilino para o Groq
+                groqOptions
+            ).AsIChatClient();
+
             var allTools = ToolRegistry.FromPlugin(_erpPlugin);
             var today = DateTime.Now.ToString("yyyy-MM-dd");
 
@@ -67,8 +82,10 @@ namespace IT4You.Application.Services
             {
                 try
                 {
-                    // 1. Gera Embedding da mensagem
-                    var embeddingClient = new OpenAI.Embeddings.EmbeddingClient("text-embedding-3-small", iaToken);
+                if (!string.IsNullOrWhiteSpace(ragAiToken))
+                {
+                    // 1. Gera Embedding da mensagem (OpenAI)
+                    var embeddingClient = new OpenAI.Embeddings.EmbeddingClient("text-embedding-3-small", ragAiToken);
                     var userEmbeddingResult = await embeddingClient.GenerateEmbeddingAsync(userInput);
                     var userVector = new Pgvector.Vector(userEmbeddingResult.Value.ToFloats().ToArray());
 
@@ -102,6 +119,11 @@ namespace IT4You.Application.Services
                         Console.WriteLine("=== NENHUMA MEMÓRIA PASSOU NO CORTE DE 0.65 ===");
                     }
                 }
+                else
+                {
+                    Console.WriteLine("=== RAG PULADO: Token Memória RAG não configurado ===");
+                }
+                }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[RAG FAIL] {ex.Message}");
@@ -117,13 +139,13 @@ namespace IT4You.Application.Services
                 {ragKnowledge}
 
                 # 1. DIRETRIZES DE DADOS E EXECUÇÃO
-                - PERÍODO: Se o usuário não citar datas, preencha os parâmetros da ferramenta com valores nulos. Apenas defina Data Fim se o usuário explicitamente fechar o escopo.
+                - PARÂMETROS VAZIOS: Se o usuário não citar datas ou filtros (como nome, UF, filial, cnpj), preencha os parâmetros da ferramenta OBRIGATORIAMENTE com STRINGS VAZIAS (""""). NUNCA envie valores null.
+                - PERÍODO: Apenas defina Data Fim se o usuário explicitamente fechar o escopo temporal.
                 - FIDELIDADE: Relate exatamente os valores brutos. Não arredonde e não faça cálculos manuais além do básico. Se a ferramenta retornar nada, diga R$ 0,00.
                 - AGREGAÇÃO E CONTAGEM (REGRA DE OURO): Se o usuário perguntar ""Quantos"", ""Qual a quantidade"", ""Saldo total"", ""Soma de valores"", ""Quanto tenho"", ""Qual o total"" ou qualquer variação de volume/soma/contagem, você DEVE OBRIGATORIAMENTE usar o parâmetro agrupamento=""TOTAL"". É estritamente proibido listar documentos individuais para contar ou somar manualmente.
                 - ATENÇÃO CRÍTICA AO JSON DE LISTAGEM: Quando você fizer uma listagem (agrupamento=""NENHUM""), o retorno conterá o campo ""TotalDeDocumentosNoBanco"" que é uma QUANTIDADE DE DOCUMENTOS (número inteiro de registros), NÃO é um valor em Reais. NUNCA apresente esse número formatado como R$. Se precisar do valor financeiro total, chame a ferramenta novamente com agrupamento=""TOTAL"".
                 - LISTAGEM E LIMITES: Quando você listar documentos (agrupamento=""NENHUM""), o sistema retornará no máximo 50 registros. Se o campo ""AlertaParaIA"" indicar que a listagem está parcial, informe o usuário que existem mais documentos e que para valores exatos é necessário usar agrupamento=""TOTAL"".
                 - RODAPÉ OBRIGATÓRIO: Toda listagem de documentos virá com o campo ""ValorTotalConfirmado"" no JSON. Este é o SUM() calculado pelo banco para TODOS os documentos do filtro. Você DEVE exibir este valor como rodapé da tabela no formato ""**Total: R$ X.XXX,XX (N documentos)**"". NUNCA some os valores individuais das linhas — use SEMPRE ""ValorTotalConfirmado"".
-
 
                 # 2. SEGURANÇA E ACESSOS
                 Permissões do usuário atual:

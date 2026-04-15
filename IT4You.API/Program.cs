@@ -4,6 +4,7 @@ using IT4You.Application.Services;
 using IT4You.Application.FinanceAnalytics.Interfaces;
 using IT4You.Application.FinanceAnalytics.Services;
 using IT4You.Infrastructure.Repositories;
+using IT4You.Infrastructure.Services;
 using IT4You.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -64,6 +65,8 @@ builder.Services.AddScoped<IFinanceAnalyticsService, FinanceAnalyticsService>();
 
 builder.Services.AddScoped<IT4You.Application.Plugins.ErpPlugin>();
 builder.Services.AddScoped<IFinancialAgentFactory, FinancialAgentFactory>();
+
+builder.Services.AddHostedService<MonitoringWorker>();
 
 // Configure JWT Authentication
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();

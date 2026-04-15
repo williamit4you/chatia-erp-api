@@ -25,6 +25,7 @@ public class TenantService : ITenantService
         if (tenant == null) throw new Exception("Tenant not found");
 
         tenant.IaToken = request.IaToken;
+        tenant.ChatAiToken = request.ChatAiToken;
         tenant.ErpToken = request.ErpToken;
         tenant.UpdatedAt = DateTime.UtcNow;
 
@@ -50,6 +51,7 @@ public class TenantService : ITenantService
             t.Cnpj, 
             t.IaToken, 
             t.ErpToken, 
+            t.ChatAiToken,
             t.CreatedAt,
             t.Users.Select(u => new UserDto(
                 u.Id, 
@@ -90,6 +92,7 @@ public class TenantService : ITenantService
             tenant.Cnpj, 
             tenant.IaToken, 
             tenant.ErpToken, 
+            tenant.ChatAiToken,
             tenant.CreatedAt,
             tenant.Users.Select(u => new UserDto(u.Id, u.Name, u.Email, u.Role.ToString(), u.QueryCount, u.CreatedAt, u.IsActive, u.HasPayableChatAccess, u.HasPayableDashboardAccess, u.HasReceivableChatAccess, u.HasReceivableDashboardAccess, u.HasBankingChatAccess, u.HasBankingDashboardAccess))
         );

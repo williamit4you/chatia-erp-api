@@ -6,6 +6,7 @@ public class Tenant
     public string Name { get; set; } = string.Empty;
     public string Cnpj { get; set; } = string.Empty;
     public string? IaToken { get; set; }
+    public string? ChatAiToken { get; set; }
     public string? ErpToken { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

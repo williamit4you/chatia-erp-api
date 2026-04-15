@@ -113,6 +113,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Name).HasColumnName("name");
             entity.Property(e => e.Cnpj).HasColumnName("cnpj");
             entity.Property(e => e.IaToken).HasColumnName("iaToken");
+            entity.Property(e => e.ChatAiToken).HasColumnName("chatAiToken");
             entity.Property(e => e.ErpToken).HasColumnName("erpToken");
             entity.Property(e => e.IsActive).HasColumnName("isActive");
             entity.Property(e => e.CreatedAt).HasColumnName("createdAt");

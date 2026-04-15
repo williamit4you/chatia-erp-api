@@ -54,7 +54,7 @@ public class ChatService : IChatService
                     throw new Exception("Tenant não encontrado.");
                 }
 
-                Console.WriteLine($"[ProcessMessage] Found Tenant: {tenant.Name}. IaToken check (length): {(tenant.IaToken?.Length ?? 0)}");
+                Console.WriteLine($"[ProcessMessage] Found Tenant: {tenant.Name}. ChatAiToken check (length): {(tenant.ChatAiToken?.Length ?? 0)}");
 
                 // ================================
                 // 1️⃣ GERENCIAMENTO DE SESSÃO
@@ -107,6 +107,7 @@ public class ChatService : IChatService
                                      user?.Role == UserRole.ADMIN;
 
                     var agent = await _agentFactory.CreateAgentAsync(
+                        tenant.ChatAiToken,
                         tenant.IaToken, 
                         isFullAdmin || (user?.HasPayableChatAccess ?? false), 
                         isFullAdmin || (user?.HasReceivableChatAccess ?? false),
@@ -241,6 +242,7 @@ public class ChatService : IChatService
                              user?.Role == UserRole.ADMIN;
 
             var agent = await _agentFactory.CreateAgentAsync(
+                tenant.ChatAiToken,
                 tenant.IaToken,
                 isFullAdmin || (user?.HasPayableChatAccess ?? false),
                 isFullAdmin || (user?.HasReceivableChatAccess ?? false),
