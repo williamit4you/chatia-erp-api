@@ -11,6 +11,9 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using ClosedXML.Excel;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 
 namespace IT4You.Application.Plugins;
 
@@ -499,9 +502,13 @@ public class ErpPlugin
             LastExportTotalLinhas = totalReal;
             LastExportValorTotal = valorTotal;
 
+            // Salva dados brutos (JSON) para geração de PDF on-demand — mesma TTL de 30 min
+            var rawDataJson = JsonSerializer.Serialize(results);
+            _cache.Set($"export-data:{exportId}", rawDataJson, TimeSpan.FromMinutes(30));
+
             Console.WriteLine($"[ErpPlugin] 🟢 EXPORT CACHED. Id={exportId}, Rows={totalReal}, Size={excelBytes.Length} bytes");
 
-            // Retorna só os metadados para a IA — ela nunca processa as linhas
+            // Retorna só os metadados para a IA — ela não deve mencionar links nem URLs
             return JsonSerializer.Serialize(new
             {
                 tipo = "EXPORT_PRONTO",
@@ -509,9 +516,9 @@ public class ErpPlugin
                 totalLinhas = totalReal,
                 valorTotalConfirmado = valorTotal,
                 instrucaoParaIA =
-                    $"Um arquivo Excel com {totalReal} documentos (valor total R$ {valorTotal:N2}) foi gerado e estará disponível por 30 minutos. " +
-                    $"Informe ao usuário que o download está pronto e que o exportId é {exportId}. " +
-                    $"NÃO tente processar ou listar os dados — eles foram enviados diretamente ao usuário via download."
+                    $"Relatório gerado com sucesso: {totalReal} documentos, valor total R$ {valorTotal:N2}. " +
+                    $"Informe ao usuário de forma objetiva quantos documentos foram encontrados e o valor total. " +
+                    $"NÃO mencione links, URLs, exportId nem instruções de download — os botões de download (Excel e PDF) são exibidos automaticamente pela interface abaixo desta mensagem."
             }, new JsonSerializerOptions { WriteIndented = true });
         }
         catch (Exception ex)
@@ -519,6 +526,87 @@ public class ErpPlugin
             Console.WriteLine($"[ErpPlugin] 🔴 EXPORT ERRO: {ex.Message}");
             return $"{{\"error\": \"{ex.Message}\"}}";
         }
+    }
+
+    /// <summary>Gera arquivo PDF em memória usando QuestPDF.</summary>
+    public static byte[] GerarPdf(List<Dictionary<string, object>> rows, int total, decimal valorTotal)
+    {
+        QuestPDF.Settings.License = LicenseType.Community;
+
+        return Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Margin(30);
+                page.Size(PageSizes.A4.Landscape());
+                page.DefaultTextStyle(x => x.FontSize(8).FontFamily("Arial"));
+
+                page.Header().Padding(5).Row(row =>
+                {
+                    row.RelativeItem().Text(text =>
+                    {
+                        text.Span("Relatório Financeiro").Bold().FontSize(12);
+                        text.Span($"  —  Gerado em {DateTime.Now:dd/MM/yyyy HH:mm}").FontSize(9).FontColor(Colors.Grey.Medium);
+                    });
+                    row.ConstantItem(180).AlignRight().Text(text =>
+                    {
+                        text.Span($"{total} registros  |  ").FontSize(9).FontColor(Colors.Grey.Medium);
+                        text.Span($"R$ {valorTotal:N2}").Bold().FontSize(9).FontColor(Colors.Green.Darken2);
+                    });
+                });
+
+                page.Content().PaddingVertical(8).Table(table =>
+                {
+                    if (rows.Count == 0) return;
+
+                    var columns = rows[0].Keys.ToList();
+
+                    // Columas dinâmicas com tamanho relativo igual
+                    table.ColumnsDefinition(cols =>
+                    {
+                        foreach (var _ in columns)
+                            cols.RelativeColumn();
+                    });
+
+                    // Cabeçalho
+                    table.Header(header =>
+                    {
+                        foreach (var col in columns)
+                        {
+                            header.Cell().Background(Colors.BlueGrey.Darken3).Padding(4)
+                                .Text(col).Bold().FontColor(Colors.White).FontSize(7.5f);
+                        }
+                    });
+
+                    // Linhas de dados com zebra stripe
+                    for (int r = 0; r < rows.Count; r++)
+                    {
+                        var bgColor = r % 2 == 0 ? Colors.White : Colors.Grey.Lighten4;
+                        foreach (var col in columns)
+                        {
+                            var val = rows[r].GetValueOrDefault(col);
+                            string text = val switch
+                            {
+                                DateTime dt => dt.ToString("dd/MM/yyyy"),
+                                decimal dec => dec.ToString("N2"),
+                                double dbl  => dbl.ToString("N2"),
+                                null        => "",
+                                _           => val.ToString() ?? ""
+                            };
+                            table.Cell().Background(bgColor).Padding(3).Text(text).FontSize(7.5f);
+                        }
+                    }
+                });
+
+                page.Footer().AlignCenter().Text(text =>
+                {
+                    text.Span("Página ").FontSize(8).FontColor(Colors.Grey.Medium);
+                    text.CurrentPageNumber().FontSize(8).FontColor(Colors.Grey.Medium);
+                    text.Span(" de ").FontSize(8).FontColor(Colors.Grey.Medium);
+                    text.TotalPages().FontSize(8).FontColor(Colors.Grey.Medium);
+                });
+            });
+        }).GeneratePdf();
     }
 
     /// <summary>Gera arquivo Excel (.xlsx) em memória usando ClosedXML.</summary>

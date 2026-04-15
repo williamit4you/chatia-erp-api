@@ -140,4 +140,41 @@ public class ChatController : ControllerBase
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             fileName);
     }
+
+    /// <summary>
+    /// Download de relatório PDF gerado on-demand a partir dos dados brutos em cache.
+    /// Requer JWT válido. Os dados ficam disponíveis por 30 minutos no cache.
+    /// </summary>
+    [HttpGet("export/{exportId}/pdf")]
+    public IActionResult DownloadExportPdf(string exportId)
+    {
+        if (string.IsNullOrWhiteSpace(exportId))
+            return BadRequest(new { message = "exportId inválido." });
+
+        if (!_cache.TryGetValue($"export-data:{exportId}", out string? rawDataJson) || rawDataJson == null)
+            return NotFound(new { message = "Dados do relatório expirados ou não encontrados. Solicite a listagem novamente." });
+
+        // Desserializa os dados brutos e gera o PDF on-demand
+        var rows = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(rawDataJson)
+                   ?? new List<Dictionary<string, object>>();
+
+        // Recupera metadados de total/valor do cache de export de Excel (mesma chave base)
+        // Como não temos metadados separados, recalculamos a partir dos dados
+        int total = rows.Count;
+        decimal valorTotal = 0;
+        foreach (var row in rows)
+        {
+            if (row.TryGetValue("VALORORIG", out var v) && v is System.Text.Json.JsonElement je)
+            {
+                if (je.ValueKind == System.Text.Json.JsonValueKind.Number)
+                    valorTotal += je.GetDecimal();
+            }
+        }
+
+        var pdfBytes = IT4You.Application.Plugins.ErpPlugin.GerarPdf(rows, total, valorTotal);
+
+        var fileName = $"relatorio_{exportId[..8]}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+        return File(pdfBytes, "application/pdf", fileName);
+    }
 }
+
