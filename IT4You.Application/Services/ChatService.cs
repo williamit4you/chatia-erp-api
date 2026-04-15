@@ -173,8 +173,9 @@ public class ChatService : IChatService
                     // ================================
                     // CALCULO DO SCORE DE CONTEXTO %
                     // ================================
+                    // Estimativa segura: 128k tokens ≈ 512k caracteres (Limite do gpt-oss-120b)
                     int totalChars = messages.Sum(m => m.Text?.Length ?? 0) + reply.Length;
-                    int contextPercent = (int)Math.Min(100, Math.Round((double)totalChars / 240000 * 100));
+                    int contextPercent = (int)Math.Min(100, Math.Round((double)totalChars / 512000 * 100));
 
                     return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null, contextPercent, exportId, exportTotal, exportValor);
                 }
@@ -314,10 +315,9 @@ public class ChatService : IChatService
             // ================================
             // CALCULO DO SCORE DE CONTEXTO %
             // ================================
-            // Estimativa simples: soma o length dos conteúdos enviados e da resposta.
-            // Limite seguro conversacional = 60.000 tokens ≈ 240.000 caracteres.
+            // Estimativa segura: 128k tokens ≈ 512k caracteres (Limite do gpt-oss-120b)
             int totalChars = messages.Sum(m => m.Text?.Length ?? 0) + reply.Length;
-            int contextPercent = (int)Math.Min(100, Math.Round((double)totalChars / 240000 * 100));
+            int contextPercent = (int)Math.Min(100, Math.Round((double)totalChars / 512000 * 100));
 
             return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null, contextPercent, exportId, exportTotal, exportValor);
         }
