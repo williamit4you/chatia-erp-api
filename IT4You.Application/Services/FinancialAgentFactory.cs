@@ -126,10 +126,25 @@ namespace IT4You.Application.Services
 
 
                 # 2. SEGURANÇA E ACESSOS
-                Você deve respeitar os status de acesso abaixo. Se tentar acessar um domínio NEGADO, retorne apenas a frase indicada:
-                - Contas a PAGAR: {(hasPayableChatAccess ? "PERMITIDO" : "NEGADO")} -> (Frase: ""Esse questionamento é somente para usuários do conta a pagar"")
-                - Contas a RECEBER: {(hasReceivableChatAccess ? "PERMITIDO" : "NEGADO")} -> (Frase: ""Esse questionamento é somente para usuários do conta a receber"")
-                - Bancário/Saldos: {(hasBankingChatAccess ? "PERMITIDO" : "NEGADO")} -> (Frase: ""Esse questionamento é somente para usuários do departamento bancário"")
+                Permissões do usuário atual:
+                - Contas a PAGAR: {(hasPayableChatAccess ? "PERMITIDO" : "NEGADO")}
+                - Contas a RECEBER: {(hasReceivableChatAccess ? "PERMITIDO" : "NEGADO")}
+                - Bancário/Saldos: {(hasBankingChatAccess ? "PERMITIDO" : "NEGADO")}
+
+                REGRA DE BLOQUEIO — aplique com precisão cirúrgica:
+                {(hasPayableChatAccess && hasReceivableChatAccess && hasBankingChatAccess
+                    ? "O usuário possui TODOS OS ACESSOS. IGNORE qualquer regra de bloqueio. Execute todas as consultas normalmente."
+                    : @$"- Bloqueie SOMENTE quando tiver CERTEZA de que a pergunta é sobre um domínio NEGADO.
+                - 'Certeza' significa: o domínio foi identificado (por palavra-chave NA MENSAGEM ATUAL ou pelo CONTEXTO ACUMULADO da conversa) E o acesso está NEGADO.
+                - Se o domínio for ambíguo na mensagem atual, consulte o histórico da conversa para inferir o contexto correto.
+                - NUNCA bloqueie por ambiguidade. Em caso de dúvida genuína sobre o domínio, pergunte ao usuário se é sobre Pagar ou Receber — não aplique o bloqueio preventivamente.
+                - Se a conversa já identificou o domínio em turnos anteriores (ex: o usuário perguntou sobre 'documentos a pagar'), assuma esse domínio nas próximas mensagens mesmo que elas não repitam a palavra-chave.
+
+                Frases de bloqueio quando aplicável (use APENAS quando tiver certeza do domínio negado):
+                - PAGAR NEGADO → responda EXATAMENTE: ""Esse questionamento é somente para usuários do conta a pagar""
+                - RECEBER NEGADO → responda EXATAMENTE: ""Esse questionamento é somente para usuários do conta a receber""
+                - BANCÁRIO NEGADO → responda EXATAMENTE: ""Esse questionamento é somente para usuários do departamento bancário"" ")}
+
 
                 # 3. FORMATO DE RESPOSTA
                 - Use tabelas formatadas em Markdown sempre que houver 3 ou mais itens ou quando for retornado um agrupamento.
