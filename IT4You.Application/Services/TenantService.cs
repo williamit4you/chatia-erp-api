@@ -134,7 +134,7 @@ public class TenantService : ITenantService
 
         var isAdmin = user.Role == UserRole.TENANT_ADMIN || user.Role == UserRole.SUPER_ADMIN || user.Role == UserRole.ADMIN;
 
-        if (user.Email != request.Email)
+        if (!string.IsNullOrWhiteSpace(request.Email) && user.Email != request.Email)
         {
             var emailExists = await _context.Users.AnyAsync(u => u.Email == request.Email);
             if (emailExists) throw new Exception("Email already in use by another user");
@@ -159,7 +159,15 @@ public class TenantService : ITenantService
         if (request.HasBankingDashboardAccess.HasValue) user.HasBankingDashboardAccess = isAdmin || request.HasBankingDashboardAccess.Value;
 
         if (request.IsInactive.HasValue) user.IsInactive = request.IsInactive.Value;
-        if (request.BlockedUntil != null) user.BlockedUntil = request.BlockedUntil;
+        
+        if (request.Unblock == true)
+        {
+            user.BlockedUntil = null;
+        }
+        else if (request.BlockedUntil.HasValue)
+        {
+            user.BlockedUntil = request.BlockedUntil.Value;
+        }
 
         if (!string.IsNullOrWhiteSpace(request.Name))
         {
