@@ -52,13 +52,13 @@ public class ChatService : IChatService
 
                 if (user.IsInactive)
                 {
-                    throw new Exception("Sua conta está inativa. Entre em contato com o administrador.");
+                    throw new Exception("Olá! Parece que sua política de acesso precisa de uma atualização. Verifique com o administrador!");
                 }
 
                 if (user.BlockedUntil.HasValue && user.BlockedUntil.Value > DateTime.UtcNow)
                 {
-                    var dataFormatada = user.BlockedUntil.Value.ToString("dd/MM/yyyy HH:mm");
-                    throw new Exception($"Sua conta está bloqueada até {dataFormatada}.");
+                    var dataFormatada = user.BlockedUntil.Value.ToString("dd/MM/yyyy");
+                    throw new Exception($"sem token para utilização, liberação após o dia {dataFormatada}");
                 }
 
                 var tenant = await _context.Tenants.FindAsync(tenantId);
@@ -217,13 +217,13 @@ public class ChatService : IChatService
 
         if (user.IsInactive)
         {
-            throw new Exception("Sua conta está inativa. Entre em contato com o administrador.");
+            throw new Exception("Olá! Parece que sua política de acesso precisa de uma atualização. Verifique com o administrador!");
         }
 
         if (user.BlockedUntil.HasValue && user.BlockedUntil.Value > DateTime.UtcNow)
         {
-            var dataFormatada = user.BlockedUntil.Value.ToString("dd/MM/yyyy HH:mm");
-            throw new Exception($"Sua conta está bloqueada até {dataFormatada}.");
+            var dataFormatada = user.BlockedUntil.Value.ToString("dd/MM/yyyy");
+            throw new Exception($"sem token para utilização, liberação após o dia {dataFormatada}");
         }
 
         var tenant = await _context.Tenants.FindAsync(tenantId);

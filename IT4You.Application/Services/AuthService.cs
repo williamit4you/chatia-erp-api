@@ -38,7 +38,7 @@ public class AuthService : IAuthService
             if (!user.IsActive)
             {
                 _logger.LogWarning("User is inactive: {Email}", request.Email);
-                throw new UnauthorizedAccessException("FORBIDDEN_INACTIVE_USER");
+                throw new UnauthorizedAccessException("Olá! Parece que sua política de acesso precisa de uma atualização. Verifique com o administrador!");
             }
 
             if (user.Tenant != null && !user.Tenant.IsActive)
