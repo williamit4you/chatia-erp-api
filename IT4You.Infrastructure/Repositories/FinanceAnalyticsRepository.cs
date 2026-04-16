@@ -303,7 +303,7 @@ namespace IT4You.Infrastructure.Repositories
             {
                 totalPagAberto = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORORIG) FROM VW_SWIA_DOC_FIN_PAG_ABERTO", parameters) ?? 0;
 
-                var sqlDistPagFornecedor = $@"SELECT TOP 15 CLIENTE as Label, SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE 1=1 {dateFilterPagAberto} GROUP BY CLIENTE ORDER BY Valor DESC";
+                var sqlDistPagFornecedor = $@"SELECT TOP 15 FORNECEDOR as Label, SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE 1=1 {dateFilterPagAberto} GROUP BY FORNECEDOR ORDER BY Valor DESC";
                 distPagFornecedor = await connection.QueryAsync<DistributionDto>(sqlDistPagFornecedor, parameters);
 
                 var sqlGeoPagar = $@"SELECT TOP 10 UF as Local, SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE UF IS NOT NULL {dateFilterPagAberto} GROUP BY UF ORDER BY Valor DESC";
@@ -355,7 +355,7 @@ namespace IT4You.Infrastructure.Repositories
             var totalRecPago = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORORIG) FROM VW_SWIA_DOC_FIN_REC_PAGO") ?? 0;
             kpisFase2.IndiceDependenciaCliente = totalRecPago > 0 ? (maxCli / totalRecPago) * 100 : 0;
 
-            var sqlDepFor = @"SELECT TOP 1 SUM(VALORORIG) as MaxVal FROM VW_SWIA_DOC_FIN_PAG_PAGO GROUP BY CLIENTE ORDER BY MaxVal DESC";
+            var sqlDepFor = @"SELECT TOP 1 SUM(VALORORIG) as MaxVal FROM VW_SWIA_DOC_FIN_PAG_PAGO GROUP BY FORNECEDOR ORDER BY MaxVal DESC";
             var maxFor = await connection.ExecuteScalarAsync<decimal?>(sqlDepFor) ?? 0;
             var totalPagPago = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORORIG) FROM VW_SWIA_DOC_FIN_PAG_PAGO") ?? 0;
             kpisFase2.IndiceDependenciaFornecedor = totalPagPago > 0 ? (maxFor / totalPagPago) * 100 : 0;
@@ -385,7 +385,7 @@ namespace IT4You.Infrastructure.Repositories
 
             // 17 & 18. Valor Médio por Cliente/Fornecedor Ativo
             kpisFase2.ValorMedioCliente = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORPAG) / NULLIF(COUNT(DISTINCT CLIENTE), 0) FROM VW_SWIA_DOC_FIN_REC_PAGO") ?? 0;
-            kpisFase2.ValorMedioFornecedor = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORPAG) / NULLIF(COUNT(DISTINCT CLIENTE), 0) FROM VW_SWIA_DOC_FIN_PAG_PAGO") ?? 0;
+            kpisFase2.ValorMedioFornecedor = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORPAG) / NULLIF(COUNT(DISTINCT FORNECEDOR), 0) FROM VW_SWIA_DOC_FIN_PAG_PAGO") ?? 0;
 
             // 19. Índice de Liquidação de Documentos
             kpisFase2.IndiceLiquidacaoDocumentos = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORPAG) / NULLIF(SUM(VALORORIG), 0) FROM VW_SWIA_DOC_FIN_REC_PAGO") ?? 0;
@@ -394,7 +394,7 @@ namespace IT4You.Infrastructure.Repositories
             var top5CliSum = await connection.ExecuteScalarAsync<decimal?>(@"SELECT SUM(Valor) FROM (SELECT TOP 5 SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_REC_PAGO GROUP BY CLIENTE ORDER BY Valor DESC) t") ?? 0;
             kpisFase2.ConcentracaoTop5Clientes = totalRecPago > 0 ? (top5CliSum / totalRecPago) * 100 : 0;
 
-            var top5ForSum = await connection.ExecuteScalarAsync<decimal?>(@"SELECT SUM(Valor) FROM (SELECT TOP 5 SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_PAG_PAGO GROUP BY CLIENTE ORDER BY Valor DESC) t") ?? 0;
+            var top5ForSum = await connection.ExecuteScalarAsync<decimal?>(@"SELECT SUM(Valor) FROM (SELECT TOP 5 SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_PAG_PAGO GROUP BY FORNECEDOR ORDER BY Valor DESC) t") ?? 0;
             kpisFase2.ConcentracaoTop5Fornecedores = totalPagPago > 0 ? (top5ForSum / totalPagPago) * 100 : 0;
 
             // 22. Volume Financeiro por CPF/CNPJ
@@ -425,7 +425,7 @@ namespace IT4You.Infrastructure.Repositories
             var distPMRecCli = await connection.QueryAsync<DistributionDto>(sqlPMRecCli);
 
             // 2. Prazo Médio de Pagamento por Fornecedor
-            var sqlPMPagFor = "SELECT TOP 20 CLIENTE as Label, AVG(CAST(DATEDIFF(DAY, DATAVENCIMENTO, DATAPAGAMENTO) AS DECIMAL)) as Valor FROM VW_SWIA_DOC_FIN_PAG_PAGO GROUP BY CLIENTE ORDER BY Valor DESC";
+            var sqlPMPagFor = "SELECT TOP 20 FORNECEDOR as Label, AVG(CAST(DATEDIFF(DAY, DATAVENCIMENTO, DATAPAGAMENTO) AS DECIMAL)) as Valor FROM VW_SWIA_DOC_FIN_PAG_PAGO GROUP BY FORNECEDOR ORDER BY Valor DESC";
             var distPMPagFor = await connection.QueryAsync<DistributionDto>(sqlPMPagFor);
 
             // 3. % Recebimentos Antecipados
@@ -456,7 +456,7 @@ namespace IT4You.Infrastructure.Repositories
             var distTMRecCli = await connection.QueryAsync<DistributionDto>(sqlTMRecCli);
 
             // 16. Ticket Médio por Fornecedor (CLIENTE in view)
-            var sqlTMPagFor = "SELECT TOP 20 CLIENTE as Label, SUM(VALORPAG) / COUNT(DOCUMENTO) as Valor FROM VW_SWIA_DOC_FIN_PAG_PAGO GROUP BY CLIENTE ORDER BY Valor DESC";
+            var sqlTMPagFor = "SELECT TOP 20 FORNECEDOR as Label, SUM(VALORPAG) / COUNT(DOCUMENTO) as Valor FROM VW_SWIA_DOC_FIN_PAG_PAGO GROUP BY FORNECEDOR ORDER BY Valor DESC";
             var distTMPagFor = await connection.QueryAsync<DistributionDto>(sqlTMPagFor);
 
             // 17. Documentos por Cliente Ativo
@@ -464,7 +464,7 @@ namespace IT4You.Infrastructure.Repositories
             var distDocCli = await connection.QueryAsync<DistributionDto>(sqlDocCli);
 
             // 18. Documentos por Fornecedor Ativo
-            var sqlDocFor = "SELECT TOP 20 CLIENTE as Label, COUNT(DOCUMENTO) as Valor FROM VW_SWIA_DOC_FIN_PAG_PAGO GROUP BY CLIENTE ORDER BY Valor DESC";
+            var sqlDocFor = "SELECT TOP 20 FORNECEDOR as Label, COUNT(DOCUMENTO) as Valor FROM VW_SWIA_DOC_FIN_PAG_PAGO GROUP BY FORNECEDOR ORDER BY Valor DESC";
             var distDocFor = await connection.QueryAsync<DistributionDto>(sqlDocFor);
 
             // 20. Tempo Médio Restante até Vencimento
