@@ -28,7 +28,7 @@ public class AuthController : ControllerBase
         {
             var response = await _authService.LoginAsync(request);
             if (response == null)
-                return Unauthorized(new { message = "Invalid email or password" });
+                return Unauthorized(new { message = "E-mail ou senha inválidos." });
 
             // Generate JWT
             var token = GenerateJwtToken(response);
