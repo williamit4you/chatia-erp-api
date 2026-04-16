@@ -37,7 +37,7 @@ public class AuthController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return StatusCode(403, new { error = ex.Message, message = "favor consulte o administrador do sistema" });
+            return StatusCode(403, new { error = ex.Message, message = ex.Message });
         }
     }
 

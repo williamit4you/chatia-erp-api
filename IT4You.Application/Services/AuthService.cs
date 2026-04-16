@@ -35,10 +35,17 @@ public class AuthService : IAuthService
                 return null;
             }
 
-            if (!user.IsActive)
+            if (!user.IsActive || user.IsInactive)
             {
                 _logger.LogWarning("User is inactive: {Email}", request.Email);
                 throw new UnauthorizedAccessException("Olá! Parece que sua política de acesso precisa de uma atualização. Verifique com o administrador!");
+            }
+
+            if (user.BlockedUntil.HasValue && user.BlockedUntil.Value > DateTime.UtcNow)
+            {
+                var dataFormatada = user.BlockedUntil.Value.ToString("dd/MM/yyyy");
+                _logger.LogWarning("User is blocked until {Date}: {Email}", dataFormatada, request.Email);
+                throw new UnauthorizedAccessException($"sem token para utilização, liberação após o dia {dataFormatada}");
             }
 
             if (user.Tenant != null && !user.Tenant.IsActive)

@@ -50,17 +50,6 @@ public class ChatService : IChatService
                 var user = await _context.Users.FindAsync(userId);
                 if (user == null) throw new Exception("Usuário não encontrado.");
 
-                if (user.IsInactive)
-                {
-                    throw new Exception("Olá! Parece que sua política de acesso precisa de uma atualização. Verifique com o administrador!");
-                }
-
-                if (user.BlockedUntil.HasValue && user.BlockedUntil.Value > DateTime.UtcNow)
-                {
-                    var dataFormatada = user.BlockedUntil.Value.ToString("dd/MM/yyyy");
-                    throw new Exception($"sem token para utilização, liberação após o dia {dataFormatada}");
-                }
-
                 var tenant = await _context.Tenants.FindAsync(tenantId);
                 if (tenant == null)
                 {
@@ -214,17 +203,6 @@ public class ChatService : IChatService
 
         var user = await _context.Users.FindAsync(userId);
         if (user == null) throw new Exception("Usuário não encontrado.");
-
-        if (user.IsInactive)
-        {
-            throw new Exception("Olá! Parece que sua política de acesso precisa de uma atualização. Verifique com o administrador!");
-        }
-
-        if (user.BlockedUntil.HasValue && user.BlockedUntil.Value > DateTime.UtcNow)
-        {
-            var dataFormatada = user.BlockedUntil.Value.ToString("dd/MM/yyyy");
-            throw new Exception($"sem token para utilização, liberação após o dia {dataFormatada}");
-        }
 
         var tenant = await _context.Tenants.FindAsync(tenantId);
 
