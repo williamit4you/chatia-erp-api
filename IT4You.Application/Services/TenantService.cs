@@ -66,7 +66,9 @@ public class TenantService : ITenantService
                 u.HasReceivableChatAccess,
                 u.HasReceivableDashboardAccess,
                 u.HasBankingChatAccess,
-                u.HasBankingDashboardAccess
+                u.HasBankingDashboardAccess,
+                u.IsInactive,
+                u.BlockedUntil
             ))
         ));
     }
@@ -94,7 +96,7 @@ public class TenantService : ITenantService
             tenant.ErpToken, 
             tenant.ChatAiToken,
             tenant.CreatedAt,
-            tenant.Users.Select(u => new UserDto(u.Id, u.Name, u.Email, u.Role.ToString(), u.QueryCount, u.CreatedAt, u.IsActive, u.HasPayableChatAccess, u.HasPayableDashboardAccess, u.HasReceivableChatAccess, u.HasReceivableDashboardAccess, u.HasBankingChatAccess, u.HasBankingDashboardAccess))
+            tenant.Users.Select(u => new UserDto(u.Id, u.Name, u.Email, u.Role.ToString(), u.QueryCount, u.CreatedAt, u.IsActive, u.HasPayableChatAccess, u.HasPayableDashboardAccess, u.HasReceivableChatAccess, u.HasReceivableDashboardAccess, u.HasBankingChatAccess, u.HasBankingDashboardAccess, u.IsInactive, u.BlockedUntil))
         );
     }
 
@@ -155,6 +157,9 @@ public class TenantService : ITenantService
         if (request.HasReceivableDashboardAccess.HasValue) user.HasReceivableDashboardAccess = isAdmin || request.HasReceivableDashboardAccess.Value;
         if (request.HasBankingChatAccess.HasValue) user.HasBankingChatAccess = isAdmin || request.HasBankingChatAccess.Value;
         if (request.HasBankingDashboardAccess.HasValue) user.HasBankingDashboardAccess = isAdmin || request.HasBankingDashboardAccess.Value;
+
+        if (request.IsInactive.HasValue) user.IsInactive = request.IsInactive.Value;
+        if (request.BlockedUntil != null) user.BlockedUntil = request.BlockedUntil;
 
         if (!string.IsNullOrWhiteSpace(request.Name))
         {

@@ -47,6 +47,20 @@ public class ChatService : IChatService
             {
                 _logger.LogInformation("Processing message for User: {UserId}, Tenant: {TenantId}", userId, tenantId);
 
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null) throw new Exception("Usuário não encontrado.");
+
+                if (user.IsInactive)
+                {
+                    throw new Exception("Sua conta está inativa. Entre em contato com o administrador.");
+                }
+
+                if (user.BlockedUntil.HasValue && user.BlockedUntil.Value > DateTime.UtcNow)
+                {
+                    var dataFormatada = user.BlockedUntil.Value.ToString("dd/MM/yyyy HH:mm");
+                    throw new Exception($"Sua conta está bloqueada até {dataFormatada}.");
+                }
+
                 var tenant = await _context.Tenants.FindAsync(tenantId);
                 if (tenant == null)
                 {
@@ -86,12 +100,13 @@ public class ChatService : IChatService
                 {
                     SessionId = sessionId,
                     Role = "user",
-                    Content = request.Message
+                    Content = request.Message,
+                    Module = "Financeiro"
                 };
 
                 _context.ChatMessages.Add(userMsg);
 
-                var user = await _context.Users.FindAsync(userId);
+                // var user = await _context.Users.FindAsync(userId); // Já buscado acima
                 if (user != null)
                     user.QueryCount++;
 
@@ -164,7 +179,8 @@ public class ChatService : IChatService
                         SessionId = sessionId,
                         Role = "assistant",
                         Content = reply,
-                        SqlQueries = sqlJson
+                        SqlQueries = sqlJson,
+                        Module = "Financeiro"
                     };
 
                     _context.ChatMessages.Add(modelMsg);
@@ -196,10 +212,21 @@ public class ChatService : IChatService
     {
         _logger.LogInformation("Processing chart analysis for User: {UserId}, Chart: {ChartId}", userId, request.ChartId);
 
-        var tenant = await _context.Tenants.FindAsync(tenantId);
-        if (tenant == null) throw new Exception("Tenant não encontrado.");
-
         var user = await _context.Users.FindAsync(userId);
+        if (user == null) throw new Exception("Usuário não encontrado.");
+
+        if (user.IsInactive)
+        {
+            throw new Exception("Sua conta está inativa. Entre em contato com o administrador.");
+        }
+
+        if (user.BlockedUntil.HasValue && user.BlockedUntil.Value > DateTime.UtcNow)
+        {
+            var dataFormatada = user.BlockedUntil.Value.ToString("dd/MM/yyyy HH:mm");
+            throw new Exception($"Sua conta está bloqueada até {dataFormatada}.");
+        }
+
+        var tenant = await _context.Tenants.FindAsync(tenantId);
 
         // ================================
         // GERENCIAMENTO DE SESSÃO (por usuário + gráfico)
@@ -231,7 +258,8 @@ public class ChatService : IChatService
         {
             SessionId = sessionId,
             Role = "user",
-            Content = request.Message
+            Content = request.Message,
+            Module = "Financeiro"
         };
         _context.ChatMessages.Add(userMsg);
         await _context.SaveChangesAsync();
@@ -307,7 +335,8 @@ public class ChatService : IChatService
                 SessionId = sessionId,
                 Role = "assistant",
                 Content = reply,
-                SqlQueries = sqlJson
+                SqlQueries = sqlJson,
+                Module = "Financeiro"
             };
             _context.ChatMessages.Add(modelMsg);
             await _context.SaveChangesAsync();
@@ -383,6 +412,62 @@ public class ChatService : IChatService
             ));
         }
         return logs;
+    }
+
+    public async Task<UsageHistoryDto> GetUsageHistoryAsync(string tenantId, int? month = null, int? year = null, DateTime? startDate = null, DateTime? endDate = null)
+    {
+        var query = from msg in _context.ChatMessages
+                    join session in _context.ChatSessions on msg.SessionId equals session.Id
+                    join usr in _context.Users on session.UserId equals usr.Id
+                    where session.TenantId == tenantId && msg.Role == "user"
+                    select new { msg, session, usr };
+
+        if (startDate.HasValue)
+            query = query.Where(x => x.msg.CreatedAt >= startDate.Value);
+
+        if (endDate.HasValue)
+            query = query.Where(x => x.msg.CreatedAt <= endDate.Value);
+
+        if (month.HasValue && year.HasValue)
+        {
+            query = query.Where(x => x.msg.CreatedAt.Month == month.Value && x.msg.CreatedAt.Year == year.Value);
+        }
+
+        var results = await query.ToListAsync();
+
+        var modules = new[] { "Financeiro", "Estoque", "Vendas", "Produção", "Contrato", "Projetos" };
+
+        var monthlyUsage = results
+            .GroupBy(r => new { r.msg.CreatedAt.Year, r.msg.CreatedAt.Month })
+            .Select(g => new MonthlyUsageDto(
+                $"{GetMonthName(g.Key.Month)}/{g.Key.Year.ToString().Substring(2)}",
+                g.Count(),
+                modules.ToDictionary(m => m, m => g.Count(x => x.msg.Module == m))
+            ))
+            .OrderByDescending(x => x.Month)
+            .ToList();
+
+        var detailedUsage = results
+            .GroupBy(r => r.usr.Name ?? r.usr.Email)
+            .Select(g => new UserUsageDto(
+                g.Key,
+                g.Count(),
+                modules.ToDictionary(m => m, m => g.Count(x => x.msg.Module == m))
+            ))
+            .OrderByDescending(x => x.TotalCount)
+            .ToList();
+
+        return new UsageHistoryDto(monthlyUsage, detailedUsage);
+    }
+
+    private string GetMonthName(int month)
+    {
+        return month switch
+        {
+            1 => "jan", 2 => "fev", 3 => "mar", 4 => "abr", 5 => "mai", 6 => "jun",
+            7 => "jul", 8 => "ago", 9 => "set", 10 => "out", 11 => "nov", 12 => "dez",
+            _ => ""
+        };
     }
 
     public async Task DeleteSessionAsync(string sessionId, string tenantId)

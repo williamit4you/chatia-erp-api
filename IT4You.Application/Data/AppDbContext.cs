@@ -90,6 +90,8 @@ public class AppDbContext : DbContext
             entity.Property(e => e.TenantId).HasColumnName("tenantId");
             entity.Property(e => e.QueryCount).HasColumnName("queryCount");
             entity.Property(e => e.IsActive).HasColumnName("isActive");
+            entity.Property(e => e.IsInactive).HasColumnName("isInactive");
+            entity.Property(e => e.BlockedUntil).HasColumnName("blockedUntil");
             entity.Property(e => e.HasPayableChatAccess).HasColumnName("hasPayableChatAccess");
             entity.Property(e => e.HasPayableDashboardAccess).HasColumnName("hasPayableDashboardAccess");
             entity.Property(e => e.HasReceivableChatAccess).HasColumnName("hasReceivableChatAccess");
@@ -150,6 +152,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Role).HasColumnName("role");
             entity.Property(e => e.Content).HasColumnName("content");
             entity.Property(e => e.SqlQueries).HasColumnName("sqlQueries");
+            entity.Property(e => e.Module).HasColumnName("module");
             entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
 
             entity.HasOne(d => d.Session)

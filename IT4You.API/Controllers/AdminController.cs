@@ -14,12 +14,24 @@ namespace IT4You.API.Controllers;
 public class AdminController : ControllerBase
 {
     private readonly ITenantService _tenantService;
+    private readonly IChatService _chatService;
     private readonly AppDbContext _context;
 
-    public AdminController(ITenantService tenantService, AppDbContext context)
+    public AdminController(ITenantService tenantService, IChatService chatService, AppDbContext context)
     {
         _tenantService = tenantService;
+        _chatService = chatService;
         _context = context;
+    }
+
+    [HttpGet("usage-history")]
+    public async Task<IActionResult> GetUsageHistory([FromQuery] int? month, [FromQuery] int? year, [FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate)
+    {
+        var tenantId = User.FindFirst("tenantId")?.Value;
+        if (string.IsNullOrEmpty(tenantId) && !User.IsInRole("SUPER_ADMIN")) return Unauthorized();
+
+        var history = await _chatService.GetUsageHistoryAsync(tenantId, month, year, startDate, endDate);
+        return Ok(history);
     }
 
     [HttpGet("settings")]
