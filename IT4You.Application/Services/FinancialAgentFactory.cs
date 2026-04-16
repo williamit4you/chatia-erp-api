@@ -291,10 +291,10 @@ namespace IT4You.Application.Services
                                         Se existir QUALQUER indicação textual (mesmo indireta) de fornecedor ou cliente, 
                                         você NÃO deve pedir esclarecimento e deve seguir com a execução.
 
-                                        1. SAÍDAS PENDENTES DOMÍNIO PAGAR ABERTO: View `VW_DOC_FIN_PAG_ABERTO`. (Acesso: {(hasPayableChatAccess ? "PERMITIDO" : "NEGADO")})
-                                        2. SAÍDAS LIQUIDADAS DOMÍNIO PAGAR PAGO: View `VW_DOC_FIN_PAG_PAGO`. (Acesso: {(hasPayableChatAccess ? "PERMITIDO" : "NEGADO")})
-                                        3. ENTRADAS PENDENTES DOMÍNIO RECEBER ABERTO: View `VW_DOC_FIN_REC_ABERTO`. (Acesso: {(hasReceivableChatAccess ? "PERMITIDO" : "NEGADO")})
-                                        4. ENTRADAS LIQUIDADAS DOMÍNIO RECEBER PAGO: View `VW_DOC_FIN_REC_PAGO`. (Acesso: {(hasReceivableChatAccess ? "PERMITIDO" : "NEGADO")})
+                                        1. SAÍDAS PENDENTES DOMÍNIO PAGAR ABERTO: View `VW_SWIA_DOC_FIN_PAG_ABERTO`. (Acesso: {(hasPayableChatAccess ? "PERMITIDO" : "NEGADO")})
+                                        2. SAÍDAS LIQUIDADAS DOMÍNIO PAGAR PAGO: View `VW_SWIA_DOC_FIN_PAG_PAGO`. (Acesso: {(hasPayableChatAccess ? "PERMITIDO" : "NEGADO")})
+                                        3. ENTRADAS PENDENTES DOMÍNIO RECEBER ABERTO: View `VW_SWIA_DOC_FIN_REC_ABERTO`. (Acesso: {(hasReceivableChatAccess ? "PERMITIDO" : "NEGADO")})
+                                        4. ENTRADAS LIQUIDADAS DOMÍNIO RECEBER PAGO: View `VW_SWIA_DOC_FIN_REC_PAGO`. (Acesso: {(hasReceivableChatAccess ? "PERMITIDO" : "NEGADO")})
                                         5. MOVIMENTAÇÃO BANCÁRIA / SALDOS: (Acesso: {(hasBankingChatAccess ? "PERMITIDO" : "NEGADO")})
 
                                         # REGRAS DE ACESSO CRÍTICAS (DEVE SEGUIR À RISCA)
