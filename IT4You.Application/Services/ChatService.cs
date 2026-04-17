@@ -418,27 +418,38 @@ public class ChatService : IChatService
         if (endDate.HasValue)
             query = query.Where(x => x.msg.CreatedAt <= endDate.Value);
 
-        if (month.HasValue && year.HasValue)
-        {
-            query = query.Where(x => x.msg.CreatedAt.Month == month.Value && x.msg.CreatedAt.Year == year.Value);
-        }
-
-        var results = await query.ToListAsync();
+        var allResults = await query.ToListAsync();
 
         var modules = new[] { "Financeiro", "Estoque", "Vendas", "Produção", "Contrato", "Projetos" };
 
-        var monthlyUsage = results
+        // 1. Resumo Mensal (Summary Cards) - Sorted correctly by Year/Month
+        var monthlyUsage = allResults
             .GroupBy(r => new { r.msg.CreatedAt.Year, r.msg.CreatedAt.Month })
-            .Select(g => new MonthlyUsageDto(
-                $"{GetMonthName(g.Key.Month)}/{g.Key.Year.ToString().Substring(2)}",
-                g.Count(),
-                modules.ToDictionary(m => m, m => g.Count(x => x.msg.Module == m))
-            ))
-            .OrderByDescending(x => x.Month)
+            .Select(g => new { 
+                Year = g.Key.Year, 
+                Month = g.Key.Month,
+                Dto = new MonthlyUsageDto(
+                    $"{GetMonthName(g.Key.Month)}/{g.Key.Year.ToString().Substring(2)}",
+                    g.Count(),
+                    modules.ToDictionary(m => m, m => g.Count(x => x.msg.Module == m))
+                )
+            })
+            .OrderByDescending(x => x.Year)
+            .ThenByDescending(x => x.Month)
+            .Select(x => x.Dto)
             .ToList();
 
-        var detailedUsage = results
-            .GroupBy(r => r.usr.Name ?? r.usr.Email)
+        // 2. Histórico Detalhado (Details Table) - Potentially filtered by specific month/year
+        var detailedResults = allResults;
+        if (month.HasValue && year.HasValue)
+        {
+            detailedResults = allResults
+                .Where(x => x.msg.CreatedAt.Month == month.Value && x.msg.CreatedAt.Year == year.Value)
+                .ToList();
+        }
+
+        var detailedUsage = detailedResults
+            .GroupBy(r => (r.usr.Name ?? r.usr.Email))
             .Select(g => new UserUsageDto(
                 g.Key,
                 g.Count(),
