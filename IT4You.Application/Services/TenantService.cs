@@ -4,6 +4,7 @@ using IT4You.Domain.Entities;
 using IT4You.Application.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using IT4You.Application.Helpers;
 
 namespace IT4You.Application.Services;
 
@@ -27,6 +28,16 @@ public class TenantService : ITenantService
         tenant.IaToken = request.IaToken;
         tenant.ChatAiToken = request.ChatAiToken;
         tenant.ErpToken = request.ErpToken;
+        
+        tenant.DbIp = request.DbIp;
+        tenant.DbName = request.DbName;
+        tenant.DbType = request.DbType;
+        tenant.DbUser = request.DbUser;
+        if (!string.IsNullOrEmpty(request.DbPassword))
+        {
+            tenant.DbPassword = EncryptionHelper.Encrypt(request.DbPassword);
+        }
+        
         tenant.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
@@ -52,6 +63,11 @@ public class TenantService : ITenantService
             t.IaToken, 
             t.ErpToken, 
             t.ChatAiToken,
+            t.DbIp,
+            t.DbName,
+            t.DbType,
+            t.DbUser,
+            EncryptionHelper.Decrypt(t.DbPassword ?? ""),
             t.CreatedAt,
             t.Users.Select(u => new UserDto(
                 u.Id, 
@@ -95,6 +111,11 @@ public class TenantService : ITenantService
             tenant.IaToken, 
             tenant.ErpToken, 
             tenant.ChatAiToken,
+            tenant.DbIp,
+            tenant.DbName,
+            tenant.DbType,
+            tenant.DbUser,
+            EncryptionHelper.Decrypt(tenant.DbPassword ?? ""),
             tenant.CreatedAt,
             tenant.Users.Select(u => new UserDto(u.Id, u.Name, u.Email, u.Role.ToString(), u.QueryCount, u.CreatedAt, u.IsActive, u.HasPayableChatAccess, u.HasPayableDashboardAccess, u.HasReceivableChatAccess, u.HasReceivableDashboardAccess, u.HasBankingChatAccess, u.HasBankingDashboardAccess, u.IsInactive, u.BlockedUntil))
         );

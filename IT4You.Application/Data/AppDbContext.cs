@@ -117,6 +117,11 @@ public class AppDbContext : DbContext
             entity.Property(e => e.IaToken).HasColumnName("iaToken");
             entity.Property(e => e.ChatAiToken).HasColumnName("chatAiToken");
             entity.Property(e => e.ErpToken).HasColumnName("erpToken");
+            entity.Property(e => e.DbIp).HasColumnName("dbIp");
+            entity.Property(e => e.DbName).HasColumnName("dbName");
+            entity.Property(e => e.DbType).HasColumnName("dbType");
+            entity.Property(e => e.DbUser).HasColumnName("dbUser");
+            entity.Property(e => e.DbPassword).HasColumnName("dbPassword");
             entity.Property(e => e.IsActive).HasColumnName("isActive");
             entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
             entity.Property(e => e.UpdatedAt).HasColumnName("updatedAt");

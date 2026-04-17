@@ -1,6 +1,6 @@
 namespace IT4You.Application.DTOs;
 
-public record UpdateSettingsRequest(string? IaToken, string? ErpToken, string? ChatAiToken);
+public record UpdateSettingsRequest(string? IaToken, string? ErpToken, string? ChatAiToken, string? DbIp, string? DbName, string? DbType, string? DbUser, string? DbPassword);
 
 public record CreateUserRequest(string Email, string Password, string? Name, string? Role, 
     bool HasPayableChatAccess = false, bool HasPayableDashboardAccess = false,
@@ -17,4 +17,6 @@ public record UserDto(string Id, string? Name, string? Email, string Role, int Q
     bool HasReceivableChatAccess, bool HasReceivableDashboardAccess,
     bool HasBankingChatAccess, bool HasBankingDashboardAccess,
     bool IsInactive, DateTime? BlockedUntil);
-public record TenantDto(string Id, string Name, string Cnpj, string? IaToken, string? ErpToken, string? ChatAiToken, DateTime CreatedAt, IEnumerable<UserDto> Users);
+public record TenantDto(string Id, string Name, string Cnpj, string? IaToken, string? ErpToken, string? ChatAiToken, 
+    string? DbIp, string? DbName, string? DbType, string? DbUser, string? DbPassword,
+    DateTime CreatedAt, IEnumerable<UserDto> Users);
