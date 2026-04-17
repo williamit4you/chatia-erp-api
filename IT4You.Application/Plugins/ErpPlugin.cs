@@ -73,7 +73,9 @@ public class ErpPlugin
         [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = "",
         [Description("Apenas contas com atraso (verdadeiro/falso).")] bool apenasAtrasados = false,
         [Description("Número do documento específico. Use para localizar UM documento exato.")] string numeroDocumento = "",
-        [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO', 'TOTAL' ou 'SITUACAO_VENCIMENTO'. USE 'SITUACAO_VENCIMENTO' quando o usuário perguntar sobre vencidos e a vencer ao mesmo tempo (ex: 'quantos vencidos e a vencer?'). REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM"
+        [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO', 'TOTAL' ou 'SITUACAO_VENCIMENTO'. USE 'SITUACAO_VENCIMENTO' quando o usuário perguntar sobre vencidos e a vencer ao mesmo tempo (ex: 'quantos vencidos e a vencer?'). REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM",
+        [Description("Limite máximo de registros para retornar. Use apenas se o usuário pedir 'Top X' ou 'X documentos'.")] int limite = 0,
+        [Description("Se verdadeiro, ordena os resultados pelos maiores valores financeiros.")] bool ordenarPorMaiorValor = false
         )
     {
         // 🚨 TRAVA DE SEGURANÇA: Se a IA não souber, ela cai aqui e devolve a pergunta pro chat
@@ -89,7 +91,7 @@ public class ErpPlugin
         return await ExecuteDynamicQuery(
             viewName, 
             "DATAVENCIMENTO", 
-            dataInicioISO, dataFimISO, nomePessoa, uf, filial, cnpj, agrupamento, apenasAtrasados, null, null, numeroDocumento);
+            dataInicioISO, dataFimISO, nomePessoa, uf, filial, cnpj, agrupamento, apenasAtrasados, null, null, numeroDocumento, limite, ordenarPorMaiorValor);
     }
 
     [Description("[DOMÍNIO: PAGO] Consulta flexível de contas JÁ PAGAS/LIQUIDADAS.")]
@@ -103,7 +105,9 @@ public class ErpPlugin
         [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = "",
         [Description("Número do documento específico. Use para localizar UM documento exato.")] string numeroDocumento = "",
         [Description("Tipo de Pagamento/Meio (Ex: PIX, BOLETO). Vazio para ignorar.")] string tipoPagamento = "",
-        [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO', 'TOTAL' ou 'SITUACAO_VENCIMENTO'. USE 'SITUACAO_VENCIMENTO' quando o usuário perguntar sobre vencidos e a vencer ao mesmo tempo. REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM"
+        [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO', 'TOTAL' ou 'SITUACAO_VENCIMENTO'. USE 'SITUACAO_VENCIMENTO' quando o usuário perguntar sobre vencidos e a vencer ao mesmo tempo. REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM",
+        [Description("Limite máximo de registros para retornar. Use apenas se o usuário pedir 'Top X' ou 'X documentos'.")] int limite = 0,
+        [Description("Se verdadeiro, ordena os resultados pelos maiores valores financeiros.")] bool ordenarPorMaiorValor = false
         )
     {
         // 🚨 TRAVA DE SEGURANÇA: Se a IA não souber, ela cai aqui e devolve a pergunta pro chat
@@ -119,7 +123,7 @@ public class ErpPlugin
         return await ExecuteDynamicQuery(
             viewName, 
             "DATAPAGAMENTO", 
-            dataPagamentoInicioISO, dataPagamentoFimISO, nomePessoa, uf, filial, cnpj, agrupamento, false, tipoPagamento, null, numeroDocumento);
+            dataPagamentoInicioISO, dataPagamentoFimISO, nomePessoa, uf, filial, cnpj, agrupamento, false, tipoPagamento, null, numeroDocumento, limite, ordenarPorMaiorValor);
     }
 
         [Description("[DOMÍNIO: AMBOS] Simula o fluxo de caixa cruzando Receitas e Despesas agrupadas pela Data.")]
@@ -190,7 +194,9 @@ public class ErpPlugin
         bool apenasAtrasados,
         string tipoPagamento,
         string situacao,
-        string numeroDocumento = "")
+        string numeroDocumento = "",
+        int limite = 0,
+        bool ordenarPorMaiorValor = false)
     {
         var sql = new StringBuilder();
         var conditions = new List<string>(); // Usar lista remove a necessidade do "WHERE 1=1"
@@ -279,16 +285,25 @@ public class ErpPlugin
             var countSql = $"SELECT COUNT(*) AS Quantidade, SUM({sumColumn}) AS ValorTotal FROM {viewName}{whereClause}";
             var (totalReal, valorTotal) = await ExecuteCountAndSum(countSql, parameters.ToArray());
 
-            if (totalReal <= EXPORT_THRESHOLD)
+            // Define o critério de ordenação
+            string sortCol = ordenarPorMaiorValor ? sumColumn : dateColumn;
+            string sortOrder = ordenarPorMaiorValor ? "DESC" : "ASC";
+            string orderByClause = $" ORDER BY {sortCol} {sortOrder}";
+
+            // Se a IA pediu um limite específico (ex: Top 10), usamos esse limite para decidir a exibição
+            int thresholdParaUso = (limite > 0 && limite <= EXPORT_THRESHOLD) ? limite : totalReal;
+
+            if (thresholdParaUso <= EXPORT_THRESHOLD)
             {
-                // Pequeno: envia inline para a IA (tabela no chat)
-                var listSql = $"SELECT TOP {EXPORT_THRESHOLD} {fullBaseColumns} FROM {viewName}{whereClause} ORDER BY {dateColumn} ASC";
+                // Pequeno (ou pedido limitadamente): envia inline para a IA (tabela no chat)
+                int topN = limite > 0 ? limite : EXPORT_THRESHOLD;
+                var listSql = $"SELECT TOP {topN} {fullBaseColumns} FROM {viewName}{whereClause}{orderByClause}";
                 return await ExecuteListQueryInline(listSql, countSql, parameters.ToArray());
             }
             else
             {
                 // Grande: gera Excel, salva em cache, retorna só metadados para a IA
-                var fullSql = $"SELECT {fullBaseColumns} FROM {viewName}{whereClause} ORDER BY {dateColumn} ASC";
+                var fullSql = $"SELECT {fullBaseColumns} FROM {viewName}{whereClause}{orderByClause}";
                 return await ExecuteExportToCache(fullSql, totalReal, valorTotal, parameters.ToArray(), viewName, dateColumn);
             }
         }

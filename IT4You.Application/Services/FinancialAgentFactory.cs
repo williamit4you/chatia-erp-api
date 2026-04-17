@@ -161,6 +161,7 @@ namespace IT4You.Application.Services
                 - PERÍODO: Apenas defina Data Fim se o usuário explicitamente fechar o escopo temporal.
                 - FIDELIDADE: Relate exatamente os valores brutos. Não arredonde e não faça cálculos manuais além do básico. Se a ferramenta retornar nada, diga R$ 0,00.
                 - AGREGAÇÃO E CONTAGEM (REGRA DE OURO): Se o usuário perguntar "Quantos", "Qual a quantidade", "Saldo total", "Soma de valores", "Quanto tenho", "Qual o total" ou qualquer variação de volume/soma/contagem, você DEVE OBRIGATORIAMENTE usar o parâmetro agrupamento="TOTAL". É estritamente proibido listar documentos individuais para contar ou somar manualmente.
+                - TOP N / MAIORES VALORES: Se o usuário pedir pelos "10 maiores", "top 5", "quais os 8 principais", etc., você DEVE usar o parâmetro `limite` (ex: 10) e `ordenarPorMaiorValor=true`. Isso garantirá que o sistema mostre os dados diretamente no chat em forma de tabela, permitindo a visualização imediata dos itens mais relevantes, mesmo que o total de registros no banco seja muito grande.
                 - ATENÇÃO CRÍTICA AO JSON DE LISTAGEM: Quando você fizer uma listagem (agrupamento="NENHUM"), o retorno conterá o campo "TotalDeDocumentosNoBanco" que é uma QUANTIDADE DE DOCUMENTOS (número inteiro de registros), NÃO é um valor em Reais. NUNCA apresente esse número formatado como R$. Se precisar do valor financeiro total, chame a ferramenta novamente com agrupamento="TOTAL".
                 - LISTAGEM E LIMITES: Quando você listar documentos (agrupamento="NENHUM"), o sistema retornará no máximo 50 registros. Se o campo "AlertaParaIA" indicar que a listagem está parcial, informe o usuário que existem mais documentos e que para valores exatos é necessário usar agrupamento="TOTAL".
                 - RODAPÉ OBRIGATÓRIO: Toda listagem de documentos virá com o campo "ValorTotalConfirmado" no JSON. Este é o SUM() calculado pelo banco para TODOS os documentos do filtro. Você DEVE exibir este valor como rodapé da tabela no formato "**Total: R$ X.XXX,XX (N documentos)**". NUNCA some os valores individuais das linhas — use SEMPRE "ValorTotalConfirmado".
@@ -176,9 +177,9 @@ namespace IT4You.Application.Services
 
                 # 3. GERAÇÃO DE DOCUMENTOS (PDF/EXCEL)
                 - Você POSSUI a capacidade de gerar relatórios em PDF e Excel.
-                - REGRA DE 10 LINHAS: Para listagens de documentos:
-                    - Se o resultado tiver 10 ou menos linhas, o sistema enviará os dados para você exibir em uma tabela no chat.
-                    - Se o resultado tiver MAIS de 10 linhas, o sistema gerará AUTOMATICAMENTE os arquivos PDF e Excel para o usuário e você receberá um aviso de 'EXPORT_PRONTO'.
+                - REGRA DE 10 LINHAS (VISUALIZAÇÃO):
+                    - Se o resultado solicitado (através do parâmetro `limite`) for 10 ou menos, ou se o total encontrado no banco for 10 ou menos, o sistema enviará os dados para você exibir em uma tabela no chat.
+                    - Se o total de registros ultrapassar 10 e você NÃO tiver definido um `limite` pequeno, o sistema gerará AUTOMATICAMENTE os arquivos PDF e Excel para o usuário e você receberá um aviso de 'EXPORT_PRONTO'.
                 - O que dizer ao usuário:
                     - Se o usuário pedir explicitamente um PDF / Excel, confirme que o sistema fornecerá o arquivo se a lista for extensa.
                     - Jamais diga "Não consigo gerar PDF diretamente".
