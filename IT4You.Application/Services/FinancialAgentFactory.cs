@@ -61,11 +61,28 @@ namespace IT4You.Application.Services
             }
 
             var tools = new List<AITool>();
+            bool hasFullAccess = hasPayableChatAccess && hasReceivableChatAccess;
+
             foreach (var t in allTools)
             {
-                // Isola a ferramenta baseada no nome (cortamos as ferramentas inversas ao domínio)
+                // 1. HARD SECURITY: Se o usuário NÃO tem acesso, a ferramenta NEM É REGISTRADA (Impedindo bypass por prompt)
+                if (!hasPayableChatAccess && t.Name.Contains("Pagar", StringComparison.OrdinalIgnoreCase)) continue;
+                if (!hasReceivableChatAccess && t.Name.Contains("Receber", StringComparison.OrdinalIgnoreCase)) continue;
+                
+                // Ferramentas de Saldos/Bancário/Liquidez
+                bool isBankingTool = t.Name.Contains("Saldo", StringComparison.OrdinalIgnoreCase) || 
+                                     t.Name.Contains("Liquidez", StringComparison.OrdinalIgnoreCase) ||
+                                     t.Name.Contains("FluxoCaixa", StringComparison.OrdinalIgnoreCase);
+
+                if (!hasBankingChatAccess && (t.Name.Contains("Saldo", StringComparison.OrdinalIgnoreCase))) continue;
+                
+                // Ferramentas que cruzam dados (AMBOS) exigem acesso total para evitar vazamento
+                if (!hasFullAccess && (t.Name.Contains("Liquidez", StringComparison.OrdinalIgnoreCase) || t.Name.Contains("FluxoCaixa", StringComparison.OrdinalIgnoreCase))) continue;
+
+                // 2. CONTEXT OPTIMIZATION: Se já sabemos o domínio, ocultamos o oposto (economia de tokens)
                 if (dominio == "PAGAR" && t.Name.Contains("Receber", StringComparison.OrdinalIgnoreCase)) continue;
                 if (dominio == "RECEBER" && t.Name.Contains("Pagar", StringComparison.OrdinalIgnoreCase)) continue;
+                
                 tools.Add(t);
             }
 
@@ -130,20 +147,18 @@ namespace IT4You.Application.Services
                 }
             }
 
-            // 1. Extraia a lógica complexa de permissões para uma variável
             var regrasDeBloqueio = hasPayableChatAccess && hasReceivableChatAccess && hasBankingChatAccess
                 ? "O usuário possui TODOS OS ACESSOS. IGNORE qualquer regra de bloqueio. Execute todas as consultas normalmente."
                 : """
-              - Bloqueie SOMENTE quando tiver CERTEZA de que a pergunta é sobre um domínio NEGADO.
-              - 'Certeza' significa: o domínio foi identificado (por palavra-chave NA MENSAGEM ATUAL ou pelo CONTEXTO ACUMULADO da conversa) E o acesso está NEGADO.
-              - Se o domínio for ambíguo na mensagem atual, consulte o histórico da conversa para inferir o contexto correto.
-              - NUNCA bloqueie por ambiguidade. Em caso de dúvida genuína sobre o domínio, pergunte ao usuário se é sobre Pagar ou Receber — não aplique o bloqueio preventivamente.
-              - Se a conversa já identificou o domínio em turnos anteriores (ex: o usuário perguntou sobre 'documentos a pagar'), assuma esse domínio nas próximas mensagens mesmo que elas não repitam a palavra-chave.
+              - BLOQUEIO PRIORITÁRIO: Se o domínio solicitado (Pagar, Receber ou Bancário) está marcado como NEGADO abaixo, você deve interromper o raciocínio e bloquear IMEDIATAMENTE.
+              - NUNCA execute ferramentas de domínios negados.
+              - Se o usuário perguntar sobre um domínio negado, responda APENAS a frase de bloqueio correspondente.
+              - Se o domínio for ambíguo, peça esclarecimento ANTES de qualquer ação.
 
-              Frases de bloqueio quando aplicável (use APENAS quando tiver certeza do domínio negado):
-              - PAGAR NEGADO → responda EXATAMENTE: "Esse questionamento é somente para usuários do conta a pagar"
-              - RECEBER NEGADO → responda EXATAMENTE: "Esse questionamento é somente para usuários do conta a receber"
-              - BANCÁRIO NEGADO → responda EXATAMENTE: "Esse questionamento é somente para usuários do departamento bancário"
+              Frases de bloqueio mandatário:
+              - PAGAR NEGADO → "Esse questionamento é somente para usuários do conta a pagar"
+              - RECEBER NEGADO → "Esse questionamento é somente para usuários do conta a receber"
+              - BANCÁRIO NEGADO → "Esse questionamento é somente para usuários do departamento bancário"
               """;
 
             // 2. Use $""" (3 aspas) para permitir aspas duplas no texto sem quebrar o código
