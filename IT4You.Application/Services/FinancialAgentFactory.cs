@@ -195,7 +195,7 @@ namespace IT4You.Application.Services
 
                             var chatOptions = new ChatOptions
                             {
-                                Temperature = 1,
+                                Temperature = 0,
                                 Tools = tools,
                                 Instructions = systemInstructions
                             };
