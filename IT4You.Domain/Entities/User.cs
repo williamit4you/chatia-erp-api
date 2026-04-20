@@ -23,6 +23,8 @@ public class User
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public bool IsActive { get; set; } = true;
+    public bool IsInactive { get; set; } = false;
+    public DateTime? BlockedUntil { get; set; }
     public bool HasPayableChatAccess { get; set; } = false;
     public bool HasPayableDashboardAccess { get; set; } = false;
     public bool HasReceivableChatAccess { get; set; } = false;

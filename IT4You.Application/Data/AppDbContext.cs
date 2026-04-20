@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<ChatSession> ChatSessions { get; set; }
     public DbSet<ChatMessage> ChatMessages { get; set; }
     public DbSet<FavoriteQuestion> FavoriteQuestions { get; set; }
+    public DbSet<AgentMemory> AgentMemories { get; set; }
 
     public override int SaveChanges()
     {
@@ -64,6 +65,7 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
         
+        modelBuilder.HasPostgresExtension("vector");
         modelBuilder.HasPostgresEnum<UserRole>(name: "RoleName", nameTranslator: new Npgsql.NameTranslation.NpgsqlNullNameTranslator());
 
         // --- MAP TABLE NAMES (Singular like Prisma) ---
@@ -71,7 +73,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>().ToTable("User");
         modelBuilder.Entity<ChatSession>().ToTable("ChatSession");
         modelBuilder.Entity<ChatMessage>().ToTable("ChatMessage");
+        modelBuilder.Entity<ChatMessage>().ToTable("ChatMessage");
         modelBuilder.Entity<FavoriteQuestion>().ToTable("FavoriteQuestion");
+        modelBuilder.Entity<AgentMemory>().ToTable("AgentMemory");
 
         // --- COMPREHENSIVE COLUMN MAPPING (Match Prisma camelCase) ---
 
@@ -86,6 +90,8 @@ public class AppDbContext : DbContext
             entity.Property(e => e.TenantId).HasColumnName("tenantId");
             entity.Property(e => e.QueryCount).HasColumnName("queryCount");
             entity.Property(e => e.IsActive).HasColumnName("isActive");
+            entity.Property(e => e.IsInactive).HasColumnName("isInactive");
+            entity.Property(e => e.BlockedUntil).HasColumnName("blockedUntil");
             entity.Property(e => e.HasPayableChatAccess).HasColumnName("hasPayableChatAccess");
             entity.Property(e => e.HasPayableDashboardAccess).HasColumnName("hasPayableDashboardAccess");
             entity.Property(e => e.HasReceivableChatAccess).HasColumnName("hasReceivableChatAccess");
@@ -109,7 +115,13 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Name).HasColumnName("name");
             entity.Property(e => e.Cnpj).HasColumnName("cnpj");
             entity.Property(e => e.IaToken).HasColumnName("iaToken");
+            entity.Property(e => e.ChatAiToken).HasColumnName("chatAiToken");
             entity.Property(e => e.ErpToken).HasColumnName("erpToken");
+            entity.Property(e => e.DbIp).HasColumnName("dbIp");
+            entity.Property(e => e.DbName).HasColumnName("dbName");
+            entity.Property(e => e.DbType).HasColumnName("dbType");
+            entity.Property(e => e.DbUser).HasColumnName("dbUser");
+            entity.Property(e => e.DbPassword).HasColumnName("dbPassword");
             entity.Property(e => e.IsActive).HasColumnName("isActive");
             entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
             entity.Property(e => e.UpdatedAt).HasColumnName("updatedAt");
@@ -124,7 +136,8 @@ public class AppDbContext : DbContext
             entity.Property(e => e.UserId).HasColumnName("userId");
             entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
             entity.Property(e => e.UpdatedAt).HasColumnName("updatedAt");
-            
+            entity.Property(e => e.IsVisible).HasColumnName("isVisible").HasDefaultValue(true);
+
             entity.HasOne(d => d.Tenant)
                 .WithMany(p => p.ChatSessions)
                 .HasForeignKey(d => d.TenantId)
@@ -143,6 +156,8 @@ public class AppDbContext : DbContext
             entity.Property(e => e.SessionId).HasColumnName("sessionId");
             entity.Property(e => e.Role).HasColumnName("role");
             entity.Property(e => e.Content).HasColumnName("content");
+            entity.Property(e => e.SqlQueries).HasColumnName("sqlQueries");
+            entity.Property(e => e.Module).HasColumnName("module");
             entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
 
             entity.HasOne(d => d.Session)
@@ -161,6 +176,22 @@ public class AppDbContext : DbContext
 
             entity.HasOne(d => d.User)
                 .WithMany(p => p.FavoriteQuestions)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // AgentMemory
+        modelBuilder.Entity<AgentMemory>(entity => {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.UserId).HasColumnName("userId");
+            entity.Property(e => e.Content).HasColumnName("content");
+            entity.Property(e => e.Embedding).HasColumnName("embedding").HasColumnType("vector(1536)");
+            entity.Property(e => e.IsActive).HasColumnName("isActive");
+            entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
+
+            entity.HasOne(d => d.User)
+                .WithMany() // Ajustado para ser unilateral sem Navigation Property no lado de User
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });

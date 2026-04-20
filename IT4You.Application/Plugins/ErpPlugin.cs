@@ -1,9 +1,19 @@
 using System.ComponentModel;
 using Microsoft.SemanticKernel;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Data.SqlClient;
 using System.Text.Json;
 using System.Data;
+using System.Text;
+using System;
+using System.Linq;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using ClosedXML.Excel;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 
 namespace IT4You.Application.Plugins;
 
@@ -11,625 +21,295 @@ public class ErpPlugin
 {
     private readonly IConfiguration _configuration;
     private readonly string _connectionString;
+    private readonly IMemoryCache _cache;
 
-    public ErpPlugin(IConfiguration configuration)
+    // A partir deste número o sistema gera Excel direto ao usuário (bypass da IA)
+    private const int EXPORT_THRESHOLD = 10;
+
+    // SQL query tracking
+    public List<string> ExecutedQueries { get; } = new();
+    public void ClearExecutedQueries() => ExecutedQueries.Clear();
+
+    // Export metadata — preenchido por ExecuteExportToCache, lido pelo ChatService
+    public string? LastExportId { get; private set; }
+    public int LastExportTotalLinhas { get; private set; }
+    public decimal LastExportValorTotal { get; private set; }
+    public void ClearExportMetadata()
+    {
+        LastExportId = null;
+        LastExportTotalLinhas = 0;
+        LastExportValorTotal = 0;
+    }
+
+    public string? GetExecutedQueriesJson()
+    {
+        if (ExecutedQueries.Count == 0) return null;
+        var options = new JsonSerializerOptions 
+        { 
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            WriteIndented = true
+        };
+        return JsonSerializer.Serialize(ExecutedQueries);
+    }
+
+    public ErpPlugin(IConfiguration configuration, IMemoryCache cache)
     {
         _configuration = configuration;
+        _cache = cache;
         _connectionString = _configuration.GetConnectionString("DefaultConnection") ?? "";
     }
-    private const string BASE_COLUMNS = "EMPRESA, CLIENTE, NOMEFANTASIA, CPFCNPJ, CIDADE, UF, DOCUMENTO, EMISSAO, VALORDOC, PARCELA, VALORORIG, VALORPAG, DATAVENCIMENTO, DATAPAGAMENTO, CONDPAG, TIPOPAG, SITUACAO";
 
-    // --- VW_DOC_FIN_PAG_ABERTO ---
+    // Omitimos a coluna CLIENTE/FORNECEDOR do BASE_COLUMNS fixo pois ela varia por View
+    private const string BASE_COLUMNS_PARTIAL = "EMPRESA, NOMEFANTASIA, CPFCNPJ, CIDADE, UF, DOCUMENTO, EMISSAO, VALORDOC, PARCELA, VALORORIG, VALORPAG, DATAVENCIMENTO, DATAPAGAMENTO, CONDPAG, TIPOPAG, SITUACAO";
 
-    [Description("Busca contas a PAGAR em aberto que vencem em um período. Ex: O que temos para pagar hoje? O que vence amanhã? Próxima semana?")]
-    public async Task<string> GetVencendoNoPeriodo(
-        [Description("Data inicial Vencimento (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final Vencimento (ISO 8601)")] string dataFimISO)
+    [Description("[DOMÍNIO: ABERTO] Consulta flexível de contas EM ABERTO (vencidas ou a vencer).")]
+    public async Task<string> ConsultarContasEmAberto(
+        [Description("OBRIGATÓRIO: 'PAGAR', 'RECEBER' ou 'INDEFINIDO'. REGRA: NUNCA presuma se um nome (ex: Minerva) é Cliente ou Fornecedor. No nosso sistema, qualquer pessoa pode ser ambos. Se o usuário não disser explicitamente o lado, PASSE O VALOR 'INDEFINIDO'.")] string tipoDominio = "INDEFINIDO",
+        [Description("Data inicial Vencimento (ISO 8601). Vazio para ignorar.")] string dataInicioISO = "",
+        [Description("Data final Vencimento (ISO 8601). Vazio para ignorar.")] string dataFimISO = "",
+        [Description("Nome ou Fantasia do Fornecedor ou Cliente. Vazio para ignorar.")] string nomePessoa = "",
+        [Description("Sigla do Estado (Ex: SP). Vazio para ignorar.")] string uf = "",
+        [Description("Nome da Filial. Vazio para ignorar.")] string filial = "",
+        [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = "",
+        [Description("Apenas contas com atraso (verdadeiro/falso).")] bool apenasAtrasados = false,
+        [Description("Número do documento específico. Use para localizar UM documento exato.")] string numeroDocumento = "",
+        [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO', 'TOTAL' ou 'SITUACAO_VENCIMENTO'. USE 'SITUACAO_VENCIMENTO' quando o usuário perguntar sobre vencidos e a vencer ao mesmo tempo (ex: 'quantos vencidos e a vencer?'). REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM",
+        [Description("Limite máximo de registros para retornar. Use apenas se o usuário pedir 'Top X' ou 'X documentos'.")] int limite = 0,
+        [Description("Se verdadeiro, ordena os resultados pelos maiores valores financeiros.")] bool ordenarPorMaiorValor = false
+        )
     {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
+        // 🚨 TRAVA DE SEGURANÇA: Se a IA não souber, ela cai aqui e devolve a pergunta pro chat
+        if (tipoDominio.Equals("INDEFINIDO", StringComparison.OrdinalIgnoreCase))
+        {
+            return "SISTEMA: Pare a execução. Pergunte ao usuário se ele deseja consultar o Contas a Pagar (fornecedor) ou o Contas a Receber (cliente).";
+        }
+
+        string viewName = tipoDominio.Equals("PAGAR", StringComparison.OrdinalIgnoreCase) 
+            ? "VW_SWIA_DOC_FIN_PAG_ABERTO"
+            : "VW_SWIA_DOC_FIN_REC_ABERTO";
+
+        return await ExecuteDynamicQuery(
+            viewName, 
+            "DATAVENCIMENTO", 
+            dataInicioISO, dataFimISO, nomePessoa, uf, filial, cnpj, agrupamento, apenasAtrasados, null, null, numeroDocumento, limite, ordenarPorMaiorValor);
     }
 
-    [Description("Busca contas a PAGAR que já estão ATRASADAS (vencimento menor que hoje e sem data de pagamento).")]
-    public async Task<string> GetAtrasados()
+    [Description("[DOMÍNIO: PAGO] Consulta flexível de contas JÁ PAGAS/LIQUIDADAS.")]
+    public async Task<string> ConsultarContasPagas(
+        [Description("OBRIGATÓRIO: 'PAGAR', 'RECEBER' ou 'INDEFINIDO'. REGRA: NUNCA presuma se um nome (ex: Minerva) é Cliente ou Fornecedor. No nosso sistema, qualquer pessoa pode ser ambos. Se o usuário não disser explicitamente o lado, PASSE O VALOR 'INDEFINIDO'.")] string tipoDominio = "INDEFINIDO",
+        [Description("Data inicial do Pagamento (ISO 8601). Vazio para ignorar.")] string dataPagamentoInicioISO = "",
+        [Description("Data final do Pagamento (ISO 8601). Vazio para ignorar.")] string dataPagamentoFimISO = "",
+        [Description("Nome ou Fantasia do Fornecedor ou Cliente. Vazio para ignorar.")] string nomePessoa = "",
+        [Description("Sigla do Estado (Ex: SP). Vazio para ignorar.")] string uf = "",
+        [Description("Nome da Filial. Vazio para ignorar.")] string filial = "",
+        [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = "",
+        [Description("Número do documento específico. Use para localizar UM documento exato.")] string numeroDocumento = "",
+        [Description("Tipo de Pagamento/Meio (Ex: PIX, BOLETO). Vazio para ignorar.")] string tipoPagamento = "",
+        [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO', 'TOTAL' ou 'SITUACAO_VENCIMENTO'. USE 'SITUACAO_VENCIMENTO' quando o usuário perguntar sobre vencidos e a vencer ao mesmo tempo. REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM",
+        [Description("Limite máximo de registros para retornar. Use apenas se o usuário pedir 'Top X' ou 'X documentos'.")] int limite = 0,
+        [Description("Se verdadeiro, ordena os resultados pelos maiores valores financeiros.")] bool ordenarPorMaiorValor = false
+        )
     {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO < CAST(GETDATE() AS DATE)";
-        return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
+        // 🚨 TRAVA DE SEGURANÇA: Se a IA não souber, ela cai aqui e devolve a pergunta pro chat
+        if (tipoDominio.Equals("INDEFINIDO", StringComparison.OrdinalIgnoreCase))
+        {
+            return "SISTEMA: Pare a execução. Pergunte ao usuário se ele deseja consultar o Contas a Pagar (fornecedor) ou o Contas a Receber (cliente).";
+        }
+
+        string viewName = tipoDominio.Equals("PAGAR", StringComparison.OrdinalIgnoreCase) 
+            ? "VW_SWIA_DOC_FIN_PAG_PAGO"
+            : "VW_SWIA_DOC_FIN_REC_PAGO";
+
+        return await ExecuteDynamicQuery(
+            viewName, 
+            "DATAPAGAMENTO", 
+            dataPagamentoInicioISO, dataPagamentoFimISO, nomePessoa, uf, filial, cnpj, agrupamento, false, tipoPagamento, null, numeroDocumento, limite, ordenarPorMaiorValor);
     }
 
-    [Description("Calcula o Valor Total Pendente (Soma) de contas a pagar em um período de vencimento.")]
-    public async Task<string> GetSomaTotalPendente(
-        [Description("Data inicial Vencimento (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final Vencimento (ISO 8601)")] string dataFimISO)
+        [Description("[DOMÍNIO: AMBOS] Simula o fluxo de caixa cruzando Receitas e Despesas agrupadas pela Data.")]
+        public async Task<string> GetFluxoCaixaLiquidoNoPeriodo(
+            [Description("Data inicial (ISO 8601). Feriados/FDS não são filtrados automaticamente.")] string dataInicioISO,
+            [Description("Data final (ISO 8601).")] string dataFimISO)
+        {
+            var sq = $@"
+                SELECT 
+                    ISNULL(R.Dia, P.Dia) as DataFluxo,
+                    ISNULL(R.TotalReceitas, 0) as ReceitasDia,
+                    ISNULL(P.TotalDespesas, 0) as DespesasDia,
+                    (ISNULL(R.TotalReceitas, 0) - ISNULL(P.TotalDespesas, 0)) as SaldoLiquidoDia
+                FROM (
+                    SELECT CAST(DATAVENCIMENTO AS DATE) as Dia, SUM(VALORORIG - ISNULL(VALORPAG, 0)) as TotalReceitas
+                    FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT
+                    GROUP BY CAST(DATAVENCIMENTO AS DATE)
+                ) R
+                FULL OUTER JOIN (
+                    SELECT CAST(DATAVENCIMENTO AS DATE) as Dia, SUM(VALORORIG) as TotalDespesas
+                    FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT
+                    GROUP BY CAST(DATAVENCIMENTO AS DATE)
+                ) P ON R.Dia = P.Dia
+                ORDER BY DataFluxo ASC";
+            return await ExecuteQuery(sq, new[] { 
+                new SqlParameter("@dF", ParseDate(dataInicioISO)), 
+                new SqlParameter("@dT", ParseDate(dataFimISO)) });
+        }
+
+        [Description("[DOMÍNIO: AMBOS] Relatório global instantâneo de saúde financeira e liquidez dividida por Filial/Empresa.")]
+        public async Task<string> GetLiquidezEInadimplenciaGeral()
+        {
+            var sq = @"
+                SELECT 
+                    ISNULL(R.EMPRESA, P.EMPRESA) as Filial,
+                    ISNULL(R.TotalReceber, 0) as TotalPendenteRecebimentos,
+                    ISNULL(R.TotalAtrasadoCliente, 0) as TotalAtrasadoCliente,
+                    ISNULL(P.TotalPagar, 0) as TotalPendenteObrigacoes,
+                    ISNULL(P.TotalAtrasadoFornecedor, 0) as TotalAtrasadoFornecedor,
+                    (ISNULL(R.TotalReceber, 0) - ISNULL(P.TotalPagar, 0)) as LiquidezFutura
+                FROM (
+                    SELECT EMPRESA, 
+                        SUM(VALORORIG) as TotalReceber,
+                        SUM(CASE WHEN DATAVENCIMENTO < CAST(GETDATE() AS DATE) THEN VALORORIG ELSE 0 END) as TotalAtrasadoCliente
+                    FROM VW_SWIA_DOC_FIN_REC_ABERTO GROUP BY EMPRESA
+                ) R
+                FULL OUTER JOIN (
+                    SELECT EMPRESA, 
+                        SUM(VALORORIG) as TotalPagar,
+                        SUM(CASE WHEN DATAVENCIMENTO < CAST(GETDATE() AS DATE) THEN VALORORIG ELSE 0 END) as TotalAtrasadoFornecedor
+                    FROM VW_SWIA_DOC_FIN_PAG_ABERTO GROUP BY EMPRESA
+                ) P ON R.EMPRESA = P.EMPRESA";
+            return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
+        }
+
+    // --- MÉTODOS BASE ---
+
+    private async Task<string> ExecuteDynamicQuery(
+        string viewName,
+        string dateColumn,
+        string dataInicioISO,
+        string dataFimISO,
+        string entidade,
+        string uf,
+        string filial,
+        string cnpj,
+        string agrupamento,
+        bool apenasAtrasados,
+        string tipoPagamento,
+        string situacao,
+        string numeroDocumento = "",
+        int limite = 0,
+        bool ordenarPorMaiorValor = false)
     {
-        var sq = "SELECT SUM(VALORORIG) as TotalPendente, COUNT(*) as Quantidade FROM VW_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
+        var sql = new StringBuilder();
+        var conditions = new List<string>(); // Usar lista remove a necessidade do "WHERE 1=1"
+        var parameters = new List<SqlParameter>();
+
+        if (!string.IsNullOrEmpty(dataInicioISO))
+        {
+            conditions.Add($"{dateColumn} >= @dI");
+            parameters.Add(new SqlParameter("@dI", ParseDate(dataInicioISO)));
+        }
+        if (!string.IsNullOrEmpty(dataFimISO))
+        {
+            conditions.Add($"{dateColumn} <= @dF");
+            parameters.Add(new SqlParameter("@dF", ParseDate(dataFimISO)));
+        }
+        // Identifica o nome da coluna de entidade baseado na View (FORNECEDOR para PAGAR, CLIENTE para RECEBER)
+        string personCol = viewName.Contains("_PAG_") ? "FORNECEDOR" : "CLIENTE";
+
+        if (!string.IsNullOrEmpty(entidade))
+        {
+            conditions.Add($"(UPPER({personCol}) LIKE UPPER(@ent) OR UPPER(NOMEFANTASIA) LIKE UPPER(@ent))");
+            parameters.Add(new SqlParameter("@ent", $"%{entidade}%"));
+        }
+        if (!string.IsNullOrEmpty(uf))
+        {
+            conditions.Add("UF = @uf");
+            parameters.Add(new SqlParameter("@uf", uf.ToUpper()));
+        }
+        if (!string.IsNullOrEmpty(filial))
+        {
+            conditions.Add("UPPER(EMPRESA) LIKE UPPER(@fil)");
+            parameters.Add(new SqlParameter("@fil", $"%{filial}%"));
+        }
+        if (!string.IsNullOrEmpty(cnpj))
+        {
+            conditions.Add("CPFCNPJ = @cnpj");
+            parameters.Add(new SqlParameter("@cnpj", LimparCnpj(cnpj)));
+        }
+        if (apenasAtrasados && dateColumn == "DATAVENCIMENTO")
+        {
+            conditions.Add("DATAVENCIMENTO < CAST(GETDATE() AS DATE)");
+        }
+        if (!string.IsNullOrEmpty(tipoPagamento))
+        {
+            conditions.Add("UPPER(TIPOPAG) LIKE UPPER(@tpag)");
+            parameters.Add(new SqlParameter("@tpag", $"%{tipoPagamento}%"));
+        }
+        if (!string.IsNullOrEmpty(numeroDocumento))
+        {
+            conditions.Add("DOCUMENTO LIKE @doc");
+            parameters.Add(new SqlParameter("@doc", $"%{numeroDocumento}%"));
+        }
+
+        // Monta o WHERE apenas se tiver condições, limpíssimo
+        string whereClause = conditions.Count > 0 ? " WHERE " + string.Join(" AND ", conditions) : "";
+        string sumColumn = viewName.Contains("PAGO") ? "VALORPAG" : "VALORORIG";
+        string fullBaseColumns = $"{personCol}, {BASE_COLUMNS_PARTIAL}";
+
+        // 🚨 TRAVA DE SEGURANÇA: Previne erro fatal se a IA omitir a propriedade e passar NULL
+        string agrupar = string.IsNullOrEmpty(agrupamento) ? "NENHUM" : agrupamento;
+
+        if (agrupar.Equals("FORNECEDOR", StringComparison.OrdinalIgnoreCase) || agrupar.Equals("CLIENTE", StringComparison.OrdinalIgnoreCase))
+            sql.Append($"SELECT {personCol} as Entidade, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName}{whereClause} GROUP BY {personCol} ORDER BY Total DESC");
+        else if (agrupar.Equals("ANO", StringComparison.OrdinalIgnoreCase))
+            sql.Append($"SELECT YEAR({dateColumn}) as Ano, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName}{whereClause} GROUP BY YEAR({dateColumn}) ORDER BY Ano DESC");
+        else if (agrupar.Equals("MES", StringComparison.OrdinalIgnoreCase))
+            sql.Append($"SELECT YEAR({dateColumn}) as Ano, MONTH({dateColumn}) as Mes, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName}{whereClause} GROUP BY YEAR({dateColumn}), MONTH({dateColumn}) ORDER BY Ano DESC, Mes DESC");
+        else if (agrupar.Equals("FILIAL", StringComparison.OrdinalIgnoreCase))
+            sql.Append($"SELECT EMPRESA as Filial, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName}{whereClause} GROUP BY EMPRESA ORDER BY Total DESC");
+        else if (agrupar.Equals("METODO_PAGAMENTO", StringComparison.OrdinalIgnoreCase))
+            sql.Append($"SELECT TIPOPAG as MetodoPagamento, SUM({sumColumn}) as Total, COUNT(*) as Quantidade FROM {viewName}{whereClause} GROUP BY TIPOPAG ORDER BY Total DESC");
+        else if (agrupar.Equals("TOTAL", StringComparison.OrdinalIgnoreCase))
+            sql.Append($"SELECT SUM({sumColumn}) as ValorTotalGeral, COUNT(*) as QuantidadeTotal FROM {viewName}{whereClause}");
+        else if (agrupar.Equals("SITUACAO_VENCIMENTO", StringComparison.OrdinalIgnoreCase))
+            // Uma única query que divide vencidos vs a vencer — evita que a IA faça aritmética errada
+            sql.Append($@"SELECT
+                CASE WHEN DATAVENCIMENTO < CAST(GETDATE() AS DATE) THEN 'Vencido' ELSE 'A Vencer' END as SituacaoVencimento,
+                COUNT(*) as Quantidade,
+                SUM({sumColumn}) as ValorTotal
+            FROM {viewName}{whereClause}
+            GROUP BY CASE WHEN DATAVENCIMENTO < CAST(GETDATE() AS DATE) THEN 'Vencido' ELSE 'A Vencer' END
+            ORDER BY SituacaoVencimento");
+        else
+        {
+            // Passo 1: conta e soma primeiro (barato para o SQL Server)
+            var countSql = $"SELECT COUNT(*) AS Quantidade, SUM({sumColumn}) AS ValorTotal FROM {viewName}{whereClause}";
+            var (totalReal, valorTotal) = await ExecuteCountAndSum(countSql, parameters.ToArray());
+
+            // Define o critério de ordenação
+            string sortCol = ordenarPorMaiorValor ? sumColumn : dateColumn;
+            string sortOrder = ordenarPorMaiorValor ? "DESC" : "ASC";
+            string orderByClause = $" ORDER BY {sortCol} {sortOrder}";
+
+            // Se a IA pediu um limite específico (ex: Top 10), usamos esse limite para decidir a exibição
+            int thresholdParaUso = (limite > 0 && limite <= EXPORT_THRESHOLD) ? limite : totalReal;
+
+            if (thresholdParaUso <= EXPORT_THRESHOLD)
+            {
+                // Pequeno (ou pedido limitadamente): envia inline para a IA (tabela no chat)
+                int topN = limite > 0 ? limite : EXPORT_THRESHOLD;
+                var listSql = $"SELECT TOP {topN} {fullBaseColumns} FROM {viewName}{whereClause}{orderByClause}";
+                return await ExecuteListQueryInline(listSql, countSql, parameters.ToArray());
+            }
+            else
+            {
+                // Grande: gera Excel, salva em cache, retorna só metadados para a IA
+                var fullSql = $"SELECT {fullBaseColumns} FROM {viewName}{whereClause}{orderByClause}";
+                return await ExecuteExportToCache(fullSql, totalReal, valorTotal, parameters.ToArray(), viewName, dateColumn);
+            }
+        }
+
+        return await ExecuteQuery(sql.ToString(), parameters.ToArray());
     }
-
-    [Description("Calcula o Valor Total de contas ATRASADAS em reais.")]
-    public async Task<string> GetTotalAtrasado()
-    {
-        var sq = "SELECT SUM(VALORORIG) as TotalAtrasado, COUNT(*) as Quantidade FROM VW_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO < CAST(GETDATE() AS DATE)";
-        return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
-    }
-
-    [Description("Busca a MAIOR conta pendente (valor mais alto) que vence em um período.")]
-    public async Task<string> GetMaiorPendenteNoPeriodo(
-        [Description("Data inicial Vencimento (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final Vencimento (ISO 8601)")] string dataFimISO)
-    {
-        var sq = $"SELECT TOP 1 {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT ORDER BY VALORORIG DESC";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Busca contas pendentes com valor ORIGINAL acima de um limite. Ex: Boletos acima de 50 mil.")]
-    public async Task<string> GetPendentesAcimaDeValor([Description("Valor mínimo. Ex: 50000")] decimal valorMinimo)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_ABERTO WHERE VALORORIG >= @val ORDER BY VALORORIG DESC";
-        return await ExecuteQuery(sq, new[] { new SqlParameter("@val", valorMinimo) });
-    }
-
-    public async Task<string> GetDividaPorFornecedor(
-        [Description("Nome do Fornecedor ou Fantasia")] string fornecedor)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_ABERTO WHERE UPPER(CLIENTE) LIKE UPPER(@nf) OR UPPER(NOMEFANTASIA) LIKE UPPER(@nf)";
-        return await ExecuteQuery(sq, new[] { new SqlParameter("@nf", $"%{fornecedor}%") });
-    }
-
-    [Description("Busca contas que foram LANÇADAS/EMITIDAS hoje no sistema.")]
-    public async Task<string> GetLancadosHoje()
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_ABERTO WHERE CAST(EMISSAO AS DATE) = CAST(GETDATE() AS DATE)";
-        return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
-    }
-
-    [Description("Busca documentos que foram emitidos no ANO PASSADO mas que o vencimento é este ano.")]
-    public async Task<string> GetEmitidosAnoPassadoVencendoEsteAno()
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_ABERTO WHERE YEAR(EMISSAO) = YEAR(GETDATE()) - 1 AND YEAR(DATAVENCIMENTO) = YEAR(GETDATE())";
-        return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
-    }
-
-    [Description("Busca contas em aberto filtrando por Filial (EMPRESA).")]
-    public async Task<string> GetPendentesPorFilial([Description("Nome da filial")] string empresa)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_ABERTO WHERE EMPRESA LIKE @emp";
-        return await ExecuteQuery(sq, new[] { new SqlParameter("@emp", $"%{empresa}%") });
-    }
-
-    [Description("Busca fornecedores em aberto por Estado (UF).")]
-    public async Task<string> GetPendentesPorEstado([Description("Sigla do Estado. Ex: MG")] string uf)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_ABERTO WHERE UF = @uf";
-        return await ExecuteQuery(sq, new[] { new SqlParameter("@uf", uf) });
-    }
-
-    [Description("Busca detalhes de um documento específico em aberto.")]
-    public async Task<string> GetDetalhesBoletoEmAberto(
-        [Description("Número do documento")] string numeroDoc,
-        [Description("Número da parcela (opcional)")] string parcela)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_ABERTO WHERE DOCUMENTO = @doc";
-        var list = new List<SqlParameter> { new SqlParameter("@doc", numeroDoc) };
-        if (!string.IsNullOrEmpty(parcela)) { sq += " AND PARCELA = @par"; list.Add(new SqlParameter("@par", parcela)); }
-        return await ExecuteQuery(sq, list.ToArray());
-    }
-
-    [Description("Busca contas a pagar de um fornecedor que vencem num período.")]
-    public async Task<string> GetPagarAbertoPorNomeFornecedor([Description("Nome do Fornecedor ou Fantasia")] string nomeFornecedor)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_ABERTO WHERE UPPER(CLIENTE) LIKE UPPER(@nf) OR UPPER(NOMEFANTASIA) LIKE UPPER(@nf)";
-        return await ExecuteQuery(sq, new[] { new SqlParameter("@nf", $"%{nomeFornecedor}%") });
-    }
-
-    [Description("Busca contas a PAGAR em aberto pelo CNPJ exato do fornecedor.")]
-    public async Task<string> GetPagarAbertoPorCNPJ([Description("CNPJ somente números")] string cpfCnpj)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_ABERTO WHERE CPFCNPJ = @cnpj";
-        return await ExecuteQuery(sq, new[] { new SqlParameter("@cnpj", LimparCnpj(cpfCnpj)) });
-    }
-
-    [Description("Soma o valor esperado de pagamento filtrando por Tipo de Pagamento (PIX, Boleto, etc).")]
-    public async Task<string> GetSomaPagarPorMetodo(
-        [Description("Tipo de Pagamento. Ex: PIX, BOLETO")] string tipoPag,
-        [Description("Data inicial Vencimento (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final Vencimento (ISO 8601)")] string dataFimISO)
-    {
-        var sq = $"SELECT SUM(VALORORIG) as TotalEsperado, COUNT(*) as Quantidade FROM VW_DOC_FIN_PAG_ABERTO WHERE TIPOPAG LIKE @tp AND DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@tp", $"%{tipoPag}%"),
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Conta a Quantidade Total de boletos/contas a PAGAR que vencem em um Mês e Ano específicos.")]
-    public async Task<string> GetContagemPagarAbertoPorMesVencimento(
-        [Description("Ano com 4 digitos. Ex: 2026")] string ano, 
-        [Description("Mês com 2 digitos. Ex: 02")] string mes)
-    {
-        var sq = "SELECT COUNT(*) as QuantidadeContas FROM VW_DOC_FIN_PAG_ABERTO WHERE YEAR(DATAVENCIMENTO) = @ano AND MONTH(DATAVENCIMENTO) = @mes";
-        return await ExecuteQuery(sq, new[] { new SqlParameter("@ano", ano), new SqlParameter("@mes", mes) });
-    }
-
-    // --- VW_DOC_FIN_PAG_PAGO ---
-
-    [Description("Busca contas que JÁ FORAM PAGAS em um período. Ex: pagamentos feitos hoje ou mês passado.")]
-    public async Task<string> GetPagosNoPeriodo(
-        [Description("Data inicial pagamento (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final pagamento (ISO 8601)")] string dataFimISO)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_PAGO WHERE DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Calcula o Valor Total Gasto (Soma) em pagamentos em um período.")]
-    public async Task<string> GetSomaTotalPago(
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO,
-        [Description("Opcional: Filtrar por filial")] string empresa)
-    {
-        var sq = "SELECT SUM(VALORPAG) as TotalPago FROM VW_DOC_FIN_PAG_PAGO WHERE DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT";
-        var list = new List<SqlParameter> { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) 
-        };
-        if (!string.IsNullOrEmpty(empresa)) { sq += " AND EMPRESA LIKE @emp"; list.Add(new SqlParameter("@emp", $"%{empresa}%")); }
-        return await ExecuteQuery(sq, list.ToArray());
-    }
-
-    [Description("Analisa a saúde financeira dos pagamentos: Soma de Juros (pago > original) e Descontos (pago < original) no período.")]
-    public async Task<string> GetAnaliseJurosEDescontos(
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = @"SELECT 
-                    SUM(CASE WHEN VALORPAG > VALORORIG THEN VALORPAG - VALORORIG ELSE 0 END) as TotalJurosMulta,
-                    SUM(CASE WHEN VALORPAG < VALORORIG THEN VALORORIG - VALORPAG ELSE 0 END) as TotalDescontos,
-                    COUNT(CASE WHEN VALORPAG > VALORORIG THEN 1 END) as QtdComJuros,
-                    COUNT(CASE WHEN VALORPAG < VALORORIG THEN 1 END) as QtdComDesconto
-                   FROM VW_DOC_FIN_PAG_PAGO 
-                   WHERE DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Busca a conta com o MAIOR valor pago em um período.")]
-    public async Task<string> GetPagamentoMaiorValor(
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = $"SELECT TOP 1 {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_PAGO WHERE DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT ORDER BY VALORPAG DESC";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Busca pagamentos por Fornecedor (Nome ou Fantasia) em um período.")]
-    public async Task<string> GetPagamentosPorFornecedor(
-        [Description("Nome do Fornecedor")] string fornecedor,
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_PAGO WHERE (UPPER(CLIENTE) LIKE UPPER(@nf) OR UPPER(NOMEFANTASIA) LIKE UPPER(@nf)) AND DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@nf", $"%{fornecedor}%"),
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Soma o quanto foi pago filtrando pelo Meio de Pagamento (PIX, Boleto, Dinheiro, etc).")]
-    public async Task<string> GetSomaPorMetodoPagamento(
-        [Description("Tipo de Pagamento. Ex: PIX, BOLETO")] string tipoPag,
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = "SELECT SUM(VALORPAG) as TotalMetodo, COUNT(*) as Quantidade FROM VW_DOC_FIN_PAG_PAGO WHERE TIPOPAG LIKE @tp AND DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@tp", $"%{tipoPag}%"),
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Busca status de um documento específico pelo seu número e parcela.")]
-    public async Task<string> GetStatusDocumento(
-        [Description("Número do documento")] string numeroDoc,
-        [Description("Número da parcela (opcional)")] string parcela)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_PAGO WHERE DOCUMENTO = @doc";
-        var list = new List<SqlParameter> { new SqlParameter("@doc", numeroDoc) };
-        if (!string.IsNullOrEmpty(parcela)) { sq += " AND PARCELA = @par"; list.Add(new SqlParameter("@par", parcela)); }
-        return await ExecuteQuery(sq, list.ToArray());
-    }
-
-    [Description("Soma pagamentos filtrando por Região (Estado ou Cidade).")]
-    public async Task<string> GetSomaPorLocalidade(
-        [Description("Sigla do Estado (Ex: SP)")] string uf,
-        [Description("Nome da Cidade (Opcional)")] string cidade,
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = "SELECT SUM(VALORPAG) as TotalLocalidade, COUNT(*) as Quantidade FROM VW_DOC_FIN_PAG_PAGO WHERE DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT";
-        var list = new List<SqlParameter> { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) 
-        };
-        if (!string.IsNullOrEmpty(uf)) { sq += " AND UF = @uf"; list.Add(new SqlParameter("@uf", uf)); }
-        if (!string.IsNullOrEmpty(cidade)) { sq += " AND CIDADE LIKE @cid"; list.Add(new SqlParameter("@cid", $"%{cidade}%")); }
-        return await ExecuteQuery(sq, list.ToArray());
-    }
-
-    [Description("Busca contas a pagar que foram pagas com ATRASO (Data de Pagamento > Data de Vencimento) em um período.")]
-    public async Task<string> GetPagamentosAtrasadosRealizados(
-        [Description("Data inicial Pagamento (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final Pagamento (ISO 8601)")] string dataFimISO)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_PAG_PAGO WHERE DATAPAGAMENTO > DATAVENCIMENTO AND DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    // --- VW_DOC_FIN_REC_ABERTO ---
-
-    [Description("Busca clientes com pagamentos ATRASADOS (vencimento < hoje e sem pagamento).")]
-    public async Task<string> GetReceberAtrasados()
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO < CAST(GETDATE() AS DATE)";
-        return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
-    }
-
-    [Description("Busca boletos que venceram no MÊS ANTERIOR e continuam em aberto.")]
-    public async Task<string> GetReceberVencidosNoMesAnterior()
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) AND DATAVENCIMENTO >= DATEADD(month, -1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))";
-        return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
-    }
-
-    [Description("Busca a dívida (inadimplência) mais ANTIGA que temos para receber.")]
-    public async Task<string> GetMaiorInadimplenciaAntiga()
-    {
-        var sq = $"SELECT TOP 1 {BASE_COLUMNS} FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO < CAST(GETDATE() AS DATE) ORDER BY DATAVENCIMENTO ASC";
-        return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
-    }
-
-    [Description("Conta quantos títulos/boletos estão vencendo EXATAMENTE HOJE e não foram pagos.")]
-    public async Task<string> GetContagemReceberVencidosHoje()
-    {
-        var sq = "SELECT COUNT(*) as QtdVencidosHoje, SUM(VALORORIG) as ValorTotal FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO = CAST(GETDATE() AS DATE)";
-        return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
-    }
-
-    [Description("PREVISÃO DE CAIXA: Busca o que está programado para receber em um período futuro (ou hoje).")]
-    public async Task<string> GetPrevisaoRecebimentoNoPeriodo(
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Soma o valor total PENDENTE de recebimento em um período.")]
-    public async Task<string> GetSomaReceberPendente(
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = "SELECT SUM(VALORORIG) as TotalPendente, COUNT(*) as Quantidade FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Calcula o montante TOTAL da inadimplência (tudo que já venceu e não foi pago) até hoje.")]
-    public async Task<string> GetSomaInadimplenciaTotal()
-    {
-        var sq = "SELECT SUM(VALORORIG) as TotalInadimplencia, COUNT(*) as Quantidade FROM VW_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO < CAST(GETDATE() AS DATE)";
-        return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
-    }
-
-    [Description("Busca o maior boleto que temos para receber em um mês específico.")]
-    public async Task<string> GetMaiorReceberAbertoNoMes(
-        [Description("Ano (4 digitos)")] int ano, 
-        [Description("Mês (1 a 12)")] int mes)
-    {
-        var sq = $"SELECT TOP 1 {BASE_COLUMNS} FROM VW_DOC_FIN_REC_ABERTO WHERE YEAR(DATAVENCIMENTO) = @ano AND MONTH(DATAVENCIMENTO) = @mes ORDER BY VALORORIG DESC";
-        return await ExecuteQuery(sq, new[] { new SqlParameter("@ano", ano), new SqlParameter("@mes", mes) });
-    }
-
-    [Description("Busca todas as faturas em aberto (pendentes) de um Cliente específico (Limitado a 50 registros).")]
-    public async Task<string> GetPendenciasPorCliente([Description("Nome ou Fantasia do Cliente")] string nome)
-    {
-        var sq = $"SELECT TOP 50 {BASE_COLUMNS} FROM VW_DOC_FIN_REC_ABERTO WHERE (UPPER(CLIENTE) LIKE UPPER(@n) OR UPPER(NOMEFANTASIA) LIKE UPPER(@n)) ORDER BY DATAVENCIMENTO ASC";
-        return await ExecuteQuery(sq, new[] { new SqlParameter("@n", $"%{nome}%") });
-    }
-
-    [Description("Busca detalhes de um boleto a receber específico que ainda está EM ABERTO.")]
-    public async Task<string> GetDetalhesBoletoReceber(
-        [Description("Número do documento")] string numeroDoc,
-        [Description("Número da parcela (opcional)")] string parcela)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_REC_ABERTO WHERE DOCUMENTO = @doc";
-        var list = new List<SqlParameter> { new SqlParameter("@doc", numeroDoc) };
-        if (!string.IsNullOrEmpty(parcela)) { sq += " AND PARCELA = @par"; list.Add(new SqlParameter("@par", parcela)); }
-        return await ExecuteQuery(sq, list.ToArray());
-    }
-
-    [Description("PREVISÃO POR MÉTODO: Soma o valor esperado de recebimento filtrando por Tipo de Pagamento (PIX, Boleto, etc).")]
-    public async Task<string> GetContagemSomaEsperadaPorMetodo(
-        [Description("Tipo de Pagamento")] string tipoPag,
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = "SELECT SUM(VALORORIG) as TotalEsperado, COUNT(*) as Quantidade FROM VW_DOC_FIN_REC_ABERTO WHERE TIPOPAG LIKE @tp AND DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@tp", $"%{tipoPag}%"),
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Busca boletos em aberto filtrando pela Condição de Pagamento (Ex: 90 dias).")]
-    public async Task<string> GetPendentesPorCondicaoRecebimento([Description("Condição de Pagamento")] string condPag)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_REC_ABERTO WHERE CONDPAG LIKE @cp";
-        return await ExecuteQuery(sq, new[] { new SqlParameter("@cp", $"%{condPag}%") });
-    }
-
-    [Description("Busca previsões de recebimento filtrando por Filial.")]
-    public async Task<string> GetReceberPendentesPorFilial(
-        [Description("Nome da filial")] string empresa,
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = "SELECT SUM(VALORORIG) as TotalPendente, COUNT(*) as Quantidade FROM VW_DOC_FIN_REC_ABERTO WHERE EMPRESA LIKE @emp AND DATAVENCIMENTO >= @dF AND DATAVENCIMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@emp", $"%{empresa}%"),
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Soma o total a receber de clientes de um Estado (UF) específico.")]
-    public async Task<string> GetReceberPendentesPorEstado([Description("Sigla do Estado (Ex: MG)")] string uf)
-    {
-        var sq = "SELECT SUM(VALORORIG) as TotalEstado, COUNT(*) as Quantidade FROM VW_DOC_FIN_REC_ABERTO WHERE UF = @uf";
-        return await ExecuteQuery(sq, new[] { new SqlParameter("@uf", uf) });
-    }
-
-    [Description("Busca clientes de uma Cidade específica que estão com boletos em aberto.")]
-    public async Task<string> GetReceberPendentesPorCidade([Description("Nome da Cidade")] string cidade)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_REC_ABERTO WHERE CIDADE LIKE @c";
-        return await ExecuteQuery(sq, new[] { new SqlParameter("@c", $"%{cidade}%") });
-    }
-
-    [Description("Busca faturas em aberto pelo CNPJ/CPF exato do cliente.")]
-    public async Task<string> GetReceberAbertoPorCNPJ([Description("CNPJ somente números")] string cpfCnpj)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_REC_ABERTO WHERE CPFCNPJ = @cnpj";
-        return await ExecuteQuery(sq, new[] { new SqlParameter("@cnpj", LimparCnpj(cpfCnpj)) });
-    }
-
-    [Description("Conta a Quantidade Total de recebimentos que vencem/venceram em um Mês e Ano específicos.")]
-    public async Task<string> GetContagemReceberAbertoPorMesVencimento(
-        [Description("Ano com 4 digitos. Ex: 2026")] string ano, 
-        [Description("Mês com 2 digitos. Ex: 02")] string mes)
-    {
-        var sq = "SELECT COUNT(*) as QuantidadeReceber FROM VW_DOC_FIN_REC_ABERTO WHERE YEAR(DATAVENCIMENTO) = @ano AND MONTH(DATAVENCIMENTO) = @mes";
-        return await ExecuteQuery(sq, new[] { new SqlParameter("@ano", ano), new SqlParameter("@mes", mes) });
-    }
-
-    // --- VW_DOC_FIN_REC_PAGO ---
-
-    [Description("Busca faturamento/recebimentos que JÁ FORAM RECEBIDOS em um período. Ex: O que recebemos hoje? Quem pagou ontem?")]
-    public async Task<string> GetRecebidosNoPeriodo(
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_REC_PAGO WHERE DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Calcula o Valor Total Recebido (Soma) em um período.")]
-    public async Task<string> GetSomaRecebidoNoPeriodo(
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = "SELECT SUM(VALORPAG) as TotalRecebido, COUNT(*) as Quantidade FROM VW_DOC_FIN_REC_PAGO WHERE DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Analisa a saúde dos recebimentos: Soma de Juros cobrados (pago > original) e Descontos concedidos (pago < original).")]
-    public async Task<string> GetAnaliseRecebimentosJurosDescontos(
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = @"SELECT 
-                    SUM(CASE WHEN VALORPAG > VALORORIG THEN VALORPAG - VALORORIG ELSE 0 END) as TotalJurosCobrados,
-                    SUM(CASE WHEN VALORPAG < VALORORIG THEN VALORORIG - VALORPAG ELSE 0 END) as TotalDescontosConcedidos,
-                    COUNT(CASE WHEN VALORPAG > VALORORIG THEN 1 END) as QtdComJuros,
-                    COUNT(CASE WHEN VALORPAG < VALORORIG THEN 1 END) as QtdComDesconto
-                   FROM VW_DOC_FIN_REC_PAGO 
-                   WHERE DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Busca o maior pagamento individual recebido de um cliente no período.")]
-    public async Task<string> GetMaiorRecebimentoNoPeriodo(
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = $"SELECT TOP 1 {BASE_COLUMNS} FROM VW_DOC_FIN_REC_PAGO WHERE DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT ORDER BY VALORPAG DESC";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Busca clientes que pagaram faturas ATRASADAS (data pagamento > vencimento) no período.")]
-    public async Task<string> GetRecebimentosAtrasadosLiquidados(
-        [Description("Data inicial Pagamento (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final Pagamento (ISO 8601)")] string dataFimISO)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_REC_PAGO WHERE DATAPAGAMENTO > DATAVENCIMENTO AND DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Busca recebimentos que vencião no ANO PASSADO mas que o cliente só pagou ESTE ANO.")]
-    public async Task<string> GetRecebidosLancadosAnoPassadoPagosAgora()
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_REC_PAGO WHERE YEAR(DATAVENCIMENTO) = YEAR(GETDATE()) - 1 AND YEAR(DATAPAGAMENTO) = YEAR(GETDATE())";
-        return await ExecuteQuery(sq, Array.Empty<SqlParameter>());
-    }
-
-    [Description("Identifica qual cliente demorou mais dias para pagar uma fatura (maior diferença entre vencimento e pagamento).")]
-    public async Task<string> GetMaiorAtrasoLiquidadoNoPeriodo(
-        [Description("Data inicial Pagamento (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final Pagamento (ISO 8601)")] string dataFimISO)
-    {
-        var sq = $"SELECT TOP 1 {BASE_COLUMNS}, DATEDIFF(day, DATAVENCIMENTO, DATAPAGAMENTO) as DiasAtraso FROM VW_DOC_FIN_REC_PAGO WHERE DATAPAGAMENTO > DATAVENCIMENTO AND DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT ORDER BY DiasAtraso DESC";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Busca todos os pagamentos realizados por um Cliente específico em um período.")]
-    public async Task<string> GetRecebimentosPorCliente(
-        [Description("Nome do Cliente ou Fantasia")] string cliente,
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_REC_PAGO WHERE (UPPER(CLIENTE) LIKE UPPER(@nc) OR UPPER(NOMEFANTASIA) LIKE UPPER(@nc)) AND DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@nc", $"%{cliente}%"),
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Traz os Top Clientes que mais geraram receita (Soma VALORPAG) no período.")]
-    public async Task<string> GetTopClientesPorRecebimento(
-        [Description("Quantidade de clientes (Top X). Ex: 5")] int quantidade,
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = $"SELECT TOP (@qty) CLIENTE, SUM(VALORPAG) as TotalPago FROM VW_DOC_FIN_REC_PAGO WHERE DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT GROUP BY CLIENTE ORDER BY TotalPago DESC";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@qty", quantidade),
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Soma o quanto entrou no caixa filtrando pelo Meio de Recebimento (PIX, Cartão, etc).")]
-    public async Task<string> GetSomaRecebidoPorMetodo(
-        [Description("Tipo de Pagamento. Ex: PIX, CARTAO")] string tipoPag,
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = "SELECT SUM(VALORPAG) as TotalMetodo, COUNT(*) as Quantidade FROM VW_DOC_FIN_REC_PAGO WHERE TIPOPAG LIKE @tp AND DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@tp", $"%{tipoPag}%"),
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Conta a Quantidade Total de boletos/títulos liquidados/pagos pelos clientes no período.")]
-    public async Task<string> GetQuantidadeRecebidosPorPeriodo(
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = "SELECT COUNT(*) as QuantidadeLiquidados FROM VW_DOC_FIN_REC_PAGO WHERE DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Busca recebimentos filtrando pela Condição de Pagamento (Ex: 30/60/90).")]
-    public async Task<string> GetRecebidosPorCondicaoPagamento(
-        [Description("Condição de Pagamento")] string condPag,
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_REC_PAGO WHERE CONDPAG LIKE @cp AND DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@cp", $"%{condPag}%"),
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Soma o faturamento arrecadado por uma Filial específica.")]
-    public async Task<string> GetRecebidoPorFilial(
-        [Description("Nome da filial")] string empresa,
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = "SELECT SUM(VALORPAG) as TotalArrecadado, COUNT(*) as Quantidade FROM VW_DOC_FIN_REC_PAGO WHERE EMPRESA LIKE @emp AND DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT";
-        return await ExecuteQuery(sq, new[] { 
-            new SqlParameter("@emp", $"%{empresa}%"),
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) });
-    }
-
-    [Description("Soma faturamento filtrando por Localidade (UF ou Cidade).")]
-    public async Task<string> GetRecebidoPorLocalidade(
-        [Description("Sigla do Estado (Ex: SP)")] string uf,
-        [Description("Nome da Cidade (Opcional)")] string cidade,
-        [Description("Data inicial (ISO 8601)")] string dataInicioISO, 
-        [Description("Data final (ISO 8601)")] string dataFimISO)
-    {
-        var sq = "SELECT SUM(VALORPAG) as TotalLocalidade, COUNT(*) as Quantidade FROM VW_DOC_FIN_REC_PAGO WHERE DATAPAGAMENTO >= @dF AND DATAPAGAMENTO <= @dT";
-        var list = new List<SqlParameter> { 
-            new SqlParameter("@dF", ParseDate(dataInicioISO)), 
-            new SqlParameter("@dT", ParseDate(dataFimISO)) 
-        };
-        if (!string.IsNullOrEmpty(uf)) { sq += " AND UF = @uf"; list.Add(new SqlParameter("@uf", uf)); }
-        if (!string.IsNullOrEmpty(cidade)) { sq += " AND CIDADE LIKE @cid"; list.Add(new SqlParameter("@cid", $"%{cidade}%")); }
-        return await ExecuteQuery(sq, list.ToArray());
-    }
-
-    [Description("Busca status de um documento RECEBIDO/PAGO pelo cliente.")]
-    public async Task<string> GetStatusDocumentoRecebido(
-        [Description("Número do documento")] string numeroDoc,
-        [Description("Número da parcela (opcional)")] string parcela)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_REC_PAGO WHERE DOCUMENTO = @doc";
-        var list = new List<SqlParameter> { new SqlParameter("@doc", numeroDoc) };
-        if (!string.IsNullOrEmpty(parcela)) { sq += " AND PARCELA = @par"; list.Add(new SqlParameter("@par", parcela)); }
-        return await ExecuteQuery(sq, list.ToArray());
-    }
-
-    [Description("Busca contas RECEBIDAS em um período pelo CNPJ/CPF exato do cliente.")]
-    public async Task<string> GetReceberPagoPorCNPJ([Description("CNPJ somente números")] string cpfCnpj)
-    {
-        var sq = $"SELECT {BASE_COLUMNS} FROM VW_DOC_FIN_REC_PAGO WHERE CPFCNPJ = @cnpj";
-        return await ExecuteQuery(sq, new[] { new SqlParameter("@cnpj", LimparCnpj(cpfCnpj)) });
-    }
-
-    [Description("Conta a Quantidade Total de contas RECEBIDAS em um Mês e Ano específicos.")]
-    public async Task<string> GetContagemReceberPagoPorMesRecebimento(
-        [Description("Ano com 4 digitos. Ex: 2026")] string ano, 
-        [Description("Mês com 2 digitos. Ex: 02")] string mes)
-    {
-        var sq = "SELECT COUNT(*) as QuantidadeRecebida FROM VW_DOC_FIN_REC_PAGO WHERE YEAR(DATAPAGAMENTO) = @ano AND MONTH(DATAPAGAMENTO) = @mes";
-        return await ExecuteQuery(sq, new[] { new SqlParameter("@ano", ano), new SqlParameter("@mes", mes) });
-    }
-
-
-    // --- HELPERS E EXECUTOR BASE ---
 
     private string ParseDate(string isoDate)
     {
@@ -644,6 +324,20 @@ public class ErpPlugin
         return new string(input.Where(char.IsDigit).ToArray());
     }
 
+    private string BuildRunnableQuery(string queryText, SqlParameter[] parameters)
+    {
+        var finalQuery = queryText;
+        foreach (var p in parameters.OrderByDescending(p => p.ParameterName.Length))
+        {
+            // Garante que o C# sempre procure pelo parâmetro com "@", mesmo que a classe se perca internamente
+            string pName = p.ParameterName.StartsWith("@") ? p.ParameterName : "@" + p.ParameterName;
+            
+            var val = p.Value == null || p.Value == DBNull.Value ? "NULL" : $"'{p.Value.ToString().Replace("'", "''")}'";
+            finalQuery = finalQuery.Replace(pName, val);
+        }
+        return finalQuery;
+    }
+
     private async Task<string> ExecuteQuery(string queryText, SqlParameter[] parameters)
     {
         if (string.IsNullOrEmpty(_connectionString))
@@ -651,8 +345,11 @@ public class ErpPlugin
 
         try
         {
-            Console.WriteLine($"[ErpPlugin] 🟢 EXECUTING EXACT QUERY: {queryText}");
-            foreach (var p in parameters) Console.WriteLine($"   -> Param {p.ParameterName}: {p.Value}");
+            string runnableQuery = BuildRunnableQuery(queryText, parameters);
+            Console.WriteLine($"[ErpPlugin] 🟢 EXECUTING EXACT QUERY: {runnableQuery}");
+
+            // Track query for SQL transparency feature
+            ExecutedQueries.Add(runnableQuery);
 
             using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
@@ -673,8 +370,16 @@ public class ErpPlugin
                 results.Add(row);
             }
 
-            var jsonResult = JsonSerializer.Serialize(results, new JsonSerializerOptions { WriteIndented = true });
+            var payload = new {
+                TotalEncontradoNestaBusca = results.Count,
+                AlertaQuantidade = "Ok",
+                Data = results
+            };
+
+            var jsonResult = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
             Console.WriteLine($"[ErpPlugin] 🟢 QUERY SUCCESS. Returned {results.Count} rows.");
+            Console.WriteLine($"[ErpPlugin] 🟢 QUERY RESULTS:");
+            Console.WriteLine(jsonResult);
             return jsonResult;
         }
         catch (Exception ex)
@@ -682,5 +387,317 @@ public class ErpPlugin
             Console.WriteLine($"[ErpPlugin] 🔴 FATAL QUERY ERROR: {ex.Message}");
             return $"{{\"error\": \"Database error: {ex.Message}\"}}";
         }
+    }
+
+    // ---------- HELPERS DE LISTAGEM ----------
+
+    /// <summary>Executa COUNT + SUM em uma única query leve.</summary>
+    private async Task<(int total, decimal valorTotal)> ExecuteCountAndSum(string countSql, SqlParameter[] parameters)
+    {
+        if (string.IsNullOrEmpty(_connectionString)) return (0, 0);
+        try
+        {
+            string runnable = BuildRunnableQuery(countSql, parameters);
+            ExecutedQueries.Add(runnable);
+            Console.WriteLine($"[ErpPlugin] 🟢 COUNT+SUM: {runnable}");
+
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+            using var cmd = new SqlCommand(countSql, connection);
+            foreach (var p in parameters)
+                cmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                int total = reader["Quantidade"] == DBNull.Value ? 0 : Convert.ToInt32(reader["Quantidade"]);
+                decimal valor = reader["ValorTotal"] == DBNull.Value ? 0 : Convert.ToDecimal(reader["ValorTotal"]);
+                return (total, valor);
+            }
+            return (0, 0);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ErpPlugin] 🔴 COUNT ERRO: {ex.Message}");
+            return (0, 0);
+        }
+    }
+
+    /// <summary>Listagem inline para conjuntos pequenos (≤ EXPORT_THRESHOLD). A IA recebe as linhas + totais.</summary>
+    private async Task<string> ExecuteListQueryInline(string listQuery, string countQuery, SqlParameter[] parameters)
+    {
+        if (string.IsNullOrEmpty(_connectionString))
+            return "{\"error\": \"Connection string not found.\"}";
+        try
+        {
+            string runnableList = BuildRunnableQuery(listQuery, parameters);
+            Console.WriteLine($"[ErpPlugin] 🟢 LIST INLINE: {runnableList}");
+            ExecutedQueries.Add(runnableList);
+
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            // Re-executa COUNT+SUM (já foi feito antes, mas precisamos dos números aqui)
+            int totalReal = 0; decimal valorTotal = 0;
+            using (var countCmd = new SqlCommand(countQuery, connection))
+            {
+                foreach (var p in parameters)
+                    countCmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
+                using var cr = await countCmd.ExecuteReaderAsync();
+                if (await cr.ReadAsync())
+                {
+                    totalReal = cr["Quantidade"] == DBNull.Value ? 0 : Convert.ToInt32(cr["Quantidade"]);
+                    valorTotal = cr["ValorTotal"] == DBNull.Value ? 0 : Convert.ToDecimal(cr["ValorTotal"]);
+                }
+            }
+
+            var results = new List<Dictionary<string, object>>();
+            using (var listCmd = new SqlCommand(listQuery, connection))
+            {
+                foreach (var p in parameters)
+                    listCmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
+                using var reader = await listCmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var row = new Dictionary<string, object>();
+                    for (int i = 0; i < reader.FieldCount; i++)
+                        row[reader.GetName(i)] = reader.GetValue(i) == DBNull.Value ? null! : reader.GetValue(i);
+                    results.Add(row);
+                }
+            }
+
+            var payload = new
+            {
+                TotalDeDocumentosNoBanco = totalReal,
+                ValorTotalConfirmado = valorTotal,
+                ExibindoPrimeirosDocumentos = results.Count,
+                AlertaParaIA = $"LISTAGEM COMPLETA: Todos os {totalReal} documentos estão exibidos. " +
+                               $"Total confirmado: R$ {valorTotal:F2}. " +
+                               $"EXIBA este valor como rodapé da tabela: **Total: R$ {valorTotal:N2} ({totalReal} documentos)**",
+                Data = results
+            };
+
+            var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
+            Console.WriteLine($"[ErpPlugin] 🟢 INLINE OK. {results.Count} rows. Total R$ {valorTotal:F2}");
+            return json;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ErpPlugin] 🔴 INLINE ERRO: {ex.Message}");
+            return $"{{\"error\": \"{ex.Message}\"}}";
+        }
+    }
+
+    /// <summary>Gera Excel com TODOS os registros, salva no IMemoryCache (TTL 30 min) e retorna apenas metadados para a IA.</summary>
+    private async Task<string> ExecuteExportToCache(string fullQuery, int totalReal, decimal valorTotal,
+        SqlParameter[] parameters, string viewName, string dateColumn)
+    {
+        if (string.IsNullOrEmpty(_connectionString))
+            return "{\"error\": \"Connection string not found.\"}";
+        try
+        {
+            string runnable = BuildRunnableQuery(fullQuery, parameters);
+            Console.WriteLine($"[ErpPlugin] 🟢 EXPORT FULL QUERY ({totalReal} rows): {runnable}");
+            ExecutedQueries.Add(runnable);
+
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            var results = new List<Dictionary<string, object>>();
+            using (var cmd = new SqlCommand(fullQuery, connection))
+            {
+                foreach (var p in parameters)
+                    cmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var row = new Dictionary<string, object>();
+                    for (int i = 0; i < reader.FieldCount; i++)
+                        row[reader.GetName(i)] = reader.GetValue(i) == DBNull.Value ? null! : reader.GetValue(i);
+                    results.Add(row);
+                }
+            }
+
+            // Gera Excel em memória com ClosedXML
+            var excelBytes = GerarExcel(results, viewName, totalReal, valorTotal);
+
+            // Salva no cache com TTL de 30 minutos
+            var exportId = Guid.NewGuid().ToString();
+            var cacheKey = $"export:{exportId}";
+            _cache.Set(cacheKey, excelBytes, TimeSpan.FromMinutes(30));
+
+            // Expõe metadados para o ChatService ler diretamente (não depende do texto da IA)
+            LastExportId = exportId;
+            LastExportTotalLinhas = totalReal;
+            LastExportValorTotal = valorTotal;
+
+            // Salva dados brutos (JSON) para geração de PDF on-demand — mesma TTL de 30 min
+            var rawDataJson = JsonSerializer.Serialize(results);
+            _cache.Set($"export-data:{exportId}", rawDataJson, TimeSpan.FromMinutes(30));
+
+            Console.WriteLine($"[ErpPlugin] 🟢 EXPORT CACHED. Id={exportId}, Rows={totalReal}, Size={excelBytes.Length} bytes");
+
+            // Retorna só os metadados para a IA — ela não deve mencionar links nem URLs
+            return JsonSerializer.Serialize(new
+            {
+                tipo = "EXPORT_PRONTO",
+                exportId = exportId,
+                totalLinhas = totalReal,
+                valorTotalConfirmado = valorTotal,
+                instrucaoParaIA =
+                    $"Relatório gerado com sucesso: {totalReal} documentos, valor total R$ {valorTotal:N2}. " +
+                    $"Informe ao usuário de forma objetiva quantos documentos foram encontrados e o valor total. " +
+                    $"NÃO mencione links, URLs, exportId nem instruções de download — os botões de download (Excel e PDF) são exibidos automaticamente pela interface abaixo desta mensagem."
+            }, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ErpPlugin] 🔴 EXPORT ERRO: {ex.Message}");
+            return $"{{\"error\": \"{ex.Message}\"}}";
+        }
+    }
+
+    /// <summary>Gera arquivo PDF em memória usando QuestPDF.</summary>
+    public static byte[] GerarPdf(List<Dictionary<string, object>> rows, int total, decimal valorTotal)
+    {
+        QuestPDF.Settings.License = LicenseType.Community;
+
+        return Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Margin(30);
+                page.Size(PageSizes.A4.Landscape());
+                page.DefaultTextStyle(x => x.FontSize(8).FontFamily("Arial"));
+
+                page.Header().Padding(5).Row(row =>
+                {
+                    row.RelativeItem().Text(text =>
+                    {
+                        text.Span("Relatório Financeiro").Bold().FontSize(12);
+                        text.Span($"  —  Gerado em {DateTime.Now:dd/MM/yyyy HH:mm}").FontSize(9).FontColor(Colors.Grey.Medium);
+                    });
+                    row.ConstantItem(180).AlignRight().Text(text =>
+                    {
+                        text.Span($"{total} registros  |  ").FontSize(9).FontColor(Colors.Grey.Medium);
+                        text.Span($"R$ {valorTotal:N2}").Bold().FontSize(9).FontColor(Colors.Green.Darken2);
+                    });
+                });
+
+                page.Content().PaddingVertical(8).Table(table =>
+                {
+                    if (rows.Count == 0) return;
+
+                    var columns = rows[0].Keys.ToList();
+
+                    // Columas dinâmicas com tamanho relativo igual
+                    table.ColumnsDefinition(cols =>
+                    {
+                        foreach (var _ in columns)
+                            cols.RelativeColumn();
+                    });
+
+                    // Cabeçalho
+                    table.Header(header =>
+                    {
+                        foreach (var col in columns)
+                        {
+                            header.Cell().Background(Colors.BlueGrey.Darken3).Padding(4)
+                                .Text(col).Bold().FontColor(Colors.White).FontSize(7.5f);
+                        }
+                    });
+
+                    // Linhas de dados com zebra stripe
+                    for (int r = 0; r < rows.Count; r++)
+                    {
+                        var bgColor = r % 2 == 0 ? Colors.White : Colors.Grey.Lighten4;
+                        foreach (var col in columns)
+                        {
+                            var val = rows[r].GetValueOrDefault(col);
+                            string text = val switch
+                            {
+                                DateTime dt => dt.ToString("dd/MM/yyyy"),
+                                decimal dec => dec.ToString("N2"),
+                                double dbl  => dbl.ToString("N2"),
+                                null        => "",
+                                _           => val.ToString() ?? ""
+                            };
+                            table.Cell().Background(bgColor).Padding(3).Text(text).FontSize(7.5f);
+                        }
+                    }
+                });
+
+                page.Footer().AlignCenter().Text(text =>
+                {
+                    text.Span("Página ").FontSize(8).FontColor(Colors.Grey.Medium);
+                    text.CurrentPageNumber().FontSize(8).FontColor(Colors.Grey.Medium);
+                    text.Span(" de ").FontSize(8).FontColor(Colors.Grey.Medium);
+                    text.TotalPages().FontSize(8).FontColor(Colors.Grey.Medium);
+                });
+            });
+        }).GeneratePdf();
+    }
+
+    /// <summary>Gera arquivo Excel (.xlsx) em memória usando ClosedXML.</summary>
+    private static byte[] GerarExcel(List<Dictionary<string, object>> rows, string viewName, int total, decimal valorTotal)
+    {
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Relatório");
+
+        if (rows.Count == 0)
+        {
+            ws.Cell(1, 1).Value = "Nenhum registro encontrado.";
+        }
+        else
+        {
+            // Cabeçalho
+            var columns = rows[0].Keys.ToList();
+            for (int col = 0; col < columns.Count; col++)
+            {
+                var headerCell = ws.Cell(1, col + 1);
+                headerCell.Value = columns[col];
+                headerCell.Style.Font.Bold = true;
+                headerCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#1E293B");
+                headerCell.Style.Font.FontColor = XLColor.White;
+                headerCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            }
+
+            // Dados
+            for (int row = 0; row < rows.Count; row++)
+            {
+                for (int col = 0; col < columns.Count; col++)
+                {
+                    var val = rows[row].GetValueOrDefault(columns[col]);
+                    var cell = ws.Cell(row + 2, col + 1);
+
+                    if (val is DateTime dt)       cell.Value = dt;
+                    else if (val is decimal dec)  cell.Value = dec;
+                    else if (val is double dbl)   cell.Value = dbl;
+                    else if (val is int integer)  cell.Value = integer;
+                    else if (val is long lng)      cell.Value = lng;
+                    else                           cell.Value = val?.ToString() ?? "";
+
+                    // Zebra stripes
+                    if (row % 2 == 1)
+                        cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#F8FAFC");
+                }
+            }
+
+            // Rodapé com totais
+            int footerRow = rows.Count + 3;
+            ws.Cell(footerRow, 1).Value = $"Total de Documentos: {total}";
+            ws.Cell(footerRow, 1).Style.Font.Bold = true;
+            ws.Cell(footerRow + 1, 1).Value = $"Valor Total: R$ {valorTotal:N2}";
+            ws.Cell(footerRow + 1, 1).Style.Font.Bold = true;
+
+            ws.Columns().AdjustToContents();
+        }
+
+        // Informações da planilha
+        ws.Cell("A1").WorksheetColumn().Width = Math.Max(ws.Cell("A1").WorksheetColumn().Width, 15);
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
     }
 }

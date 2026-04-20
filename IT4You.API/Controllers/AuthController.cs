@@ -28,7 +28,7 @@ public class AuthController : ControllerBase
         {
             var response = await _authService.LoginAsync(request);
             if (response == null)
-                return Unauthorized(new { message = "Invalid email or password" });
+                return Unauthorized(new { message = "E-mail ou senha inválidos." });
 
             // Generate JWT
             var token = GenerateJwtToken(response);
@@ -37,7 +37,7 @@ public class AuthController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return StatusCode(403, new { error = ex.Message, message = "favor consulte o administrador do sistema" });
+            return StatusCode(403, new { error = ex.Message, message = ex.Message });
         }
     }
 

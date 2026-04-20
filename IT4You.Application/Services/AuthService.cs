@@ -35,16 +35,16 @@ public class AuthService : IAuthService
                 return null;
             }
 
-            if (!user.IsActive)
+            if (!user.IsActive || user.IsInactive)
             {
                 _logger.LogWarning("User is inactive: {Email}", request.Email);
-                throw new UnauthorizedAccessException("FORBIDDEN_INACTIVE_USER");
+                throw new UnauthorizedAccessException("Olá! Parece que sua política de acesso precisa de uma atualização. Verifique com o administrador!");
             }
 
             if (user.Tenant != null && !user.Tenant.IsActive)
             {
                 _logger.LogWarning("Tenant is inactive for user: {Email}", request.Email);
-                throw new UnauthorizedAccessException("FORBIDDEN_INACTIVE_TENANT");
+                throw new UnauthorizedAccessException("Olá! Parece que o acesso da sua empresa precisa de uma atualização. Verifique com o administrador!");
             }
             
             _logger.LogInformation("User found. Checking password for: {Email}", request.Email);
@@ -127,7 +127,7 @@ public class AuthService : IAuthService
             await transaction.CommitAsync();
 
             _logger.LogInformation("Registration successful for: {Email}", request.Email);
-            return new RegisterResponse("Company registered successfully", tenant.Id);
+            return new RegisterResponse("Empresa registrada com sucesso", tenant.Id);
         }
         catch (Exception ex)
         {

@@ -4,6 +4,7 @@ using IT4You.Domain.Entities;
 using IT4You.Application.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using IT4You.Application.Helpers;
 
 namespace IT4You.Application.Services;
 
@@ -25,7 +26,18 @@ public class TenantService : ITenantService
         if (tenant == null) throw new Exception("Tenant not found");
 
         tenant.IaToken = request.IaToken;
+        tenant.ChatAiToken = request.ChatAiToken;
         tenant.ErpToken = request.ErpToken;
+        
+        tenant.DbIp = request.DbIp;
+        tenant.DbName = request.DbName;
+        tenant.DbType = request.DbType;
+        tenant.DbUser = request.DbUser;
+        if (!string.IsNullOrEmpty(request.DbPassword))
+        {
+            tenant.DbPassword = EncryptionHelper.Encrypt(request.DbPassword);
+        }
+        
         tenant.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
@@ -50,6 +62,12 @@ public class TenantService : ITenantService
             t.Cnpj, 
             t.IaToken, 
             t.ErpToken, 
+            t.ChatAiToken,
+            t.DbIp,
+            t.DbName,
+            t.DbType,
+            t.DbUser,
+            EncryptionHelper.Decrypt(t.DbPassword ?? ""),
             t.CreatedAt,
             t.Users.Select(u => new UserDto(
                 u.Id, 
@@ -64,7 +82,9 @@ public class TenantService : ITenantService
                 u.HasReceivableChatAccess,
                 u.HasReceivableDashboardAccess,
                 u.HasBankingChatAccess,
-                u.HasBankingDashboardAccess
+                u.HasBankingDashboardAccess,
+                u.IsInactive,
+                u.BlockedUntil
             ))
         ));
     }
@@ -90,8 +110,14 @@ public class TenantService : ITenantService
             tenant.Cnpj, 
             tenant.IaToken, 
             tenant.ErpToken, 
+            tenant.ChatAiToken,
+            tenant.DbIp,
+            tenant.DbName,
+            tenant.DbType,
+            tenant.DbUser,
+            EncryptionHelper.Decrypt(tenant.DbPassword ?? ""),
             tenant.CreatedAt,
-            tenant.Users.Select(u => new UserDto(u.Id, u.Name, u.Email, u.Role.ToString(), u.QueryCount, u.CreatedAt, u.IsActive, u.HasPayableChatAccess, u.HasPayableDashboardAccess, u.HasReceivableChatAccess, u.HasReceivableDashboardAccess, u.HasBankingChatAccess, u.HasBankingDashboardAccess))
+            tenant.Users.Select(u => new UserDto(u.Id, u.Name, u.Email, u.Role.ToString(), u.QueryCount, u.CreatedAt, u.IsActive, u.HasPayableChatAccess, u.HasPayableDashboardAccess, u.HasReceivableChatAccess, u.HasReceivableDashboardAccess, u.HasBankingChatAccess, u.HasBankingDashboardAccess, u.IsInactive, u.BlockedUntil))
         );
     }
 
@@ -129,7 +155,7 @@ public class TenantService : ITenantService
 
         var isAdmin = user.Role == UserRole.TENANT_ADMIN || user.Role == UserRole.SUPER_ADMIN || user.Role == UserRole.ADMIN;
 
-        if (user.Email != request.Email)
+        if (!string.IsNullOrWhiteSpace(request.Email) && user.Email != request.Email)
         {
             var emailExists = await _context.Users.AnyAsync(u => u.Email == request.Email);
             if (emailExists) throw new Exception("Email already in use by another user");
@@ -152,6 +178,17 @@ public class TenantService : ITenantService
         if (request.HasReceivableDashboardAccess.HasValue) user.HasReceivableDashboardAccess = isAdmin || request.HasReceivableDashboardAccess.Value;
         if (request.HasBankingChatAccess.HasValue) user.HasBankingChatAccess = isAdmin || request.HasBankingChatAccess.Value;
         if (request.HasBankingDashboardAccess.HasValue) user.HasBankingDashboardAccess = isAdmin || request.HasBankingDashboardAccess.Value;
+
+        if (request.IsInactive.HasValue) user.IsInactive = request.IsInactive.Value;
+        
+        if (request.Unblock == true)
+        {
+            user.BlockedUntil = null;
+        }
+        else if (request.BlockedUntil.HasValue)
+        {
+            user.BlockedUntil = request.BlockedUntil.Value;
+        }
 
         if (!string.IsNullOrWhiteSpace(request.Name))
         {

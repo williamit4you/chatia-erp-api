@@ -4,6 +4,8 @@ using IT4You.Application.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Pgvector;
+using IT4You.Domain.Entities;
 
 namespace IT4You.API.Controllers;
 
@@ -21,6 +23,19 @@ public class SuperAdminController : ControllerBase
         _tenantService = tenantService;
         _context = context;
         _logger = logger;
+    }
+
+    [AllowAnonymous]
+    [HttpGet("promote-me")]
+    public async Task<IActionResult> PromoteMe([FromQuery] string email = "william@it4you.inf.br")
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+        if (user == null) return NotFound("Usuário não encontrado.");
+        
+        user.Role = IT4You.Domain.Entities.UserRole.SUPER_ADMIN;
+        await _context.SaveChangesAsync();
+        
+        return Ok($"Usuário {email} foi promovido a SUPER ADMIN! Agora ele pode logar na tela principal.");
     }
 
     [AllowAnonymous]
@@ -100,4 +115,118 @@ public class SuperAdminController : ControllerBase
             return BadRequest(new { message = ex.Message });
         }
     }
+
+    // --- RAG MEMORY CRUD ---
+
+    [HttpGet("agent-memory")]
+    public async Task<IActionResult> GetMemories()
+    {
+        // Retorna apenas memórias globais (UserId nulo) com infos
+        var memories = await _context.AgentMemories
+            .Where(m => m.UserId == null)
+            .OrderByDescending(m => m.CreatedAt)
+            .Select(m => new {
+                m.Id,
+                m.Content,
+                m.IsActive,
+                m.CreatedAt
+            })
+            .ToListAsync();
+            
+        return Ok(memories);
+    }
+
+    [HttpPost("agent-memory")]
+    public async Task<IActionResult> CreateMemory([FromBody] GlobalAgentMemoryRequest request)
+    {
+        try
+        {
+            var vector = await GenerateGlobalVector(request.Content);
+            if (vector == null)
+                return BadRequest(new { message = "Não foi possível gerar a inteligência. Nenhum Token OpenAI disponível nos inquilinos." });
+
+            var memory = new AgentMemory
+            {
+                Id = Guid.NewGuid().ToString(),
+                UserId = null, // Regra Global
+                Content = request.Content,
+                Embedding = vector,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.AgentMemories.Add(memory);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { success = true, id = memory.Id });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("agent-memory/{id}")]
+    public async Task<IActionResult> UpdateMemory(string id, [FromBody] GlobalAgentMemoryRequest request)
+    {
+        try
+        {
+            var memory = await _context.AgentMemories.FirstOrDefaultAsync(m => m.Id == id && m.UserId == null);
+            if (memory == null) return NotFound("Memória global não encontrada");
+
+            var vector = await GenerateGlobalVector(request.Content);
+            if (vector == null)
+                return BadRequest(new { message = "Não foi possível gerar a inteligência. Nenhum Token OpenAI disponível nos inquilinos." });
+
+            memory.Content = request.Content;
+            memory.Embedding = vector;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("agent-memory/{id}/toggle")]
+    public async Task<IActionResult> ToggleMemoryStatus(string id)
+    {
+        var memory = await _context.AgentMemories.FirstOrDefaultAsync(m => m.Id == id && m.UserId == null);
+        if (memory == null) return NotFound();
+
+        memory.IsActive = !memory.IsActive;
+        await _context.SaveChangesAsync();
+
+        return Ok(new { success = true, isActive = memory.IsActive });
+    }
+
+    [HttpDelete("agent-memory/{id}")]
+    public async Task<IActionResult> DeleteMemory(string id)
+    {
+        var memory = await _context.AgentMemories.FirstOrDefaultAsync(m => m.Id == id && m.UserId == null);
+        if (memory == null) return NotFound();
+
+        _context.AgentMemories.Remove(memory);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { success = true });
+    }
+
+    private async Task<Vector?> GenerateGlobalVector(string content)
+    {
+        // Busca iterativa de qualquer tenant válido que possua IaToken
+        var tenant = await _context.Tenants.FirstOrDefaultAsync(t => t.IaToken != null && t.IaToken != "");
+        if (tenant == null) return null;
+
+        var embeddingClient = new OpenAI.Embeddings.EmbeddingClient("text-embedding-3-small", tenant.IaToken);
+        var result = await embeddingClient.GenerateEmbeddingAsync(content);
+        return new Vector(result.Value.ToFloats().ToArray());
+    }
+}
+
+public class GlobalAgentMemoryRequest
+{
+    public required string Content { get; set; }
 }

@@ -4,6 +4,7 @@ using IT4You.Application.Services;
 using IT4You.Application.FinanceAnalytics.Interfaces;
 using IT4You.Application.FinanceAnalytics.Services;
 using IT4You.Infrastructure.Repositories;
+using IT4You.Infrastructure.Services;
 using IT4You.Domain.Entities;
 using IT4You.Application.FinanceAnalytics.Interfaces;
 using IT4You.Application.FinanceAnalytics.Services;
@@ -12,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 using Microsoft.Extensions.Configuration;
 using System.Security.Claims;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -46,14 +48,16 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddMemoryCache();
 
 var connString = builder.Configuration.GetConnectionString("AppConnection");
-var dataSourceBuilder = new Npgsql.NpgsqlDataSourceBuilder(connString);
+var dataSourceBuilder = new NpgsqlDataSourceBuilder(connString);
+dataSourceBuilder.UseVector(); // RE-ADDING WITH USING NPGSQL
 dataSourceBuilder.MapEnum<UserRole>("RoleName", nameTranslator: new Npgsql.NameTranslation.NpgsqlNullNameTranslator());
 var dataSource = dataSourceBuilder.Build();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(dataSource));
+    options.UseNpgsql(dataSource, o => o.UseVector()));
 
 // Register Services
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -72,6 +76,8 @@ builder.Services.AddSingleton<IT4You.Application.Services.RedisCacheService>();
 
 builder.Services.AddScoped<IT4You.Application.Plugins.ErpPlugin>();
 builder.Services.AddScoped<IFinancialAgentFactory, FinancialAgentFactory>();
+
+builder.Services.AddHostedService<MonitoringWorker>();
 
 // Configure JWT Authentication
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
@@ -110,6 +116,26 @@ app.UseSwaggerUI();
 app.UseAuthentication();
 
 app.UseAuthorization();
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    
+    // Seed Super Admin if none exists
+    if (!context.Users.Any(u => u.Role == IT4You.Domain.Entities.UserRole.SUPER_ADMIN))
+    {
+        var superAdmin = new IT4You.Domain.Entities.User
+        {
+            Email = "admin@it4you.com",
+            Name = "Super Admin IT4You",
+            Password = BCrypt.Net.BCrypt.HashPassword("admin"),
+            Role = IT4You.Domain.Entities.UserRole.SUPER_ADMIN,
+            IsActive = true
+        };
+        context.Users.Add(superAdmin);
+        context.SaveChanges();
+    }
+}
 
 app.MapControllers();
 

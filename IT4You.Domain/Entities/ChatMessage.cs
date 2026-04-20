@@ -7,6 +7,9 @@ public class ChatMessage
     public string Content { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    public string? SqlQueries { get; set; } // JSON array of queries executed by the AI
+    public string Module { get; set; } = "Financeiro";
+
     public string SessionId { get; set; } = string.Empty;
     public ChatSession? Session { get; set; }
 }
