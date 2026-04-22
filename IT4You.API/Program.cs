@@ -6,11 +6,7 @@ using IT4You.Application.FinanceAnalytics.Services;
 using IT4You.Infrastructure.Repositories;
 using IT4You.Infrastructure.Services;
 using IT4You.Domain.Entities;
-using IT4You.Application.FinanceAnalytics.Interfaces;
-using IT4You.Application.FinanceAnalytics.Services;
-using IT4You.Application.Services;
 using Microsoft.EntityFrameworkCore;
-using StackExchange.Redis;
 using Microsoft.Extensions.Configuration;
 using System.Security.Claims;
 using Npgsql;
@@ -40,10 +36,7 @@ builder.Services.AddCors(options =>
                             "http://localhost:8081",
                             "http://192.168.0.113:8081",
                             "https://desenvolvimento-chat-erp-ia-web-dev.ykzlki.easypanel.host",
-                            "https://desenvolvimento-chat-erp-ia-web.ykzlki.easypanel.host",
-                            "https://teste-swia.it4you.inf.br",
-                            "https://swia.it4you.inf.br"
-                            )
+                            "https://desenvolvimento-chat-erp-ia-web.ykzlki.easypanel.host")
                         .AllowAnyMethod()
                         .AllowAnyHeader()
                         .AllowCredentials());
@@ -70,12 +63,6 @@ builder.Services.AddScoped<IFavoriteService, FavoriteService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IFinanceAnalyticsRepository, FinanceAnalyticsRepository>();
 builder.Services.AddScoped<IFinanceAnalyticsService, FinanceAnalyticsService>();
-builder.Services.AddScoped<ICacheWarmingService, CacheWarmingService>();
-
-// Redis Configuration
-var redisConn = builder.Configuration.GetSection("Redis")["ConnectionString"] ?? "localhost";
-builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConn));
-builder.Services.AddSingleton<IT4You.Application.Services.RedisCacheService>();
 
 builder.Services.AddScoped<IT4You.Application.Plugins.ErpPlugin>();
 builder.Services.AddScoped<IFinancialAgentFactory, FinancialAgentFactory>();
