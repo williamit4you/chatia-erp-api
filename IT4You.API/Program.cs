@@ -49,6 +49,11 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddMemoryCache();
 
+// Necessário para IErpConnectionFactory ler o tenantId do HttpContext (JWT) em runtime
+builder.Services.AddHttpContextAccessor();
+// Conexão dinâmica ao banco ERP por Tenant (SQL Server ou Oracle)
+builder.Services.AddScoped<IErpConnectionFactory, ErpConnectionFactory>();
+
 var connString = builder.Configuration.GetConnectionString("AppConnection");
 var dataSourceBuilder = new NpgsqlDataSourceBuilder(connString);
 dataSourceBuilder.UseVector(); // RE-ADDING WITH USING NPGSQL

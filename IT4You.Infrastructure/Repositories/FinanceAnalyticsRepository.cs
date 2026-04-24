@@ -5,29 +5,29 @@ using System.Threading.Tasks;
 using Dapper;
 using IT4You.Application.FinanceAnalytics.DTOs;
 using IT4You.Application.FinanceAnalytics.Interfaces;
-using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace IT4You.Infrastructure.Repositories
 {
     public class FinanceAnalyticsRepository : IFinanceAnalyticsRepository
     {
-        private readonly string _connectionString;
+        private readonly IErpConnectionFactory _connectionFactory;
+        private readonly ILogger<FinanceAnalyticsRepository> _logger;
 
-        public FinanceAnalyticsRepository(IConfiguration configuration)
+        public FinanceAnalyticsRepository(
+            IErpConnectionFactory connectionFactory,
+            ILogger<FinanceAnalyticsRepository> logger)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection") 
-                ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+            _connectionFactory = connectionFactory;
+            _logger = logger;
         }
 
-        private IDbConnection CreateConnection()
-        {
-            return new SqlConnection(_connectionString);
-        }
+        private async Task<IDbConnection> CreateConnectionAsync()
+            => await _connectionFactory.CreateConnectionAsync();
 
         public async Task<FinanceSummaryDto> GetSummaryAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
         {
-            using var connection = CreateConnection();
+            using var connection = await CreateConnectionAsync();
             var parameters = new DynamicParameters();
             
             string whereAberto = "";
@@ -79,7 +79,7 @@ namespace IT4You.Infrastructure.Repositories
 
         public async Task<IEnumerable<MonthlyFlowDto>> GetMonthlyFlowAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
         {
-            using var connection = CreateConnection();
+            using var connection = await CreateConnectionAsync();
             var parameters = new DynamicParameters();
             
             string wherePago = "";
@@ -156,7 +156,7 @@ namespace IT4You.Infrastructure.Repositories
         {
             if (!rights.HasReceivableDashboardAccess) return Enumerable.Empty<TopDebtorDto>();
 
-            using var connection = CreateConnection();
+            using var connection = await CreateConnectionAsync();
             var parameters = new DynamicParameters();
             
             string whereClause = "";
@@ -202,7 +202,7 @@ namespace IT4You.Infrastructure.Repositories
 
         public async Task<AdvancedDashboardDto> GetAdvancedAnalyticsAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
         {
-            using var connection = CreateConnection();
+            using var connection = await CreateConnectionAsync();
             var parameters = new DynamicParameters();
             parameters.Add("TenantId", tenantId);
             

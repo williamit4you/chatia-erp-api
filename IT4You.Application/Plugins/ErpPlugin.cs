@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using Microsoft.SemanticKernel;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Data.SqlClient;
 using System.Text.Json;
@@ -10,6 +9,7 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using IT4You.Application.FinanceAnalytics.Interfaces;
 using ClosedXML.Excel;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -19,8 +19,7 @@ namespace IT4You.Application.Plugins;
 
 public class ErpPlugin
 {
-    private readonly IConfiguration _configuration;
-    private readonly string _connectionString;
+    private readonly IErpConnectionFactory _connectionFactory;
     private readonly IMemoryCache _cache;
 
     // A partir deste número o sistema gera Excel direto ao usuário (bypass da IA)
@@ -52,11 +51,10 @@ public class ErpPlugin
         return JsonSerializer.Serialize(ExecutedQueries);
     }
 
-    public ErpPlugin(IConfiguration configuration, IMemoryCache cache)
+    public ErpPlugin(IErpConnectionFactory connectionFactory, IMemoryCache cache)
     {
-        _configuration = configuration;
+        _connectionFactory = connectionFactory;
         _cache = cache;
-        _connectionString = _configuration.GetConnectionString("DefaultConnection") ?? "";
     }
 
     // Omitimos a coluna CLIENTE/FORNECEDOR do BASE_COLUMNS fixo pois ela varia por View
@@ -340,9 +338,6 @@ public class ErpPlugin
 
     private async Task<string> ExecuteQuery(string queryText, SqlParameter[] parameters)
     {
-        if (string.IsNullOrEmpty(_connectionString))
-            return "{\"error\": \"Connection string 'DefaultConnection' not found.\"}";
-
         try
         {
             string runnableQuery = BuildRunnableQuery(queryText, parameters);
@@ -351,13 +346,20 @@ public class ErpPlugin
             // Track query for SQL transparency feature
             ExecutedQueries.Add(runnableQuery);
 
-            using var connection = new SqlConnection(_connectionString);
-            await connection.OpenAsync();
+            using var connection = await _connectionFactory.CreateConnectionAsync();
+            await ((System.Data.Common.DbConnection)connection).OpenAsync();
 
-            using var command = new SqlCommand(queryText, connection);
-            command.Parameters.AddRange(parameters);
+            using var command = connection.CreateCommand();
+            command.CommandText = queryText;
+            foreach (var p in parameters)
+            {
+                var dbParam = command.CreateParameter();
+                dbParam.ParameterName = p.ParameterName;
+                dbParam.Value = p.Value;
+                command.Parameters.Add(dbParam);
+            }
 
-            using var reader = await command.ExecuteReaderAsync();
+            using var reader = await ((System.Data.Common.DbCommand)command).ExecuteReaderAsync();
             var results = new List<Dictionary<string, object>>();
 
             while (await reader.ReadAsync())
@@ -394,20 +396,25 @@ public class ErpPlugin
     /// <summary>Executa COUNT + SUM em uma única query leve.</summary>
     private async Task<(int total, decimal valorTotal)> ExecuteCountAndSum(string countSql, SqlParameter[] parameters)
     {
-        if (string.IsNullOrEmpty(_connectionString)) return (0, 0);
         try
         {
             string runnable = BuildRunnableQuery(countSql, parameters);
             ExecutedQueries.Add(runnable);
             Console.WriteLine($"[ErpPlugin] 🟢 COUNT+SUM: {runnable}");
 
-            using var connection = new SqlConnection(_connectionString);
-            await connection.OpenAsync();
-            using var cmd = new SqlCommand(countSql, connection);
+            using var connection = await _connectionFactory.CreateConnectionAsync();
+            await ((System.Data.Common.DbConnection)connection).OpenAsync();
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = countSql;
             foreach (var p in parameters)
-                cmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
+            {
+                var dbParam = cmd.CreateParameter();
+                dbParam.ParameterName = p.ParameterName;
+                dbParam.Value = p.Value;
+                cmd.Parameters.Add(dbParam);
+            }
 
-            using var reader = await cmd.ExecuteReaderAsync();
+            using var reader = await ((System.Data.Common.DbCommand)cmd).ExecuteReaderAsync();
             if (await reader.ReadAsync())
             {
                 int total = reader["Quantidade"] == DBNull.Value ? 0 : Convert.ToInt32(reader["Quantidade"]);
@@ -426,24 +433,27 @@ public class ErpPlugin
     /// <summary>Listagem inline para conjuntos pequenos (≤ EXPORT_THRESHOLD). A IA recebe as linhas + totais.</summary>
     private async Task<string> ExecuteListQueryInline(string listQuery, string countQuery, SqlParameter[] parameters)
     {
-        if (string.IsNullOrEmpty(_connectionString))
-            return "{\"error\": \"Connection string not found.\"}";
         try
         {
             string runnableList = BuildRunnableQuery(listQuery, parameters);
             Console.WriteLine($"[ErpPlugin] 🟢 LIST INLINE: {runnableList}");
             ExecutedQueries.Add(runnableList);
 
-            using var connection = new SqlConnection(_connectionString);
-            await connection.OpenAsync();
+            using var connection = await _connectionFactory.CreateConnectionAsync();
+            await ((System.Data.Common.DbConnection)connection).OpenAsync();
 
             // Re-executa COUNT+SUM (já foi feito antes, mas precisamos dos números aqui)
             int totalReal = 0; decimal valorTotal = 0;
-            using (var countCmd = new SqlCommand(countQuery, connection))
+            using (var countCmd = connection.CreateCommand())
             {
+                countCmd.CommandText = countQuery;
                 foreach (var p in parameters)
-                    countCmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
-                using var cr = await countCmd.ExecuteReaderAsync();
+                {
+                    var dp = countCmd.CreateParameter();
+                    dp.ParameterName = p.ParameterName; dp.Value = p.Value;
+                    countCmd.Parameters.Add(dp);
+                }
+                using var cr = await ((System.Data.Common.DbCommand)countCmd).ExecuteReaderAsync();
                 if (await cr.ReadAsync())
                 {
                     totalReal = cr["Quantidade"] == DBNull.Value ? 0 : Convert.ToInt32(cr["Quantidade"]);
@@ -452,11 +462,16 @@ public class ErpPlugin
             }
 
             var results = new List<Dictionary<string, object>>();
-            using (var listCmd = new SqlCommand(listQuery, connection))
+            using (var listCmd = connection.CreateCommand())
             {
+                listCmd.CommandText = listQuery;
                 foreach (var p in parameters)
-                    listCmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
-                using var reader = await listCmd.ExecuteReaderAsync();
+                {
+                    var dp = listCmd.CreateParameter();
+                    dp.ParameterName = p.ParameterName; dp.Value = p.Value;
+                    listCmd.Parameters.Add(dp);
+                }
+                using var reader = await ((System.Data.Common.DbCommand)listCmd).ExecuteReaderAsync();
                 while (await reader.ReadAsync())
                 {
                     var row = new Dictionary<string, object>();
@@ -492,23 +507,26 @@ public class ErpPlugin
     private async Task<string> ExecuteExportToCache(string fullQuery, int totalReal, decimal valorTotal,
         SqlParameter[] parameters, string viewName, string dateColumn)
     {
-        if (string.IsNullOrEmpty(_connectionString))
-            return "{\"error\": \"Connection string not found.\"}";
         try
         {
             string runnable = BuildRunnableQuery(fullQuery, parameters);
             Console.WriteLine($"[ErpPlugin] 🟢 EXPORT FULL QUERY ({totalReal} rows): {runnable}");
             ExecutedQueries.Add(runnable);
 
-            using var connection = new SqlConnection(_connectionString);
-            await connection.OpenAsync();
+            using var connection = await _connectionFactory.CreateConnectionAsync();
+            await ((System.Data.Common.DbConnection)connection).OpenAsync();
 
             var results = new List<Dictionary<string, object>>();
-            using (var cmd = new SqlCommand(fullQuery, connection))
+            using (var cmd = connection.CreateCommand())
             {
+                cmd.CommandText = fullQuery;
                 foreach (var p in parameters)
-                    cmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
-                using var reader = await cmd.ExecuteReaderAsync();
+                {
+                    var dp = cmd.CreateParameter();
+                    dp.ParameterName = p.ParameterName; dp.Value = p.Value;
+                    cmd.Parameters.Add(dp);
+                }
+                using var reader = await ((System.Data.Common.DbCommand)cmd).ExecuteReaderAsync();
                 while (await reader.ReadAsync())
                 {
                     var row = new Dictionary<string, object>();
