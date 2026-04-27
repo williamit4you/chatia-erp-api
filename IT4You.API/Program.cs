@@ -6,6 +6,7 @@ using IT4You.Application.FinanceAnalytics.Services;
 using IT4You.Infrastructure.Repositories;
 using IT4You.Infrastructure.Services;
 using IT4You.Domain.Entities;
+using IT4You.API.Infrastructure.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System.Security.Claims;
@@ -48,6 +49,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<SimpleRateLimiter>();
 
 // Necessário para IErpConnectionFactory ler o tenantId do HttpContext (JWT) em runtime
 builder.Services.AddHttpContextAccessor();

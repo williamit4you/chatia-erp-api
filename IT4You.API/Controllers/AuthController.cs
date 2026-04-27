@@ -1,5 +1,6 @@
 using IT4You.Application.DTOs;
 using IT4You.Application.Interfaces;
+using IT4You.API.Infrastructure.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -16,12 +17,25 @@ public class AuthController : ControllerBase
     private readonly IAuthService _authService;
     private readonly IPasswordResetService _passwordResetService;
     private readonly IConfiguration _configuration;
+    private readonly SimpleRateLimiter _rateLimiter;
 
-    public AuthController(IAuthService authService, IPasswordResetService passwordResetService, IConfiguration configuration)
+    public AuthController(IAuthService authService, IPasswordResetService passwordResetService, IConfiguration configuration, SimpleRateLimiter rateLimiter)
     {
         _authService = authService;
         _passwordResetService = passwordResetService;
         _configuration = configuration;
+        _rateLimiter = rateLimiter;
+    }
+
+    private string GetClientIp() => HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+    private IActionResult TooManyRequestsResponse(int retryAfterSeconds)
+    {
+        Response.Headers["Retry-After"] = retryAfterSeconds.ToString();
+        return StatusCode(429, new
+        {
+            message = $"Muitas tentativas. Tente novamente em {retryAfterSeconds} segundos."
+        });
     }
 
     [HttpPost("login")]
@@ -36,6 +50,27 @@ public class AuthController : ControllerBase
             // Generate JWT
             var token = GenerateJwtToken(response);
             
+            return Ok(response with { Token = token });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { error = ex.Message, message = ex.Message });
+        }
+    }
+
+    [HttpPost("superadmin/login")]
+    public async Task<IActionResult> SuperAdminLogin([FromBody] LoginRequest request)
+    {
+        try
+        {
+            var response = await _authService.LoginAsync(request);
+            if (response == null)
+                return Unauthorized(new { message = "E-mail ou senha inválidos." });
+
+            if (!string.Equals(response.Role, "SUPER_ADMIN", StringComparison.OrdinalIgnoreCase))
+                return Unauthorized(new { message = "E-mail ou senha inválidos." });
+
+            var token = GenerateJwtToken(response);
             return Ok(response with { Token = token });
         }
         catch (UnauthorizedAccessException ex)
@@ -62,12 +97,26 @@ public class AuthController : ControllerBase
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
     {
+        var ip = GetClientIp();
+        var email = (request.Email ?? string.Empty).Trim().ToLowerInvariant();
+        if (!_rateLimiter.TryConsume($"forgot-password:{ip}:{email}", limit: 5, window: TimeSpan.FromMinutes(15), out var retryAfterSeconds))
+            return TooManyRequestsResponse(retryAfterSeconds);
+
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return Ok(new
+            {
+                success = true,
+                message = "Se o e-mail estiver cadastrado, enviaremos instruÃ§Ãµes para redefinir sua senha."
+            });
+        }
+
         var resetBaseUrl = _configuration["Frontend:BaseUrl"]
             ?? Request.Headers.Origin.FirstOrDefault()
             ?? "http://localhost:3010";
 
         await _passwordResetService.RequestResetAsync(
-            request.Email,
+            email,
             resetBaseUrl,
             HttpContext.Connection.RemoteIpAddress?.ToString(),
             Request.Headers.UserAgent.ToString());
@@ -83,6 +132,10 @@ public class AuthController : ControllerBase
     [HttpGet("reset-password/validate")]
     public async Task<IActionResult> ValidateResetToken([FromQuery] string token)
     {
+        var ip = GetClientIp();
+        if (!_rateLimiter.TryConsume($"reset-validate:{ip}", limit: 30, window: TimeSpan.FromMinutes(5), out var retryAfterSeconds))
+            return TooManyRequestsResponse(retryAfterSeconds);
+
         return Ok(await _passwordResetService.ValidateAsync(token));
     }
 
@@ -90,6 +143,10 @@ public class AuthController : ControllerBase
     [HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
     {
+        var ip = GetClientIp();
+        if (!_rateLimiter.TryConsume($"reset-password:{ip}", limit: 10, window: TimeSpan.FromMinutes(15), out var retryAfterSeconds))
+            return TooManyRequestsResponse(retryAfterSeconds);
+
         try
         {
             await _passwordResetService.ResetPasswordAsync(request);
