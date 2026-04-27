@@ -127,14 +127,16 @@ public class TenantService : ITenantService
         if (existingUser) throw new Exception("Email already in use");
 
         var hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password);
-        var isAdmin = Enum.TryParse<UserRole>(request.Role, out var parsedRole) && (parsedRole == UserRole.TENANT_ADMIN || parsedRole == UserRole.SUPER_ADMIN || parsedRole == UserRole.ADMIN);
+        var role = Enum.TryParse<UserRole>(request.Role, out var parsedRole) ? parsedRole : UserRole.TENANT_USER;
+        if (role == UserRole.SUPER_ADMIN) throw new Exception("Não é permitido criar SUPER_ADMIN por este fluxo");
+        var isAdmin = role == UserRole.TENANT_ADMIN || role == UserRole.ADMIN;
 
         var user = new User
         {
             Email = request.Email,
             Password = hashedPassword,
             Name = request.Name ?? request.Email.Split('@')[0],
-            Role = Enum.TryParse<UserRole>(request.Role, out var role) ? role : UserRole.TENANT_USER,
+            Role = role,
             TenantId = tenantId,
             HasPayableChatAccess = isAdmin || request.HasPayableChatAccess,
             HasPayableDashboardAccess = isAdmin || request.HasPayableDashboardAccess,
@@ -153,7 +155,15 @@ public class TenantService : ITenantService
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId);
         if (user == null) throw new Exception("User not found or does not belong to this tenant");
 
-        var isAdmin = user.Role == UserRole.TENANT_ADMIN || user.Role == UserRole.SUPER_ADMIN || user.Role == UserRole.ADMIN;
+        var requestedRole = user.Role;
+        if (Enum.TryParse<UserRole>(request.Role, out var parsedRole))
+        {
+            if (parsedRole == UserRole.SUPER_ADMIN) throw new Exception("Não é permitido promover usuários para SUPER_ADMIN por este fluxo");
+            requestedRole = parsedRole;
+            user.Role = parsedRole;
+        }
+
+        var isAdmin = requestedRole == UserRole.TENANT_ADMIN || requestedRole == UserRole.ADMIN;
 
         if (!string.IsNullOrWhiteSpace(request.Email) && user.Email != request.Email)
         {
@@ -162,11 +172,6 @@ public class TenantService : ITenantService
             user.Email = request.Email;
         }
 
-        if (Enum.TryParse<UserRole>(request.Role, out var role))
-        {
-            user.Role = role;
-        }
-        
         if (request.IsActive.HasValue)
         {
             user.IsActive = request.IsActive.Value;

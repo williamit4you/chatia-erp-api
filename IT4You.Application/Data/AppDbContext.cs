@@ -13,6 +13,10 @@ public class AppDbContext : DbContext
     public DbSet<ChatMessage> ChatMessages { get; set; }
     public DbSet<FavoriteQuestion> FavoriteQuestions { get; set; }
     public DbSet<AgentMemory> AgentMemories { get; set; }
+    public DbSet<EmailConfiguration> EmailConfigurations { get; set; }
+    public DbSet<EmailTemplate> EmailTemplates { get; set; }
+    public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
+    public DbSet<EmailLog> EmailLogs { get; set; }
 
     public override int SaveChanges()
     {
@@ -76,6 +80,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ChatMessage>().ToTable("ChatMessage");
         modelBuilder.Entity<FavoriteQuestion>().ToTable("FavoriteQuestion");
         modelBuilder.Entity<AgentMemory>().ToTable("AgentMemory");
+        modelBuilder.Entity<EmailConfiguration>().ToTable("EmailConfiguration");
+        modelBuilder.Entity<EmailTemplate>().ToTable("EmailTemplate");
+        modelBuilder.Entity<PasswordResetToken>().ToTable("PasswordResetToken");
+        modelBuilder.Entity<EmailLog>().ToTable("EmailLog");
 
         // --- COMPREHENSIVE COLUMN MAPPING (Match Prisma camelCase) ---
 
@@ -194,6 +202,96 @@ public class AppDbContext : DbContext
                 .WithMany() // Ajustado para ser unilateral sem Navigation Property no lado de User
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<EmailConfiguration>(entity => {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Name).HasColumnName("name");
+            entity.Property(e => e.SenderName).HasColumnName("senderName");
+            entity.Property(e => e.SenderEmail).HasColumnName("senderEmail");
+            entity.Property(e => e.SmtpHost).HasColumnName("smtpHost");
+            entity.Property(e => e.SmtpPort).HasColumnName("smtpPort");
+            entity.Property(e => e.SmtpUser).HasColumnName("smtpUser");
+            entity.Property(e => e.SmtpPasswordEncrypted).HasColumnName("smtpPasswordEncrypted");
+            entity.Property(e => e.SmtpUseSsl).HasColumnName("smtpUseSsl");
+            entity.Property(e => e.SmtpUseStartTls).HasColumnName("smtpUseStartTls");
+            entity.Property(e => e.ReceiveProtocol).HasColumnName("receiveProtocol").HasConversion<string>();
+            entity.Property(e => e.ReceiveHost).HasColumnName("receiveHost");
+            entity.Property(e => e.ReceivePort).HasColumnName("receivePort");
+            entity.Property(e => e.ReceiveUser).HasColumnName("receiveUser");
+            entity.Property(e => e.ReceivePasswordEncrypted).HasColumnName("receivePasswordEncrypted");
+            entity.Property(e => e.ReceiveUseSsl).HasColumnName("receiveUseSsl");
+            entity.Property(e => e.TimeoutSeconds).HasColumnName("timeoutSeconds");
+            entity.Property(e => e.IsActive).HasColumnName("isActive");
+            entity.Property(e => e.CreatedByUserId).HasColumnName("createdByUserId");
+            entity.Property(e => e.UpdatedByUserId).HasColumnName("updatedByUserId");
+            entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updatedAt");
+        });
+
+        modelBuilder.Entity<EmailTemplate>(entity => {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Key).IsUnique();
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Key).HasColumnName("key");
+            entity.Property(e => e.Name).HasColumnName("name");
+            entity.Property(e => e.Subject).HasColumnName("subject");
+            entity.Property(e => e.HtmlBody).HasColumnName("htmlBody");
+            entity.Property(e => e.TextBody).HasColumnName("textBody");
+            entity.Property(e => e.AllowedVariables).HasColumnName("allowedVariables");
+            entity.Property(e => e.IsActive).HasColumnName("isActive");
+            entity.Property(e => e.CreatedByUserId).HasColumnName("createdByUserId");
+            entity.Property(e => e.UpdatedByUserId).HasColumnName("updatedByUserId");
+            entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updatedAt");
+        });
+
+        modelBuilder.Entity<PasswordResetToken>(entity => {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.TokenHash).IsUnique();
+            entity.HasIndex(e => new { e.UserId, e.CreatedAt });
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.UserId).HasColumnName("userId");
+            entity.Property(e => e.TenantId).HasColumnName("tenantId");
+            entity.Property(e => e.TokenHash).HasColumnName("tokenHash");
+            entity.Property(e => e.ExpiresAt).HasColumnName("expiresAt");
+            entity.Property(e => e.UsedAt).HasColumnName("usedAt");
+            entity.Property(e => e.RequestedByIp).HasColumnName("requestedByIp");
+            entity.Property(e => e.RequestedByUserAgent).HasColumnName("requestedByUserAgent");
+            entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
+
+            entity.HasOne(d => d.User)
+                .WithMany()
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Tenant)
+                .WithMany()
+                .HasForeignKey(d => d.TenantId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<EmailLog>(entity => {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.HasIndex(e => new { e.Status, e.CreatedAt });
+            entity.HasIndex(e => e.ToEmail);
+            entity.HasIndex(e => e.TemplateKey);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.TemplateKey).HasColumnName("templateKey");
+            entity.Property(e => e.EmailConfigurationId).HasColumnName("emailConfigurationId");
+            entity.Property(e => e.ToEmail).HasColumnName("toEmail");
+            entity.Property(e => e.ToName).HasColumnName("toName");
+            entity.Property(e => e.Subject).HasColumnName("subject");
+            entity.Property(e => e.RequestedByUserId).HasColumnName("requestedByUserId");
+            entity.Property(e => e.TargetUserId).HasColumnName("targetUserId");
+            entity.Property(e => e.TenantId).HasColumnName("tenantId");
+            entity.Property(e => e.Status).HasColumnName("status").HasConversion<string>();
+            entity.Property(e => e.ProviderMessageId).HasColumnName("providerMessageId");
+            entity.Property(e => e.ErrorMessage).HasColumnName("errorMessage");
+            entity.Property(e => e.SentAt).HasColumnName("sentAt");
+            entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
         });
     }
 }

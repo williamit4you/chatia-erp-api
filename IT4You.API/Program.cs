@@ -69,6 +69,10 @@ builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<IFavoriteService, FavoriteService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
+builder.Services.AddScoped<IEmailSenderService, EmailSenderService>();
+builder.Services.AddScoped<IEmailLogService, EmailLogService>();
+builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<IFinanceAnalyticsRepository, FinanceAnalyticsRepository>();
 builder.Services.AddScoped<IFinanceAnalyticsService, FinanceAnalyticsService>();
 
@@ -133,6 +137,51 @@ using (var scope = app.Services.CreateScope())
         context.Users.Add(superAdmin);
         context.SaveChanges();
     }
+
+    var defaultVariables = "{{userName}},{{userEmail}},{{tenantName}},{{resetUrl}},{{expiresAt}},{{requestedAt}},{{applicationName}}";
+    if (!context.EmailTemplates.Any(t => t.Key == "password_reset"))
+    {
+        context.EmailTemplates.Add(new IT4You.Domain.Entities.EmailTemplate
+        {
+            Key = "password_reset",
+            Name = "Recuperação de senha",
+            Subject = "Redefina sua senha - {{applicationName}}",
+            HtmlBody = "<p>Olá, {{userName}}.</p><p>Recebemos uma solicitação para redefinir sua senha. Acesse o link abaixo até {{expiresAt}}:</p><p><a href=\"{{resetUrl}}\">Redefinir senha</a></p><p>Se você não solicitou, ignore este e-mail.</p>",
+            TextBody = "Olá, {{userName}}. Acesse {{resetUrl}} para redefinir sua senha até {{expiresAt}}.",
+            AllowedVariables = defaultVariables,
+            IsActive = true
+        });
+    }
+
+    if (!context.EmailTemplates.Any(t => t.Key == "password_changed"))
+    {
+        context.EmailTemplates.Add(new IT4You.Domain.Entities.EmailTemplate
+        {
+            Key = "password_changed",
+            Name = "Senha alterada",
+            Subject = "Sua senha foi alterada - {{applicationName}}",
+            HtmlBody = "<p>Olá, {{userName}}.</p><p>Sua senha foi alterada com sucesso em {{requestedAt}}.</p><p>Se você não reconhece esta alteração, fale com o administrador.</p>",
+            TextBody = "Olá, {{userName}}. Sua senha foi alterada com sucesso em {{requestedAt}}.",
+            AllowedVariables = defaultVariables,
+            IsActive = true
+        });
+    }
+
+    if (!context.EmailTemplates.Any(t => t.Key == "email_test"))
+    {
+        context.EmailTemplates.Add(new IT4You.Domain.Entities.EmailTemplate
+        {
+            Key = "email_test",
+            Name = "Teste de e-mail",
+            Subject = "Teste de envio - {{applicationName}}",
+            HtmlBody = "<p>Teste de envio realizado com sucesso em {{requestedAt}}.</p>",
+            TextBody = "Teste de envio realizado com sucesso em {{requestedAt}}.",
+            AllowedVariables = "{{requestedAt}},{{applicationName}}",
+            IsActive = true
+        });
+    }
+
+    context.SaveChanges();
 }
 
 app.MapControllers();

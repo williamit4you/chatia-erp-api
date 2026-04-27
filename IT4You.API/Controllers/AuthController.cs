@@ -1,5 +1,6 @@
 using IT4You.Application.DTOs;
 using IT4You.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -13,11 +14,13 @@ namespace IT4You.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IPasswordResetService _passwordResetService;
     private readonly IConfiguration _configuration;
 
-    public AuthController(IAuthService authService, IConfiguration configuration)
+    public AuthController(IAuthService authService, IPasswordResetService passwordResetService, IConfiguration configuration)
     {
         _authService = authService;
+        _passwordResetService = passwordResetService;
         _configuration = configuration;
     }
 
@@ -52,6 +55,49 @@ public class AuthController : ControllerBase
         catch (Exception ex)
         {
             return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [AllowAnonymous]
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        var resetBaseUrl = _configuration["Frontend:BaseUrl"]
+            ?? Request.Headers.Origin.FirstOrDefault()
+            ?? "http://localhost:3010";
+
+        await _passwordResetService.RequestResetAsync(
+            request.Email,
+            resetBaseUrl,
+            HttpContext.Connection.RemoteIpAddress?.ToString(),
+            Request.Headers.UserAgent.ToString());
+
+        return Ok(new
+        {
+            success = true,
+            message = "Se o e-mail estiver cadastrado, enviaremos instruções para redefinir sua senha."
+        });
+    }
+
+    [AllowAnonymous]
+    [HttpGet("reset-password/validate")]
+    public async Task<IActionResult> ValidateResetToken([FromQuery] string token)
+    {
+        return Ok(await _passwordResetService.ValidateAsync(token));
+    }
+
+    [AllowAnonymous]
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        try
+        {
+            await _passwordResetService.ResetPasswordAsync(request);
+            return Ok(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
         }
     }
 
