@@ -73,6 +73,7 @@ public class AuthService : IAuthService
                 Name: user.Name ?? string.Empty,
                 Email: user.Email ?? string.Empty,
                 TenantId: user.TenantId ?? string.Empty,
+                TenantName: user.Tenant?.Name ?? string.Empty,
                 Role: user.Role.ToString(),
                 HasPayableChatAccess: user.HasPayableChatAccess,
                 HasPayableDashboardAccess: user.HasPayableDashboardAccess,

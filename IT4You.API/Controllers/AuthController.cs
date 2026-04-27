@@ -68,6 +68,7 @@ public class AuthController : ControllerBase
                 new Claim("userId", user.Id),
                 new Claim("id", user.Email),
                 new Claim("tenantId", user.TenantId),
+                new Claim("tenantName", user.TenantName ?? string.Empty),
                 new Claim("sessionId", user.CurrentSessionId),
                 new Claim(ClaimTypes.Role, user.Role),
                 new Claim("hasPayableChatAccess", user.HasPayableChatAccess.ToString().ToLower()),
