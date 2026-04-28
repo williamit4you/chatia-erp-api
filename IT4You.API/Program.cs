@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System.Security.Claims;
 using Npgsql;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +27,10 @@ builder.Logging.AddDebug();
 builder.Services.AddControllers(options => 
 {
     options.Filters.Add<IT4You.API.Filters.ConcurrentSessionFilter>();
+}).AddJsonOptions(options =>
+{
+    // Allow enums to be sent/received as strings (e.g. "IMAP") while still accepting integers for compatibility.
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 
 builder.Services.AddCors(options =>
