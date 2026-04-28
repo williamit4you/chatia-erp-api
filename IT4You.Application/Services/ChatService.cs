@@ -393,7 +393,7 @@ public class ChatService : IChatService
 
             logs.Add(new SqlLogDto(
                 r.msg.Id,
-                r.msg.CreatedAt,
+                DateTime.SpecifyKind(r.msg.CreatedAt, DateTimeKind.Utc),
                 r.usr.Name,
                 r.usr.Email,
                 prevUserMsg?.Content ?? "(pergunta não encontrada)",

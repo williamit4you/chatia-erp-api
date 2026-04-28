@@ -36,8 +36,15 @@ public class FavoritesController : ControllerBase
         if (string.IsNullOrEmpty(userId)) return Unauthorized();
         if (string.IsNullOrWhiteSpace(request.QuestionText)) return BadRequest(new { message = "Question text cannot be empty" });
 
-        var favorite = await _favoriteService.AddFavoriteAsync(userId, request);
-        return Ok(favorite);
+        try
+        {
+            var favorite = await _favoriteService.AddFavoriteAsync(userId, request);
+            return Ok(favorite);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
     }
 
     [HttpDelete("{id}")]

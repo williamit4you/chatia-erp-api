@@ -31,10 +31,21 @@ public class FavoriteService : IFavoriteService
     public async Task<FavoriteQuestionResponse> AddFavoriteAsync(string userId, CreateFavoriteRequest request)
     {
         _logger.LogInformation("Adding new favorite for User: {UserId}", userId);
+        var questionText = (request.QuestionText ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(questionText))
+            throw new InvalidOperationException("Question text cannot be empty");
+
+        var normalizedLower = questionText.ToLowerInvariant();
+        var alreadyExists = await _context.FavoriteQuestions.AnyAsync(f =>
+            f.UserId == userId && (f.QuestionText ?? string.Empty).ToLower() == normalizedLower);
+
+        if (alreadyExists)
+            throw new InvalidOperationException("Pergunta já cadastrada como favorito");
+
         var favorite = new FavoriteQuestion
         {
             UserId = userId,
-            QuestionText = request.QuestionText
+            QuestionText = questionText
         };
 
         _context.FavoriteQuestions.Add(favorite);
