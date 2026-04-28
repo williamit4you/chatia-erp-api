@@ -17,6 +17,10 @@ using Microsoft.Extensions.AI;
 using Microsoft.Agents.AI;
 using IT4You.Application.Data;
 using System.Reflection;
+using System.Text.RegularExpressions;
+using System.Text.Json;
+using OpenAI;
+using System.ClientModel;
 
 namespace IT4You.Application.Services;
 
@@ -188,7 +192,18 @@ public class ChatService : IChatService
                     int totalChars = messages.Sum(m => m.Text?.Length ?? 0) + reply.Length;
                     int contextPercent = (int)Math.Min(100, Math.Round((double)totalChars / 512000 * 100));
 
-                    return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null, contextPercent, exportId, exportTotal, exportValor);
+                    var rightRail = await BuildRightRailAsync(
+                        userId,
+                        tenant.ChatAiToken,
+                        "Financeiro",
+                        request.Message,
+                        reply,
+                        sqlJson,
+                        exportId,
+                        exportTotal,
+                        exportValor);
+
+                    return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null, contextPercent, exportId, exportTotal, exportValor, rightRail);
                 }
                 catch (Exception ex)
                 {
@@ -338,7 +353,18 @@ public class ChatService : IChatService
             int totalChars = messages.Sum(m => m.Text?.Length ?? 0) + reply.Length;
             int contextPercent = (int)Math.Min(100, Math.Round((double)totalChars / 512000 * 100));
 
-            return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null, contextPercent, exportId, exportTotal, exportValor);
+            var rightRail = await BuildRightRailAsync(
+                userId,
+                tenant.ChatAiToken,
+                request.ChartTitle,
+                request.Message,
+                reply,
+                sqlJson,
+                exportId,
+                exportTotal,
+                exportValor);
+
+            return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null, contextPercent, exportId, exportTotal, exportValor, rightRail);
         }
         catch (Exception ex)
         {
@@ -482,6 +508,481 @@ public class ChatService : IChatService
             session.IsVisible = false;
             await _context.SaveChangesAsync();
         }
+    }
+
+    private async Task<ChatRightRail> BuildRightRailAsync(
+        string userId,
+        string chatAiToken,
+        string contextLabel,
+        string userMessage,
+        string reply,
+        string? sqlJson,
+        string? exportId,
+        int exportTotal,
+        decimal exportValor)
+    {
+        var aiRightRail = await GenerateRightRailWithAiAsync(
+            chatAiToken,
+            contextLabel,
+            userMessage,
+            reply,
+            sqlJson,
+            exportId,
+            exportTotal,
+            exportValor);
+
+        var suggestions = aiRightRail?.Suggestions?.Count > 0
+            ? aiRightRail.Suggestions
+            : BuildSuggestions(contextLabel, userMessage, reply, sqlJson, exportId);
+
+        var insights = aiRightRail?.Insights?.Count > 0
+            ? aiRightRail.Insights
+            : BuildInsights(contextLabel, userMessage, reply, sqlJson, exportId, exportTotal, exportValor);
+
+        var favoriteQuestionsRaw = await _context.FavoriteQuestions
+            .Where(f => f.UserId == userId)
+            .OrderByDescending(f => f.CreatedAt)
+            .Take(3)
+            .Select(f => f.QuestionText)
+            .ToListAsync();
+
+        var favoriteQuestions = favoriteQuestionsRaw
+            .Select(questionText => new ChatRightRailActionItem(questionText, "favorite:run"))
+            .ToList();
+
+        return new ChatRightRail(suggestions, insights, favoriteQuestions);
+    }
+
+    private async Task<ChatRightRail?> GenerateRightRailWithAiAsync(
+        string chatAiToken,
+        string contextLabel,
+        string userMessage,
+        string reply,
+        string? sqlJson,
+        string? exportId,
+        int exportTotal,
+        decimal exportValor)
+    {
+        if (string.IsNullOrWhiteSpace(chatAiToken))
+            return null;
+
+        try
+        {
+            var groqOptions = new OpenAIClientOptions
+            {
+                Endpoint = new Uri("https://api.groq.com/openai/v1")
+            };
+
+            IChatClient chatClient = new OpenAI.Chat.ChatClient(
+                "openai/gpt-oss-120b",
+                new ApiKeyCredential(chatAiToken),
+                groqOptions
+            ).AsIChatClient();
+
+            var instructions = """
+                Você é responsável por gerar itens de navegação da lateral direita de um chat corporativo.
+                Sua saída deve ser SOMENTE JSON válido, sem markdown, sem explicações e sem texto fora do JSON.
+
+                Gere:
+                - exatamente 5 sugestões
+                - exatamente 3 insights
+
+                Regras:
+                - as sugestões devem ser perguntas curtas, naturais e clicáveis
+                - os insights devem ser coerentes com a pergunta e com os dados da resposta
+                - não invente métricas que não estejam implícitas ou explícitas na resposta
+                - se houver números, percentuais, clientes, títulos, risco ou valores monetários, use-os para dar contexto
+                - prefira linguagem executiva em português do Brasil
+                - evite sugestões genéricas quando houver dados concretos
+
+                Formato obrigatório:
+                {
+                  "suggestions": [
+                    { "label": "..." }
+                  ],
+                  "insights": [
+                    {
+                      "title": "...",
+                      "description": "...",
+                      "ctaLabel": "...",
+                      "ctaAction": "chat:ask:..."
+                    }
+                  ]
+                }
+                """;
+
+            var prompt = $"""
+                Contexto atual: {contextLabel}
+                Pergunta do usuário: {userMessage}
+
+                Resposta gerada:
+                {reply}
+
+                SQL executado disponível: {(string.IsNullOrWhiteSpace(sqlJson) ? "não" : "sim")}
+                Exportação disponível: {(string.IsNullOrWhiteSpace(exportId) ? "não" : "sim")}
+                Total exportado: {exportTotal}
+                Valor exportado: {exportValor}
+                """;
+
+            var agent = chatClient.AsAIAgent(new ChatClientAgentOptions
+            {
+                Name = "RightRailGenerator",
+                ChatOptions = new ChatOptions
+                {
+                    Temperature = 0.2f,
+                    Instructions = instructions
+                }
+            });
+
+            var response = await agent.RunAsync(new[]
+            {
+                new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.User, prompt)
+            });
+
+            var content = response.Messages.LastOrDefault()?.Text;
+            if (string.IsNullOrWhiteSpace(content))
+                return null;
+
+            return ParseAiRightRail(content);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha ao gerar right rail por IA. Aplicando fallback heurístico.");
+            return null;
+        }
+    }
+
+    private ChatRightRail? ParseAiRightRail(string content)
+    {
+        try
+        {
+            var json = ExtractJsonObject(content);
+            if (string.IsNullOrWhiteSpace(json))
+                return null;
+
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            var suggestions = new List<ChatRightRailActionItem>();
+            if (root.TryGetProperty("suggestions", out var suggestionsElement) && suggestionsElement.ValueKind == JsonValueKind.Array)
+            {
+                suggestions = suggestionsElement.EnumerateArray()
+                    .Select(item => item.TryGetProperty("label", out var labelProp) ? labelProp.GetString() : null)
+                    .Where(label => !string.IsNullOrWhiteSpace(label))
+                    .Select(label => new ChatRightRailActionItem(label!, "chat:ask"))
+                    .DistinctBy(item => item.Label)
+                    .Take(5)
+                    .ToList();
+            }
+
+            var insights = new List<ChatRightRailInsightItem>();
+            if (root.TryGetProperty("insights", out var insightsElement) && insightsElement.ValueKind == JsonValueKind.Array)
+            {
+                insights = insightsElement.EnumerateArray()
+                    .Select(item =>
+                    {
+                        var title = item.TryGetProperty("title", out var titleProp) ? titleProp.GetString() : null;
+                        var description = item.TryGetProperty("description", out var descriptionProp) ? descriptionProp.GetString() : null;
+                        var ctaLabel = item.TryGetProperty("ctaLabel", out var ctaLabelProp) ? ctaLabelProp.GetString() : null;
+                        var ctaAction = item.TryGetProperty("ctaAction", out var ctaActionProp) ? ctaActionProp.GetString() : null;
+
+                        if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(description))
+                            return null;
+
+                        if (!string.IsNullOrWhiteSpace(ctaAction) && !ctaAction.StartsWith("chat:ask:", StringComparison.OrdinalIgnoreCase))
+                            ctaAction = $"chat:ask:{ctaAction}";
+
+                        return new ChatRightRailInsightItem(title!, description!, ctaLabel, ctaAction, "neutral");
+                    })
+                    .Where(item => item != null)
+                    .Select(item => item!)
+                    .DistinctBy(item => item.Title)
+                    .Take(3)
+                    .ToList();
+            }
+
+            if (suggestions.Count == 0 && insights.Count == 0)
+                return null;
+
+            return new ChatRightRail(suggestions, insights, new List<ChatRightRailActionItem>());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha ao interpretar JSON de right rail gerado por IA.");
+            return null;
+        }
+    }
+
+    private string? ExtractJsonObject(string content)
+    {
+        var start = content.IndexOf('{');
+        var end = content.LastIndexOf('}');
+
+        if (start < 0 || end <= start)
+            return null;
+
+        return content.Substring(start, end - start + 1);
+    }
+
+    private List<ChatRightRailActionItem> BuildSuggestions(
+        string contextLabel,
+        string userMessage,
+        string reply,
+        string? sqlJson,
+        string? exportId)
+    {
+        var normalizedContext = NormalizeContext($"{contextLabel} {userMessage} {reply}");
+        var suggestions = new List<string>();
+
+        if (ContainsAny(normalizedContext, "receber", "cliente", "inadimpl", "cobranc", "titulo"))
+        {
+            suggestions.Add("Quais clientes mais atrasam?");
+            suggestions.Add("Qual a previsao de recebimento para os proximos 7 dias?");
+            suggestions.Add("Compare com a semana anterior.");
+            suggestions.Add("Mostre os titulos vencidos e nao pagos.");
+            suggestions.Add("Quais recebimentos concentram maior risco?");
+        }
+
+        if (ContainsAny(normalizedContext, "pagar", "fornecedor", "pagamento"))
+        {
+            suggestions.Add("Quais fornecedores concentram mais pagamentos?");
+            suggestions.Add("O que vence nos proximos 7 dias?");
+            suggestions.Add("Compare os pagamentos com o periodo anterior.");
+            suggestions.Add("Existe risco de aperto de caixa?");
+            suggestions.Add("Quais despesas merecem prioridade?");
+        }
+
+        if (ContainsAny(normalizedContext, "caixa", "fluxo", "saldo", "banc"))
+        {
+            suggestions.Add("Qual o fluxo de caixa projetado para 30 dias?");
+            suggestions.Add("Em que data o caixa fica mais pressionado?");
+            suggestions.Add("Quais entradas sustentam o saldo previsto?");
+            suggestions.Add("Quais saidas pesam mais no periodo?");
+            suggestions.Add("Qual acao reduz o risco de caixa no curto prazo?");
+        }
+
+        if (!string.IsNullOrWhiteSpace(sqlJson))
+        {
+            suggestions.Add("Explique de forma executiva o que os dados mostram.");
+            suggestions.Add("Quais registros merecem acompanhamento imediato?");
+        }
+
+        if (!string.IsNullOrWhiteSpace(exportId))
+        {
+            suggestions.Add("Resuma os dados exportados em 3 pontos.");
+        }
+
+        suggestions.Add("Qual a principal recomendacao para essa analise?");
+
+        return suggestions
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(5)
+            .Select(s => new ChatRightRailActionItem(s, "chat:ask"))
+            .ToList();
+    }
+
+    private List<ChatRightRailInsightItem> BuildInsights(
+        string contextLabel,
+        string userMessage,
+        string reply,
+        string? sqlJson,
+        string? exportId,
+        int exportTotal,
+        decimal exportValor)
+    {
+        var normalizedContext = NormalizeContext($"{contextLabel} {userMessage} {reply}");
+        var insights = new List<ChatRightRailInsightItem>();
+        var currencyValues = ExtractCurrencyValues(reply);
+        var percentageValues = ExtractPercentageValues(reply);
+        var titleCount = ExtractCountNearKeyword(reply, "titulos", "títulos");
+        var clientCount = ExtractCountNearKeyword(reply, "clientes", "cliente");
+        decimal? totalValue = currencyValues.Count > 0 ? currencyValues[0] : null;
+        var riskPercent = ExtractRiskPercentage(reply, percentageValues);
+
+        if (ContainsAny(normalizedContext, "receber", "contas a receber", "recebimento"))
+        {
+            if (totalValue.HasValue)
+            {
+                insights.Add(new ChatRightRailInsightItem(
+                    "Volume total a receber no período",
+                    $"A resposta indica um montante de {totalValue.Value.ToString("C", new System.Globalization.CultureInfo("pt-BR"))} dentro do recorte consultado.",
+                    "Ver previsão",
+                    "chat:ask:Qual a previsão de recebimento desse valor?",
+                    "positive"));
+            }
+
+            if (titleCount.HasValue || clientCount.HasValue)
+            {
+                var distributionParts = new List<string>();
+                if (titleCount.HasValue) distributionParts.Add($"{titleCount.Value} títulos");
+                if (clientCount.HasValue) distributionParts.Add($"{clientCount.Value} clientes");
+
+                insights.Add(new ChatRightRailInsightItem(
+                    "Carteira distribuída na base",
+                    $"O valor consultado está distribuído entre {string.Join(" e ", distributionParts)}, o que ajuda a avaliar dispersão e esforço de cobrança.",
+                    "Ver clientes",
+                    "chat:ask:Quais clientes concentram mais valor nesta carteira?",
+                    "neutral"));
+            }
+
+            if (riskPercent.HasValue)
+            {
+                var tone = riskPercent.Value >= 20 ? "warning" : "positive";
+                insights.Add(new ChatRightRailInsightItem(
+                    "Risco de atraso da carteira",
+                    $"{riskPercent.Value}% do montante possui sinal de risco ou atraso, o que pede priorização dos clientes mais sensíveis.",
+                    "Ver análise",
+                    "chat:ask:Quais clientes representam o maior risco de atraso?",
+                    tone));
+            }
+        }
+
+        if (ContainsAny(normalizedContext, "atras", "inadimpl", "vencid", "risco"))
+        {
+            insights.Add(new ChatRightRailInsightItem(
+                "Risco de atraso identificado",
+                "A conversa atual indica sinais de inadimplencia ou atraso. Vale aprofundar clientes, titulos vencidos e concentracao do risco.",
+                "Ver analise",
+                "chat:ask:Quais clientes concentram o maior risco de atraso?",
+                "warning"));
+        }
+
+        if (exportTotal > 0 || exportValor > 0)
+        {
+            var description = exportValor > 0
+                ? $"A ultima consulta retornou {exportTotal} registros com valor total de {exportValor.ToString("C", new System.Globalization.CultureInfo("pt-BR"))}."
+                : $"A ultima consulta retornou {exportTotal} registros prontos para detalhamento e exportacao.";
+
+            insights.Add(new ChatRightRailInsightItem(
+                "Consulta com volume relevante",
+                description,
+                "Ver detalhes",
+                "chat:ask:Mostre os principais destaques desta listagem.",
+                "positive"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(sqlJson))
+        {
+            insights.Add(new ChatRightRailInsightItem(
+                "Analise baseada em dados do ERP",
+                "A resposta foi enriquecida por consultas executadas no ERP, o que permite aprofundar comparativos, ranking e concentracao.",
+                "Explorar",
+                "chat:ask:Quais comparativos valem a pena analisar agora?",
+                "neutral"));
+        }
+
+        if (ContainsAny(normalizedContext, "caixa", "saldo", "fluxo"))
+        {
+            insights.Add(new ChatRightRailInsightItem(
+                "Pressao de caixa deve ser acompanhada",
+                "Quando a conversa aborda fluxo e saldo, o proximo passo natural e revisar vencimentos proximos e concentracao de entradas.",
+                "Ver impacto",
+                "chat:ask:Qual o maior risco para o caixa nos proximos dias?",
+                "warning"));
+        }
+
+        if (ContainsAny(normalizedContext, "cliente", "receber", "faturamento"))
+        {
+            insights.Add(new ChatRightRailInsightItem(
+                "Receita pode estar concentrada",
+                "Conversas sobre clientes e recebimentos costumam se beneficiar de uma leitura de concentracao e previsibilidade da carteira.",
+                "Ver clientes",
+                "chat:ask:Quais clientes concentram mais valor nesta analise?",
+                "positive"));
+        }
+
+        insights.Add(new ChatRightRailInsightItem(
+            "Proximo passo sugerido",
+            "Aprofunde a leitura com comparativo de periodo, ranking e recomendacao pratica para transformar a resposta em acao.",
+            "Continuar",
+            "chat:ask:Qual deve ser minha proxima acao com base nessa analise?",
+            "neutral"));
+
+        return insights
+            .DistinctBy(i => i.Title)
+            .Take(3)
+            .ToList();
+    }
+
+    private List<decimal> ExtractCurrencyValues(string text)
+    {
+        var matches = Regex.Matches(text, @"R\$\s*([\d\.\,]+)");
+        var values = new List<decimal>();
+
+        foreach (Match match in matches)
+        {
+            if (match.Groups.Count < 2) continue;
+            var raw = match.Groups[1].Value.Replace(".", "").Replace(",", ".");
+            if (decimal.TryParse(raw, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var value))
+            {
+                values.Add(value);
+            }
+        }
+
+        return values;
+    }
+
+    private List<int> ExtractPercentageValues(string text)
+    {
+        return Regex.Matches(text, @"(\d+)\s*%")
+            .Select(match => int.TryParse(match.Groups[1].Value, out var value) ? value : -1)
+            .Where(value => value >= 0)
+            .ToList();
+    }
+
+    private int? ExtractCountNearKeyword(string text, params string[] keywords)
+    {
+        foreach (var keyword in keywords)
+        {
+            var escapedKeyword = Regex.Escape(keyword);
+            var directMatch = Regex.Match(text, $@"(\d+)\s+{escapedKeyword}", RegexOptions.IgnoreCase);
+            if (directMatch.Success && int.TryParse(directMatch.Groups[1].Value, out var directValue))
+                return directValue;
+
+            var reverseMatch = Regex.Match(text, $@"{escapedKeyword}[^\d]*(\d+)", RegexOptions.IgnoreCase);
+            if (reverseMatch.Success && int.TryParse(reverseMatch.Groups[1].Value, out var reverseValue))
+                return reverseValue;
+        }
+
+        return null;
+    }
+
+    private int? ExtractRiskPercentage(string reply, List<int> percentageValues)
+    {
+        var riskMatch = Regex.Match(reply, @"(\d+)\s*%[^\.\n]*(risco|atraso|inadimpl)", RegexOptions.IgnoreCase);
+        if (riskMatch.Success && int.TryParse(riskMatch.Groups[1].Value, out var riskValue))
+            return riskValue;
+
+        return percentageValues.Count > 0 ? percentageValues[0] : null;
+    }
+
+    private string NormalizeContext(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var normalized = value.ToLowerInvariant();
+        normalized = normalized
+            .Replace("á", "a")
+            .Replace("à", "a")
+            .Replace("ã", "a")
+            .Replace("â", "a")
+            .Replace("é", "e")
+            .Replace("ê", "e")
+            .Replace("í", "i")
+            .Replace("ó", "o")
+            .Replace("ô", "o")
+            .Replace("õ", "o")
+            .Replace("ú", "u")
+            .Replace("ç", "c");
+
+        return Regex.Replace(normalized, "\\s+", " ").Trim();
+    }
+
+    private bool ContainsAny(string value, params string[] terms)
+    {
+        return terms.Any(term => value.Contains(term, StringComparison.OrdinalIgnoreCase));
     }
 }
 

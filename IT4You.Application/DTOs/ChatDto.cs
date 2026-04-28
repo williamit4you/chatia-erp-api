@@ -6,6 +6,23 @@ public record ChartAnalysisRequest(string Message, List<ChatMessageDto>? History
 
 public record ChatMessageDto(string Role, string Content);
 
+public record ChatRightRailActionItem(
+    string Label,
+    string? Action = null,
+    string? Metadata = null);
+
+public record ChatRightRailInsightItem(
+    string Title,
+    string Description,
+    string? CtaLabel = null,
+    string? CtaAction = null,
+    string? Tone = null);
+
+public record ChatRightRail(
+    List<ChatRightRailActionItem> Suggestions,
+    List<ChatRightRailInsightItem> Insights,
+    List<ChatRightRailActionItem> FavoriteQuestions);
+
 public record ChatResponse(
     string Reply,
     string SessionId,
@@ -13,6 +30,7 @@ public record ChatResponse(
     int? ContextUsageScore = null,
     string? ExportId = null,
     int ExportTotalLinhas = 0,
-    decimal ExportValorTotal = 0);
+    decimal ExportValorTotal = 0,
+    ChatRightRail? RightRail = null);
 
 public record SqlLogDto(string MessageId, DateTime Date, string UserName, string UserEmail, string UserQuestion, string AiReply, string SqlQueries);
