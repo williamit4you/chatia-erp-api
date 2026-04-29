@@ -12,6 +12,7 @@ namespace IT4You.Application.Services;
 public class PasswordResetService : IPasswordResetService
 {
     private const int ResetTokenLifetimeMinutes = 30;
+    private static readonly TimeZoneInfo BrazilTimeZone = ResolveBrazilTimeZone();
     private readonly AppDbContext _context;
     private readonly IEmailSenderService _emailSender;
     private readonly ILogger<PasswordResetService> _logger;
@@ -61,8 +62,8 @@ public class PasswordResetService : IPasswordResetService
             ["userEmail"] = user.Email,
             ["tenantName"] = user.Tenant?.Name,
             ["resetUrl"] = resetUrl,
-            ["expiresAt"] = resetToken.ExpiresAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm"),
-            ["requestedAt"] = DateTime.UtcNow.ToLocalTime().ToString("dd/MM/yyyy HH:mm"),
+            ["expiresAt"] = FormatBrazilDateTime(resetToken.ExpiresAt),
+            ["requestedAt"] = FormatBrazilDateTime(DateTime.UtcNow),
             ["applicationName"] = "IT4You AI ERP"
         };
 
@@ -137,7 +138,7 @@ public class PasswordResetService : IPasswordResetService
             ["userName"] = resetToken.User.Name ?? resetToken.User.Email,
             ["userEmail"] = resetToken.User.Email,
             ["tenantName"] = resetToken.User.Tenant?.Name,
-            ["requestedAt"] = DateTime.UtcNow.ToLocalTime().ToString("dd/MM/yyyy HH:mm"),
+            ["requestedAt"] = FormatBrazilDateTime(DateTime.UtcNow),
             ["applicationName"] = "IT4You AI ERP"
         };
 
@@ -167,6 +168,37 @@ public class PasswordResetService : IPasswordResetService
             return false;
 
         return token.All(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_');
+    }
+
+    private static string FormatBrazilDateTime(DateTime utcDateTime)
+    {
+        return TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc), BrazilTimeZone)
+            .ToString("dd/MM/yyyy HH:mm");
+    }
+
+    private static TimeZoneInfo ResolveBrazilTimeZone()
+    {
+        var timeZoneIds = new[]
+        {
+            "E. South America Standard Time",
+            "America/Sao_Paulo"
+        };
+
+        foreach (var timeZoneId in timeZoneIds)
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+            }
+            catch (InvalidTimeZoneException)
+            {
+            }
+        }
+
+        return TimeZoneInfo.Utc;
     }
 
     private static string HashToken(string token)
