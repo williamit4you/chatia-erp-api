@@ -63,14 +63,15 @@ public class ErpPlugin
     [Description("[DOMÍNIO: ABERTO] Consulta flexível de contas EM ABERTO (vencidas ou a vencer).")]
     public async Task<string> ConsultarContasEmAberto(
         [Description("OBRIGATÓRIO: 'PAGAR', 'RECEBER' ou 'INDEFINIDO'. REGRA: NUNCA presuma se um nome (ex: Minerva) é Cliente ou Fornecedor. No nosso sistema, qualquer pessoa pode ser ambos. Se o usuário não disser explicitamente o lado, PASSE O VALOR 'INDEFINIDO'.")] string tipoDominio = "INDEFINIDO",
-        [Description("Data inicial Vencimento (ISO 8601). Vazio para ignorar.")] string dataInicioISO = "",
-        [Description("Data final Vencimento (ISO 8601). Vazio para ignorar.")] string dataFimISO = "",
+        [Description("Data inicial do filtro (ISO 8601). Por padrão usa vencimento, mas se o usuário pedir explicitamente por data de emissão, use junto colunaData='EMISSAO'.")] string dataInicioISO = "",
+        [Description("Data final do filtro (ISO 8601). Por padrão usa vencimento, mas se o usuário pedir explicitamente por data de emissão, use junto colunaData='EMISSAO'.")] string dataFimISO = "",
         [Description("Nome ou Fantasia do Fornecedor ou Cliente. Vazio para ignorar.")] string nomePessoa = "",
         [Description("Sigla do Estado (Ex: SP). Vazio para ignorar.")] string uf = "",
         [Description("Nome da Filial. Vazio para ignorar.")] string filial = "",
         [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = "",
         [Description("Apenas contas com atraso (verdadeiro/falso).")] bool apenasAtrasados = false,
         [Description("Número do documento específico. Use para localizar UM documento exato.")] string numeroDocumento = "",
+        [Description("Coluna de data a usar na consulta: 'DATAVENCIMENTO' (padrão) ou 'EMISSAO'. Se o usuário pedir 'por data de emissão', 'emitidos em', 'emissão por mês' ou equivalente, use 'EMISSAO'.")] string colunaData = "DATAVENCIMENTO",
         [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO', 'TOTAL' ou 'SITUACAO_VENCIMENTO'. USE 'SITUACAO_VENCIMENTO' quando o usuário perguntar sobre vencidos e a vencer ao mesmo tempo (ex: 'quantos vencidos e a vencer?'). REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM",
         [Description("Limite máximo de registros para retornar. Use apenas se o usuário pedir 'Top X' ou 'X documentos'.")] int limite = 0,
         [Description("Se verdadeiro, ordena os resultados pelos maiores valores financeiros.")] bool ordenarPorMaiorValor = false
@@ -86,23 +87,26 @@ public class ErpPlugin
             ? "VW_SWIA_DOC_FIN_PAG_ABERTO"
             : "VW_SWIA_DOC_FIN_REC_ABERTO";
 
+        var dateColumn = ResolveDateColumn(colunaData, "DATAVENCIMENTO");
+
         return await ExecuteDynamicQuery(
             viewName, 
-            "DATAVENCIMENTO", 
+            dateColumn, 
             dataInicioISO, dataFimISO, nomePessoa, uf, filial, cnpj, agrupamento, apenasAtrasados, null, null, numeroDocumento, limite, ordenarPorMaiorValor);
     }
 
     [Description("[DOMÍNIO: PAGO] Consulta flexível de contas JÁ PAGAS/LIQUIDADAS.")]
     public async Task<string> ConsultarContasPagas(
         [Description("OBRIGATÓRIO: 'PAGAR', 'RECEBER' ou 'INDEFINIDO'. REGRA: NUNCA presuma se um nome (ex: Minerva) é Cliente ou Fornecedor. No nosso sistema, qualquer pessoa pode ser ambos. Se o usuário não disser explicitamente o lado, PASSE O VALOR 'INDEFINIDO'.")] string tipoDominio = "INDEFINIDO",
-        [Description("Data inicial do Pagamento (ISO 8601). Vazio para ignorar.")] string dataPagamentoInicioISO = "",
-        [Description("Data final do Pagamento (ISO 8601). Vazio para ignorar.")] string dataPagamentoFimISO = "",
+        [Description("Data inicial do filtro (ISO 8601). Por padrão usa data de pagamento, mas pode usar emissão ou vencimento se o usuário pedir explicitamente.")] string dataPagamentoInicioISO = "",
+        [Description("Data final do filtro (ISO 8601). Por padrão usa data de pagamento, mas pode usar emissão ou vencimento se o usuário pedir explicitamente.")] string dataPagamentoFimISO = "",
         [Description("Nome ou Fantasia do Fornecedor ou Cliente. Vazio para ignorar.")] string nomePessoa = "",
         [Description("Sigla do Estado (Ex: SP). Vazio para ignorar.")] string uf = "",
         [Description("Nome da Filial. Vazio para ignorar.")] string filial = "",
         [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = "",
         [Description("Número do documento específico. Use para localizar UM documento exato.")] string numeroDocumento = "",
         [Description("Tipo de Pagamento/Meio (Ex: PIX, BOLETO). Vazio para ignorar.")] string tipoPagamento = "",
+        [Description("Coluna de data a usar na consulta: 'DATAPAGAMENTO' (padrão), 'DATAVENCIMENTO' ou 'EMISSAO'. Se o usuário pedir 'por data de emissão', use 'EMISSAO'.")] string colunaData = "DATAPAGAMENTO",
         [Description("Agrupar resultados por: 'NENHUM', 'FORNECEDOR', 'CLIENTE', 'ANO', 'MES', 'FILIAL', 'METODO_PAGAMENTO', 'TOTAL' ou 'SITUACAO_VENCIMENTO'. USE 'SITUACAO_VENCIMENTO' quando o usuário perguntar sobre vencidos e a vencer ao mesmo tempo. REGRA DE OURO: Se o usuário pedir para agrupar/dividir/quebrar por 'empresa', NÃO EXECUTE A FERRAMENTA. Pergunte primeiro se ele quer por Filial (nossa empresa) ou por Cliente/Fornecedor.")] string agrupamento = "NENHUM",
         [Description("Limite máximo de registros para retornar. Use apenas se o usuário pedir 'Top X' ou 'X documentos'.")] int limite = 0,
         [Description("Se verdadeiro, ordena os resultados pelos maiores valores financeiros.")] bool ordenarPorMaiorValor = false
@@ -118,9 +122,11 @@ public class ErpPlugin
             ? "VW_SWIA_DOC_FIN_PAG_PAGO"
             : "VW_SWIA_DOC_FIN_REC_PAGO";
 
+        var dateColumn = ResolveDateColumn(colunaData, "DATAPAGAMENTO");
+
         return await ExecuteDynamicQuery(
             viewName, 
-            "DATAPAGAMENTO", 
+            dateColumn, 
             dataPagamentoInicioISO, dataPagamentoFimISO, nomePessoa, uf, filial, cnpj, agrupamento, false, tipoPagamento, null, numeroDocumento, limite, ordenarPorMaiorValor);
     }
 
@@ -314,6 +320,21 @@ public class ErpPlugin
         // Garante o fallback pra yyyyMMdd do SQL Server
         if (DateTime.TryParse(isoDate, out var dt)) return dt.ToString("yyyyMMdd");
         return isoDate; // Devolve puro caso dê treta no parse, o SQL Server tenta se virar
+    }
+
+    private static string ResolveDateColumn(string? colunaData, string defaultColumn)
+    {
+        if (string.IsNullOrWhiteSpace(colunaData))
+            return defaultColumn;
+
+        var normalized = colunaData.Trim().ToUpperInvariant();
+        return normalized switch
+        {
+            "EMISSAO" => "EMISSAO",
+            "DATAVENCIMENTO" => "DATAVENCIMENTO",
+            "DATAPAGAMENTO" => "DATAPAGAMENTO",
+            _ => defaultColumn
+        };
     }
 
     private string LimparCnpj(string input)
