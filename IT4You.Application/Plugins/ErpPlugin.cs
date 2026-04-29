@@ -69,7 +69,7 @@ public class ErpPlugin
         [Description("OBRIGATÓRIO: 'PAGAR', 'RECEBER' ou 'INDEFINIDO'. REGRA: NUNCA presuma se um nome (ex: Minerva) é Cliente ou Fornecedor. No nosso sistema, qualquer pessoa pode ser ambos. Se o usuário não disser explicitamente o lado, PASSE O VALOR 'INDEFINIDO'.")] string tipoDominio = "INDEFINIDO",
         [Description("Data inicial do filtro (ISO 8601). Por padrão usa vencimento, mas se o usuário pedir explicitamente por data de emissão, use junto colunaData='EMISSAO'.")] string dataInicioISO = "",
         [Description("Data final do filtro (ISO 8601). Por padrão usa vencimento, mas se o usuário pedir explicitamente por data de emissão, use junto colunaData='EMISSAO'.")] string dataFimISO = "",
-        [Description("Nome ou Fantasia do Fornecedor ou Cliente. Vazio para ignorar.")] string nomePessoa = "",
+        [Description("Nome ou Fantasia do Fornecedor ou Cliente. Para múltiplos nomes, envie separados por '|'. Exemplo: 'Cliente A|Cliente B'. Vazio para ignorar.")] string nomePessoa = "",
         [Description("Sigla do Estado (Ex: SP). Vazio para ignorar.")] string uf = "",
         [Description("Nome da Filial. Vazio para ignorar.")] string filial = "",
         [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = "",
@@ -104,7 +104,7 @@ public class ErpPlugin
         [Description("OBRIGATÓRIO: 'PAGAR', 'RECEBER' ou 'INDEFINIDO'. REGRA: NUNCA presuma se um nome (ex: Minerva) é Cliente ou Fornecedor. No nosso sistema, qualquer pessoa pode ser ambos. Se o usuário não disser explicitamente o lado, PASSE O VALOR 'INDEFINIDO'.")] string tipoDominio = "INDEFINIDO",
         [Description("Data inicial do filtro (ISO 8601). Por padrão usa data de pagamento, mas pode usar emissão ou vencimento se o usuário pedir explicitamente.")] string dataPagamentoInicioISO = "",
         [Description("Data final do filtro (ISO 8601). Por padrão usa data de pagamento, mas pode usar emissão ou vencimento se o usuário pedir explicitamente.")] string dataPagamentoFimISO = "",
-        [Description("Nome ou Fantasia do Fornecedor ou Cliente. Vazio para ignorar.")] string nomePessoa = "",
+        [Description("Nome ou Fantasia do Fornecedor ou Cliente. Para múltiplos nomes, envie separados por '|'. Exemplo: 'Cliente A|Cliente B'. Vazio para ignorar.")] string nomePessoa = "",
         [Description("Sigla do Estado (Ex: SP). Vazio para ignorar.")] string uf = "",
         [Description("Nome da Filial. Vazio para ignorar.")] string filial = "",
         [Description("CNPJ ou CPF (somente números). Vazio para ignorar.")] string cnpj = "",
@@ -225,8 +225,24 @@ public class ErpPlugin
 
         if (!string.IsNullOrEmpty(entidade))
         {
-            conditions.Add($"(UPPER({personCol}) LIKE UPPER(@ent) OR UPPER(NOMEFANTASIA) LIKE UPPER(@ent))");
-            parameters.Add(new SqlParameter("@ent", $"%{entidade}%"));
+            var entityTerms = SplitEntityTerms(entidade);
+            if (entityTerms.Count == 1)
+            {
+                conditions.Add($"(UPPER({personCol}) LIKE UPPER(@ent) OR UPPER(NOMEFANTASIA) LIKE UPPER(@ent))");
+                parameters.Add(new SqlParameter("@ent", $"%{entityTerms[0]}%"));
+            }
+            else if (entityTerms.Count > 1)
+            {
+                var entityConditions = new List<string>();
+                for (int i = 0; i < entityTerms.Count; i++)
+                {
+                    var paramName = $"@ent{i}";
+                    entityConditions.Add($"(UPPER({personCol}) LIKE UPPER({paramName}) OR UPPER(NOMEFANTASIA) LIKE UPPER({paramName}))");
+                    parameters.Add(new SqlParameter(paramName, $"%{entityTerms[i]}%"));
+                }
+
+                conditions.Add("(" + string.Join(" OR ", entityConditions) + ")");
+            }
         }
         if (!string.IsNullOrEmpty(uf))
         {
@@ -347,6 +363,16 @@ public class ErpPlugin
     {
         if (string.IsNullOrEmpty(input)) return "";
         return new string(input.Where(char.IsDigit).ToArray());
+    }
+
+    private static List<string> SplitEntityTerms(string input)
+    {
+        return input
+            .Split(new[] { '|', ';' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(part => part.Trim())
+            .Where(part => !string.IsNullOrWhiteSpace(part))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private string BuildRunnableQuery(string queryText, SqlParameter[] parameters)
