@@ -598,6 +598,8 @@ public class ChatService : IChatService
                 - se houver números, percentuais, clientes, títulos, risco ou valores monetários, use-os para dar contexto
                 - prefira linguagem executiva em português do Brasil
                 - evite sugestões genéricas quando houver dados concretos
+                - é proibido gerar insights ou CTAs sobre SQL, query, script, consulta técnica, metadados internos, botões de download ou detalhes de implementação
+                - os insights devem focar somente em leitura de negócio, risco, valor, concentração, tendência, prioridade e próxima ação
 
                 Formato obrigatório:
                 {
@@ -622,7 +624,6 @@ public class ChatService : IChatService
                 Resposta gerada:
                 {reply}
 
-                SQL executado disponível: {(string.IsNullOrWhiteSpace(sqlJson) ? "não" : "sim")}
                 Exportação disponível: {(string.IsNullOrWhiteSpace(exportId) ? "não" : "sim")}
                 Total exportado: {exportTotal}
                 Valor exportado: {exportValor}
@@ -700,6 +701,7 @@ public class ChatService : IChatService
                     })
                     .Where(item => item != null)
                     .Select(item => item!)
+                    .Where(item => !IsTechnicalInsight(item))
                     .DistinctBy(item => item.Title)
                     .Take(3)
                     .ToList();
@@ -866,16 +868,6 @@ public class ChatService : IChatService
                 "positive"));
         }
 
-        if (!string.IsNullOrWhiteSpace(sqlJson))
-        {
-            insights.Add(new ChatRightRailInsightItem(
-                "Analise baseada em dados do ERP",
-                "A resposta foi enriquecida por consultas executadas no ERP, o que permite aprofundar comparativos, ranking e concentracao.",
-                "Explorar",
-                "chat:ask:Quais comparativos valem a pena analisar agora?",
-                "neutral"));
-        }
-
         if (ContainsAny(normalizedContext, "caixa", "saldo", "fluxo"))
         {
             insights.Add(new ChatRightRailInsightItem(
@@ -904,9 +896,33 @@ public class ChatService : IChatService
             "neutral"));
 
         return insights
+            .Where(i => !IsTechnicalInsight(i))
             .DistinctBy(i => i.Title)
             .Take(3)
             .ToList();
+    }
+
+    private bool IsTechnicalInsight(ChatRightRailInsightItem item)
+    {
+        var combined = $"{item.Title} {item.Description} {item.CtaLabel} {item.CtaAction}";
+        var normalized = NormalizeContext(combined);
+
+        return ContainsAny(
+            normalized,
+            "sql",
+            "query",
+            "queries",
+            "script",
+            "consulta tecnica",
+            "tecnico",
+            "download",
+            "excel",
+            "pdf",
+            "botao",
+            "botoes",
+            "arquivo",
+            "arquivos"
+        );
     }
 
     private List<decimal> ExtractCurrencyValues(string text)
