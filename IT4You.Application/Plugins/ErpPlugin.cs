@@ -33,11 +33,15 @@ public class ErpPlugin
     public string? LastExportId { get; private set; }
     public int LastExportTotalLinhas { get; private set; }
     public decimal LastExportValorTotal { get; private set; }
+    public int AggregateTotalLinhas { get; private set; }
+    public decimal AggregateValorTotal { get; private set; }
     public void ClearExportMetadata()
     {
         LastExportId = null;
         LastExportTotalLinhas = 0;
         LastExportValorTotal = 0;
+        AggregateTotalLinhas = 0;
+        AggregateValorTotal = 0;
     }
 
     public string? GetExecutedQueriesJson()
@@ -288,6 +292,8 @@ public class ErpPlugin
             // Passo 1: conta e soma primeiro (barato para o SQL Server)
             var countSql = $"SELECT COUNT(*) AS Quantidade, SUM({sumColumn}) AS ValorTotal FROM {viewName}{whereClause}";
             var (totalReal, valorTotal) = await ExecuteCountAndSum(countSql, parameters.ToArray());
+            AggregateTotalLinhas += totalReal;
+            AggregateValorTotal += valorTotal;
 
             // Define o critério de ordenação
             string sortCol = ordenarPorMaiorValor ? sumColumn : dateColumn;

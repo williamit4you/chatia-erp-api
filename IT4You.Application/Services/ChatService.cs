@@ -169,6 +169,8 @@ public class ChatService : IChatService
                     string? exportId = _erpPlugin.LastExportId;
                     int exportTotal = _erpPlugin.LastExportTotalLinhas;
                     decimal exportValor = _erpPlugin.LastExportValorTotal;
+                    int metricsTotal = _erpPlugin.AggregateTotalLinhas;
+                    decimal metricsValor = _erpPlugin.AggregateValorTotal;
 
                     // ================================
                     // 6️⃣ SALVA RESPOSTA DO MODELO
@@ -203,7 +205,7 @@ public class ChatService : IChatService
                         exportTotal,
                         exportValor);
 
-                    return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null, contextPercent, exportId, exportTotal, exportValor, rightRail);
+                    return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null, contextPercent, exportId, exportTotal, exportValor, metricsTotal, metricsValor, rightRail);
                 }
                 catch (Exception ex)
                 {
@@ -333,6 +335,8 @@ public class ChatService : IChatService
             string? exportId = _erpPlugin.LastExportId;
             int exportTotal = _erpPlugin.LastExportTotalLinhas;
             decimal exportValor = _erpPlugin.LastExportValorTotal;
+            int metricsTotal = _erpPlugin.AggregateTotalLinhas;
+            decimal metricsValor = _erpPlugin.AggregateValorTotal;
 
             // SALVA RESPOSTA DO MODELO COM SQL
             var modelMsg = new IT4You.Domain.Entities.ChatMessage
@@ -364,7 +368,7 @@ public class ChatService : IChatService
                 exportTotal,
                 exportValor);
 
-            return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null, contextPercent, exportId, exportTotal, exportValor, rightRail);
+            return new IT4You.Application.DTOs.ChatResponse(reply, sessionId, isFullAdmin ? sqlJson : null, contextPercent, exportId, exportTotal, exportValor, metricsTotal, metricsValor, rightRail);
         }
         catch (Exception ex)
         {

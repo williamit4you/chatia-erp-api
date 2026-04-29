@@ -31,6 +31,8 @@ public record ChatResponse(
     string? ExportId = null,
     int ExportTotalLinhas = 0,
     decimal ExportValorTotal = 0,
+    int MetricsTotalLinhas = 0,
+    decimal MetricsValorTotal = 0,
     ChatRightRail? RightRail = null);
 
 public record SqlLogDto(string MessageId, DateTime Date, string UserName, string UserEmail, string UserQuestion, string AiReply, string SqlQueries);
