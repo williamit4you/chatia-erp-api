@@ -15,12 +15,14 @@ namespace IT4You.API.Controllers;
 public class SuperAdminController : ControllerBase
 {
     private readonly ITenantService _tenantService;
+    private readonly IChatService _chatService;
     private readonly AppDbContext _context;
     private readonly ILogger<SuperAdminController> _logger;
 
-    public SuperAdminController(ITenantService tenantService, AppDbContext context, ILogger<SuperAdminController> logger)
+    public SuperAdminController(ITenantService tenantService, IChatService chatService, AppDbContext context, ILogger<SuperAdminController> logger)
     {
         _tenantService = tenantService;
+        _chatService = chatService;
         _context = context;
         _logger = logger;
     }
@@ -114,6 +116,18 @@ public class SuperAdminController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
+    }
+
+    [HttpGet("tenants/{tenantId}/sql-logs")]
+    public async Task<IActionResult> GetTenantSqlLogs(
+        string tenantId,
+        [FromQuery] string? userId = null,
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null)
+    {
+        var normalizedEndDate = NormalizeInclusiveEndDate(endDate);
+        var logs = await _chatService.GetSqlLogsAsync(tenantId, userId, startDate, normalizedEndDate);
+        return Ok(logs);
     }
 
     // --- RAG MEMORY CRUD ---
@@ -223,6 +237,16 @@ public class SuperAdminController : ControllerBase
         var embeddingClient = new OpenAI.Embeddings.EmbeddingClient("text-embedding-3-small", tenant.IaToken);
         var result = await embeddingClient.GenerateEmbeddingAsync(content);
         return new Vector(result.Value.ToFloats().ToArray());
+    }
+
+    private static DateTime? NormalizeInclusiveEndDate(DateTime? endDate)
+    {
+        if (!endDate.HasValue)
+            return null;
+
+        return endDate.Value.TimeOfDay == TimeSpan.Zero
+            ? endDate.Value.Date.AddDays(1).AddTicks(-1)
+            : endDate;
     }
 }
 
