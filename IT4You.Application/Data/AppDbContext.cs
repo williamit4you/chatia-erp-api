@@ -130,6 +130,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.DbType).HasColumnName("dbType");
             entity.Property(e => e.DbUser).HasColumnName("dbUser");
             entity.Property(e => e.DbPassword).HasColumnName("dbPassword");
+            entity.Property(e => e.ShowChartDetails).HasColumnName("showChartDetails");
             entity.Property(e => e.IsActive).HasColumnName("isActive");
             entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
             entity.Property(e => e.UpdatedAt).HasColumnName("updatedAt");

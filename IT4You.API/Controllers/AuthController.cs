@@ -179,7 +179,8 @@ public class AuthController : ControllerBase
                 new Claim("hasReceivableChatAccess", user.HasReceivableChatAccess.ToString().ToLower()),
                 new Claim("hasReceivableDashboardAccess", user.HasReceivableDashboardAccess.ToString().ToLower()),
                 new Claim("hasBankingChatAccess", user.HasBankingChatAccess.ToString().ToLower()),
-                new Claim("hasBankingDashboardAccess", user.HasBankingDashboardAccess.ToString().ToLower())
+                new Claim("hasBankingDashboardAccess", user.HasBankingDashboardAccess.ToString().ToLower()),
+                new Claim("showChartDetails", user.ShowChartDetails.ToString().ToLower())
             }),
             Expires = DateTime.UtcNow.AddDays(7),
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature),

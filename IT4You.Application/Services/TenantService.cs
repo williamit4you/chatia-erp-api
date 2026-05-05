@@ -37,6 +37,10 @@ public class TenantService : ITenantService
         {
             tenant.DbPassword = EncryptionHelper.Encrypt(request.DbPassword);
         }
+        if (request.ShowChartDetails.HasValue)
+        {
+            tenant.ShowChartDetails = request.ShowChartDetails.Value;
+        }
         
         tenant.UpdatedAt = DateTime.UtcNow;
 
@@ -68,6 +72,7 @@ public class TenantService : ITenantService
             t.DbType,
             t.DbUser,
             EncryptionHelper.Decrypt(t.DbPassword ?? ""),
+            t.ShowChartDetails,
             t.CreatedAt,
             t.Users.Select(u => new UserDto(
                 u.Id, 
@@ -116,6 +121,7 @@ public class TenantService : ITenantService
             tenant.DbType,
             tenant.DbUser,
             EncryptionHelper.Decrypt(tenant.DbPassword ?? ""),
+            tenant.ShowChartDetails,
             tenant.CreatedAt,
             tenant.Users.Select(u => new UserDto(u.Id, u.Name, u.Email, u.Role.ToString(), u.QueryCount, u.CreatedAt, u.IsActive, u.HasPayableChatAccess, u.HasPayableDashboardAccess, u.HasReceivableChatAccess, u.HasReceivableDashboardAccess, u.HasBankingChatAccess, u.HasBankingDashboardAccess, u.IsInactive, u.BlockedUntil))
         );

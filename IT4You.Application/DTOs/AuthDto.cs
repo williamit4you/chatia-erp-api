@@ -6,6 +6,7 @@ public record LoginResponse(string Id, string Token, string Name, string Email, 
     bool HasPayableChatAccess, bool HasPayableDashboardAccess,
     bool HasReceivableChatAccess, bool HasReceivableDashboardAccess,
     bool HasBankingChatAccess, bool HasBankingDashboardAccess,
+    bool ShowChartDetails,
     string CurrentSessionId = "");
 
 public record RegisterRequest(string Cnpj, string CompanyName, string Email, string Password, string Name);

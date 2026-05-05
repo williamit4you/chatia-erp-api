@@ -81,6 +81,7 @@ public class AuthService : IAuthService
                 HasReceivableDashboardAccess: user.HasReceivableDashboardAccess,
                 HasBankingChatAccess: user.HasBankingChatAccess,
                 HasBankingDashboardAccess: user.HasBankingDashboardAccess,
+                ShowChartDetails: user.Tenant?.ShowChartDetails ?? false,
                 CurrentSessionId: user.CurrentSessionId
             );
         }

@@ -43,7 +43,7 @@ public class AdminController : ControllerBase
         var tenant = await _tenantService.GetTenantAsync(tenantId);
         if (tenant == null) return NotFound();
 
-        return Ok(new { tenant.IaToken, tenant.ErpToken });
+        return Ok(new { tenant.IaToken, tenant.ErpToken, tenant.ShowChartDetails });
     }
 
     [HttpPut("settings")]

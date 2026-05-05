@@ -15,6 +15,7 @@ public class Tenant
     public string? DbType { get; set; } // SQL Server / Oracle
     public string? DbUser { get; set; }
     public string? DbPassword { get; set; } // Stored Encrypted
+    public bool ShowChartDetails { get; set; } = false;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
