@@ -926,7 +926,7 @@ namespace IT4You.Infrastructure.Repositories
                     if (!rights.HasPayableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
                     sql = $@"SELECT FORNECEDOR as Label, SUM(VALORORIG) as Valor
                              FROM VW_SWIA_DOC_FIN_PAG_ABERTO
-                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, ""DATAVENCIMENTO"")}
+                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}
                              GROUP BY FORNECEDOR
                              ORDER BY Valor DESC";
                     break;
@@ -935,7 +935,7 @@ namespace IT4You.Infrastructure.Repositories
                     if (!rights.HasReceivableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
                     sql = $@"SELECT CLIENTE as Label, SUM(VALORORIG) as Valor
                              FROM VW_SWIA_DOC_FIN_REC_ABERTO
-                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, ""DATAVENCIMENTO"")}
+                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}
                              GROUP BY CLIENTE
                              ORDER BY Valor DESC";
                     break;
@@ -944,7 +944,7 @@ namespace IT4You.Infrastructure.Repositories
                     if (!rights.HasPayableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
                     sql = $@"SELECT UF as Local, SUM(VALORORIG) as Valor
                              FROM VW_SWIA_DOC_FIN_PAG_ABERTO
-                             WHERE UF IS NOT NULL {AddDateFilters(parameters, startDate, endDate, ""DATAVENCIMENTO"")}
+                             WHERE UF IS NOT NULL {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}
                              GROUP BY UF
                              ORDER BY Valor DESC";
                     break;
@@ -953,7 +953,7 @@ namespace IT4You.Infrastructure.Repositories
                     if (!rights.HasReceivableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
                     sql = $@"SELECT UF as Local, SUM(VALORORIG) as Valor
                              FROM VW_SWIA_DOC_FIN_REC_ABERTO
-                             WHERE UF IS NOT NULL {AddDateFilters(parameters, startDate, endDate, ""DATAVENCIMENTO"")}
+                             WHERE UF IS NOT NULL {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}
                              GROUP BY UF
                              ORDER BY Valor DESC";
                     break;
@@ -962,7 +962,7 @@ namespace IT4You.Infrastructure.Repositories
                     if (!rights.HasPayableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
                     sql = $@"SELECT TIPOPAG as Label, SUM(VALORORIG) as Valor
                              FROM VW_SWIA_DOC_FIN_PAG_PAGO
-                             WHERE TIPOPAG IS NOT NULL {AddDateFilters(parameters, startDate, endDate, ""DATAPAGAMENTO"")}
+                             WHERE TIPOPAG IS NOT NULL {AddDateFilters(parameters, startDate, endDate, "DATAPAGAMENTO")}
                              GROUP BY TIPOPAG
                              ORDER BY Valor DESC";
                     break;
@@ -971,7 +971,7 @@ namespace IT4You.Infrastructure.Repositories
                     if (!rights.HasPayableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
                     sql = $@"SELECT CONDPAG as Label, SUM(VALORORIG) as Valor
                              FROM VW_SWIA_DOC_FIN_PAG_ABERTO
-                             WHERE CONDPAG IS NOT NULL {AddDateFilters(parameters, startDate, endDate, ""DATAVENCIMENTO"")}
+                             WHERE CONDPAG IS NOT NULL {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}
                              GROUP BY CONDPAG
                              ORDER BY Valor DESC";
                     break;
@@ -985,10 +985,10 @@ namespace IT4You.Infrastructure.Repositories
                                     WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 31 AND 60 THEN '31-60 dias'
                                     WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 61 AND 90 THEN '61-90 dias'
                                     ELSE 'Mais de 90 dias'
-                                END as Faixa,
+                             END as Faixa,
                                 SUM(VALORORIG - ISNULL(VALORPAG, 0)) as Valor
                              FROM VW_SWIA_DOC_FIN_REC_ABERTO
-                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, ""DATAVENCIMENTO"")}
+                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}
                              GROUP BY
                                 CASE
                                     WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) <= 0 THEN 'A vencer'
@@ -1010,7 +1010,7 @@ namespace IT4You.Infrastructure.Repositories
                                 END as Label,
                                 SUM(VALORORIG) as Valor
                              FROM VW_SWIA_DOC_FIN_REC_ABERTO
-                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, ""DATAVENCIMENTO"")}
+                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}
                              GROUP BY
                                 CASE
                                     WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 15 THEN '0-15'
