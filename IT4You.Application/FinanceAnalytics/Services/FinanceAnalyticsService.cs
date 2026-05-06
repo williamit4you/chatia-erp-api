@@ -38,5 +38,10 @@ namespace IT4You.Application.FinanceAnalytics.Services
         {
             return await _repository.GetAdvancedAnalyticsAsync(tenantId, rights, startDate, endDate);
         }
+
+        public async Task<IEnumerable<ChartQueryDetailsItemDto>> GetChartQueryDetailsAsync(int tenantId, FinanceRightsDto rights, IEnumerable<string> chartIds, DateTime? startDate = null, DateTime? endDate = null)
+        {
+            return await _repository.GetChartQueryDetailsAsync(tenantId, rights, chartIds, startDate, endDate);
+        }
     }
 }

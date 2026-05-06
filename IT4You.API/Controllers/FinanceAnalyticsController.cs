@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 using System.Security.Claims;
+using System.Linq;
 
 namespace IT4You.API.Controllers
 {
@@ -85,6 +86,22 @@ namespace IT4You.API.Controllers
             var rights = GetFinanceRights();
             var data = await _financeAnalyticsService.GetAdvancedAnalyticsAsync(tenantId, rights, startDate, endDate);
             return Ok(data);
+        }
+
+        [HttpPost("chart-query-details")]
+        public async Task<IActionResult> GetChartQueryDetails([FromBody] ChartQueryDetailsRequestDto request)
+        {
+            var user = User;
+            var showChartDetailsClaim = user.FindFirst("showChartDetails")?.Value;
+            var canSee = user.IsInRole("TENANT_ADMIN") && showChartDetailsClaim == "true";
+            if (!canSee) return Forbid();
+
+            var tenantId = GetTenantId();
+            var rights = GetFinanceRights();
+            var chartIds = request?.ChartIds?.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList() ?? new();
+
+            var items = await _financeAnalyticsService.GetChartQueryDetailsAsync(tenantId, rights, chartIds, request?.StartDate, request?.EndDate);
+            return Ok(new ChartQueryDetailsResponseDto { Items = items.ToList() });
         }
     }
 }
