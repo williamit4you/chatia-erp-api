@@ -2,6 +2,7 @@ using IT4You.Application.FinanceAnalytics.Interfaces;
 using IT4You.Application.FinanceAnalytics.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System;
 using System.Threading.Tasks;
 using System.Security.Claims;
 using System.Linq;
@@ -102,6 +103,51 @@ namespace IT4You.API.Controllers
 
             var items = await _financeAnalyticsService.GetChartQueryDetailsAsync(tenantId, rights, chartIds, request?.StartDate, request?.EndDate);
             return Ok(new ChartQueryDetailsResponseDto { Items = items.ToList() });
+        }
+
+        [HttpPost("charts/export")]
+        public async Task<IActionResult> ExportChart([FromBody] ChartExportRequestDto request)
+        {
+            var tenantId = GetTenantId();
+            var rights = GetFinanceRights();
+
+            if (request == null || string.IsNullOrWhiteSpace(request.ChartId))
+                return BadRequest(new { message = "ChartId é obrigatório." });
+
+            if (!string.Equals(request.Format, "csv", StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { message = "Formato não suportado. Use 'csv'." });
+
+            var rows = await _financeAnalyticsService.GetChartExportDatasetAsync(
+                tenantId,
+                rights,
+                request.ChartId.Trim(),
+                request.StartDate,
+                request.EndDate,
+                request.EntityValue
+            );
+
+            var csvBytes = _financeAnalyticsService.BuildCsv(rows);
+            var fileName = $"finance-{request.ChartId}-{DateTime.UtcNow:yyyyMMddHHmmss}.csv";
+            return File(csvBytes, "text/csv; charset=utf-8", fileName);
+        }
+
+        [HttpPost("charts/drilldown")]
+        public async Task<IActionResult> Drilldown([FromBody] ChartDrilldownRequestDto request)
+        {
+            var tenantId = GetTenantId();
+            var rights = GetFinanceRights();
+
+            if (request == null || string.IsNullOrWhiteSpace(request.ChartId))
+                return BadRequest(new { message = "ChartId é obrigatório." });
+
+            if (request.Selection == null || string.IsNullOrWhiteSpace(request.Selection.Kind))
+                return BadRequest(new { message = "Selection.kind é obrigatório." });
+
+            request.Page = request.Page <= 0 ? 1 : request.Page;
+            request.PageSize = request.PageSize <= 0 ? 50 : Math.Min(request.PageSize, 200);
+
+            var response = await _financeAnalyticsService.GetChartDrilldownAsync(tenantId, rights, request);
+            return Ok(response);
         }
     }
 }

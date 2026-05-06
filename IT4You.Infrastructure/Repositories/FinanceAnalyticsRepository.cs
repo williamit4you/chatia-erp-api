@@ -26,6 +26,37 @@ namespace IT4You.Infrastructure.Repositories
         private async Task<IDbConnection> CreateConnectionAsync()
             => await _connectionFactory.CreateConnectionAsync();
 
+        private static Dictionary<string, object?> ToDictionary(dynamic row)
+        {
+            if (row is IDictionary<string, object> dict)
+            {
+                return dict.ToDictionary(k => k.Key, v => v.Value);
+            }
+
+            var result = new Dictionary<string, object?>();
+            foreach (var prop in row.GetType().GetProperties())
+            {
+                result[prop.Name] = prop.GetValue(row);
+            }
+            return result;
+        }
+
+        private static string AddDateFilters(DynamicParameters parameters, DateTime? startDate, DateTime? endDate, string columnName, string startParam = "StartDate", string endParam = "EndDate")
+        {
+            var where = "";
+            if (startDate.HasValue)
+            {
+                where += $" AND {columnName} >= @{startParam}";
+                parameters.Add(startParam, startDate.Value);
+            }
+            if (endDate.HasValue)
+            {
+                where += $" AND {columnName} <= @{endParam}";
+                parameters.Add(endParam, endDate.Value);
+            }
+            return where;
+        }
+
         public async Task<FinanceSummaryDto> GetSummaryAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
         {
             using var connection = await CreateConnectionAsync();
@@ -878,6 +909,391 @@ namespace IT4You.Infrastructure.Repositories
             }
 
             return Task.FromResult<IEnumerable<ChartQueryDetailsItemDto>>(result);
+        }
+
+        public async Task<IEnumerable<Dictionary<string, object?>>> GetChartExportDatasetAsync(int tenantId, FinanceRightsDto rights, string chartId, DateTime? startDate = null, DateTime? endDate = null, string? entityValue = null)
+        {
+            using var connection = await CreateConnectionAsync();
+            var parameters = new DynamicParameters();
+
+            chartId = (chartId ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(chartId)) return Array.Empty<Dictionary<string, object?>>();
+
+            string sql;
+            switch (chartId)
+            {
+                case "dist_pag_fornecedor":
+                    if (!rights.HasPayableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
+                    sql = $@"SELECT FORNECEDOR as Label, SUM(VALORORIG) as Valor
+                             FROM VW_SWIA_DOC_FIN_PAG_ABERTO
+                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, ""DATAVENCIMENTO"")}
+                             GROUP BY FORNECEDOR
+                             ORDER BY Valor DESC";
+                    break;
+
+                case "dist_rec_cliente":
+                    if (!rights.HasReceivableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
+                    sql = $@"SELECT CLIENTE as Label, SUM(VALORORIG) as Valor
+                             FROM VW_SWIA_DOC_FIN_REC_ABERTO
+                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, ""DATAVENCIMENTO"")}
+                             GROUP BY CLIENTE
+                             ORDER BY Valor DESC";
+                    break;
+
+                case "geo_pagar":
+                    if (!rights.HasPayableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
+                    sql = $@"SELECT UF as Local, SUM(VALORORIG) as Valor
+                             FROM VW_SWIA_DOC_FIN_PAG_ABERTO
+                             WHERE UF IS NOT NULL {AddDateFilters(parameters, startDate, endDate, ""DATAVENCIMENTO"")}
+                             GROUP BY UF
+                             ORDER BY Valor DESC";
+                    break;
+
+                case "geo_receber":
+                    if (!rights.HasReceivableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
+                    sql = $@"SELECT UF as Local, SUM(VALORORIG) as Valor
+                             FROM VW_SWIA_DOC_FIN_REC_ABERTO
+                             WHERE UF IS NOT NULL {AddDateFilters(parameters, startDate, endDate, ""DATAVENCIMENTO"")}
+                             GROUP BY UF
+                             ORDER BY Valor DESC";
+                    break;
+
+                case "dist_tipo_pag":
+                    if (!rights.HasPayableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
+                    sql = $@"SELECT TIPOPAG as Label, SUM(VALORORIG) as Valor
+                             FROM VW_SWIA_DOC_FIN_PAG_PAGO
+                             WHERE TIPOPAG IS NOT NULL {AddDateFilters(parameters, startDate, endDate, ""DATAPAGAMENTO"")}
+                             GROUP BY TIPOPAG
+                             ORDER BY Valor DESC";
+                    break;
+
+                case "dist_cond_pag":
+                    if (!rights.HasPayableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
+                    sql = $@"SELECT CONDPAG as Label, SUM(VALORORIG) as Valor
+                             FROM VW_SWIA_DOC_FIN_PAG_ABERTO
+                             WHERE CONDPAG IS NOT NULL {AddDateFilters(parameters, startDate, endDate, ""DATAVENCIMENTO"")}
+                             GROUP BY CONDPAG
+                             ORDER BY Valor DESC";
+                    break;
+
+                case "aging":
+                    if (!rights.HasReceivableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
+                    sql = $@"SELECT
+                                CASE
+                                    WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) <= 0 THEN 'A vencer'
+                                    WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 1 AND 30 THEN '1-30 dias'
+                                    WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 31 AND 60 THEN '31-60 dias'
+                                    WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 61 AND 90 THEN '61-90 dias'
+                                    ELSE 'Mais de 90 dias'
+                                END as Faixa,
+                                SUM(VALORORIG - ISNULL(VALORPAG, 0)) as Valor
+                             FROM VW_SWIA_DOC_FIN_REC_ABERTO
+                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, ""DATAVENCIMENTO"")}
+                             GROUP BY
+                                CASE
+                                    WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) <= 0 THEN 'A vencer'
+                                    WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 1 AND 30 THEN '1-30 dias'
+                                    WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 31 AND 60 THEN '31-60 dias'
+                                    WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 61 AND 90 THEN '61-90 dias'
+                                    ELSE 'Mais de 90 dias'
+                                END";
+                    break;
+
+                case "dist_faixa_prazo":
+                    if (!rights.HasReceivableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
+                    sql = $@"SELECT
+                                CASE
+                                    WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 15 THEN '0-15'
+                                    WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 30 THEN '16-30'
+                                    WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 60 THEN '31-60'
+                                    ELSE '60+'
+                                END as Label,
+                                SUM(VALORORIG) as Valor
+                             FROM VW_SWIA_DOC_FIN_REC_ABERTO
+                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, ""DATAVENCIMENTO"")}
+                             GROUP BY
+                                CASE
+                                    WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 15 THEN '0-15'
+                                    WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 30 THEN '16-30'
+                                    WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 60 THEN '31-60'
+                                    ELSE '60+'
+                                END";
+                    break;
+
+                default:
+                    return Array.Empty<Dictionary<string, object?>>();
+            }
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            return rows.Select(ToDictionary).ToList();
+        }
+
+        public async Task<ChartDrilldownResponseDto> GetChartDrilldownAsync(int tenantId, FinanceRightsDto rights, ChartDrilldownRequestDto request)
+        {
+            using var connection = await CreateConnectionAsync();
+            var parameters = new DynamicParameters();
+
+            var chartId = (request.ChartId ?? "").Trim();
+            var selection = request.Selection ?? new ChartSelectionDto();
+            var selectionKind = (selection.Kind ?? "").Trim().ToLowerInvariant();
+
+            var response = new ChartDrilldownResponseDto
+            {
+                Meta = new DrilldownMetaDto { Page = request.Page, PageSize = request.PageSize }
+            };
+
+            if (string.IsNullOrWhiteSpace(chartId) || string.IsNullOrWhiteSpace(selectionKind))
+                return response;
+
+            var offset = (request.Page - 1) * request.PageSize;
+            parameters.Add("Offset", offset);
+            parameters.Add("PageSize", request.PageSize);
+
+            string baseSql;
+            var where = "WHERE 1=1";
+            var orderBy = "ORDER BY ValorOriginal DESC";
+
+            void AddEquals(string column, string paramName, string? value)
+            {
+                if (string.IsNullOrWhiteSpace(value)) return;
+                where += $" AND {column} = @{paramName}";
+                parameters.Add(paramName, value.Trim());
+            }
+
+            string AgingBucketWhere(string bucketLabel)
+            {
+                bucketLabel = (bucketLabel ?? "").Trim();
+                return bucketLabel switch
+                {
+                    "A vencer" => " AND DATEDIFF(day, DATAVENCIMENTO, GETDATE()) <= 0",
+                    "1-30 dias" => " AND DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 1 AND 30",
+                    "31-60 dias" => " AND DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 31 AND 60",
+                    "61-90 dias" => " AND DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 61 AND 90",
+                    "Mais de 90 dias" => " AND DATEDIFF(day, DATAVENCIMENTO, GETDATE()) >= 91",
+                    _ => ""
+                };
+            }
+
+            string PrazoBucketWhere(string bucketLabel)
+            {
+                bucketLabel = (bucketLabel ?? "").Trim();
+                return bucketLabel switch
+                {
+                    "0-15" => " AND DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 15",
+                    "16-30" => " AND DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) BETWEEN 16 AND 30",
+                    "31-60" => " AND DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) BETWEEN 31 AND 60",
+                    "60+" => " AND DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) >= 61",
+                    _ => ""
+                };
+            }
+
+            switch (chartId)
+            {
+                case "dist_pag_fornecedor":
+                    if (!rights.HasPayableDashboardAccess) return response;
+                    if (selectionKind != "category") return response;
+                    baseSql = "FROM VW_SWIA_DOC_FIN_PAG_ABERTO";
+                    where += AddDateFilters(parameters, request.StartDate, request.EndDate, "DATAVENCIMENTO", "StartDate", "EndDate");
+                    AddEquals("FORNECEDOR", "Fornecedor", selection.Key ?? selection.Label);
+                    response.Columns = new()
+                    {
+                        new DrilldownColumnDto { Key = "Documento", Label = "Documento", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Fornecedor", Label = "Fornecedor", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Vencimento", Label = "Vencimento", Kind = "date" },
+                        new DrilldownColumnDto { Key = "ValorOriginal", Label = "Valor Original", Kind = "currency" },
+                        new DrilldownColumnDto { Key = "SaldoAberto", Label = "Saldo Aberto", Kind = "currency" },
+                        new DrilldownColumnDto { Key = "Uf", Label = "UF", Kind = "text" },
+                    };
+                    break;
+
+                case "dist_rec_cliente":
+                    if (!rights.HasReceivableDashboardAccess) return response;
+                    if (selectionKind != "category") return response;
+                    baseSql = "FROM VW_SWIA_DOC_FIN_REC_ABERTO";
+                    where += AddDateFilters(parameters, request.StartDate, request.EndDate, "DATAVENCIMENTO", "StartDate", "EndDate");
+                    AddEquals("CLIENTE", "Cliente", selection.Key ?? selection.Label);
+                    response.Columns = new()
+                    {
+                        new DrilldownColumnDto { Key = "Documento", Label = "Documento", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Cliente", Label = "Cliente", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Vencimento", Label = "Vencimento", Kind = "date" },
+                        new DrilldownColumnDto { Key = "ValorOriginal", Label = "Valor Original", Kind = "currency" },
+                        new DrilldownColumnDto { Key = "SaldoAberto", Label = "Saldo Aberto", Kind = "currency" },
+                        new DrilldownColumnDto { Key = "Uf", Label = "UF", Kind = "text" },
+                    };
+                    break;
+
+                case "dist_tipo_pag":
+                    if (!rights.HasPayableDashboardAccess) return response;
+                    if (selectionKind != "category") return response;
+                    baseSql = "FROM VW_SWIA_DOC_FIN_PAG_PAGO";
+                    where += AddDateFilters(parameters, request.StartDate, request.EndDate, "DATAPAGAMENTO", "StartDate", "EndDate");
+                    AddEquals("TIPOPAG", "TipoPag", selection.Key ?? selection.Label);
+                    orderBy = "ORDER BY ValorPago DESC";
+                    response.Columns = new()
+                    {
+                        new DrilldownColumnDto { Key = "Documento", Label = "Documento", Kind = "text" },
+                        new DrilldownColumnDto { Key = "TipoPagamento", Label = "Tipo Pagamento", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Pagamento", Label = "Pagamento", Kind = "date" },
+                        new DrilldownColumnDto { Key = "ValorPago", Label = "Valor Pago", Kind = "currency" },
+                        new DrilldownColumnDto { Key = "Uf", Label = "UF", Kind = "text" },
+                    };
+                    break;
+
+                case "dist_cond_pag":
+                    if (!rights.HasPayableDashboardAccess) return response;
+                    if (selectionKind != "category") return response;
+                    baseSql = "FROM VW_SWIA_DOC_FIN_PAG_ABERTO";
+                    where += AddDateFilters(parameters, request.StartDate, request.EndDate, "DATAVENCIMENTO", "StartDate", "EndDate");
+                    AddEquals("CONDPAG", "CondPag", selection.Key ?? selection.Label);
+                    response.Columns = new()
+                    {
+                        new DrilldownColumnDto { Key = "Documento", Label = "Documento", Kind = "text" },
+                        new DrilldownColumnDto { Key = "CondicaoPagamento", Label = "CondiÃ§Ã£o", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Vencimento", Label = "Vencimento", Kind = "date" },
+                        new DrilldownColumnDto { Key = "ValorOriginal", Label = "Valor Original", Kind = "currency" },
+                        new DrilldownColumnDto { Key = "SaldoAberto", Label = "Saldo Aberto", Kind = "currency" },
+                    };
+                    break;
+
+                case "geo_pagar":
+                    if (!rights.HasPayableDashboardAccess) return response;
+                    if (selectionKind != "geo_uf") return response;
+                    baseSql = "FROM VW_SWIA_DOC_FIN_PAG_ABERTO";
+                    where += AddDateFilters(parameters, request.StartDate, request.EndDate, "DATAVENCIMENTO", "StartDate", "EndDate");
+                    AddEquals("UF", "Uf", selection.Uf);
+                    response.Columns = new()
+                    {
+                        new DrilldownColumnDto { Key = "Documento", Label = "Documento", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Uf", Label = "UF", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Vencimento", Label = "Vencimento", Kind = "date" },
+                        new DrilldownColumnDto { Key = "ValorOriginal", Label = "Valor Original", Kind = "currency" },
+                        new DrilldownColumnDto { Key = "SaldoAberto", Label = "Saldo Aberto", Kind = "currency" },
+                    };
+                    break;
+
+                case "geo_receber":
+                    if (!rights.HasReceivableDashboardAccess) return response;
+                    if (selectionKind != "geo_uf") return response;
+                    baseSql = "FROM VW_SWIA_DOC_FIN_REC_ABERTO";
+                    where += AddDateFilters(parameters, request.StartDate, request.EndDate, "DATAVENCIMENTO", "StartDate", "EndDate");
+                    AddEquals("UF", "Uf", selection.Uf);
+                    response.Columns = new()
+                    {
+                        new DrilldownColumnDto { Key = "Documento", Label = "Documento", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Uf", Label = "UF", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Vencimento", Label = "Vencimento", Kind = "date" },
+                        new DrilldownColumnDto { Key = "ValorOriginal", Label = "Valor Original", Kind = "currency" },
+                        new DrilldownColumnDto { Key = "SaldoAberto", Label = "Saldo Aberto", Kind = "currency" },
+                    };
+                    break;
+
+                case "aging":
+                    if (!rights.HasReceivableDashboardAccess) return response;
+                    if (selectionKind != "range_bucket") return response;
+                    baseSql = "FROM VW_SWIA_DOC_FIN_REC_ABERTO";
+                    where += AddDateFilters(parameters, request.StartDate, request.EndDate, "DATAVENCIMENTO", "StartDate", "EndDate");
+                    where += AgingBucketWhere(selection.Key ?? selection.Label ?? "");
+                    response.Columns = new()
+                    {
+                        new DrilldownColumnDto { Key = "Documento", Label = "Documento", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Cliente", Label = "Cliente", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Vencimento", Label = "Vencimento", Kind = "date" },
+                        new DrilldownColumnDto { Key = "DiasAtraso", Label = "Dias", Kind = "number" },
+                        new DrilldownColumnDto { Key = "SaldoAberto", Label = "Saldo Aberto", Kind = "currency" },
+                    };
+                    break;
+
+                case "dist_faixa_prazo":
+                    if (!rights.HasReceivableDashboardAccess) return response;
+                    if (selectionKind != "range_bucket") return response;
+                    baseSql = "FROM VW_SWIA_DOC_FIN_REC_ABERTO";
+                    where += AddDateFilters(parameters, request.StartDate, request.EndDate, "DATAVENCIMENTO", "StartDate", "EndDate");
+                    where += PrazoBucketWhere(selection.Key ?? selection.Label ?? "");
+                    response.Columns = new()
+                    {
+                        new DrilldownColumnDto { Key = "Documento", Label = "Documento", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Cliente", Label = "Cliente", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Vencimento", Label = "Vencimento", Kind = "date" },
+                        new DrilldownColumnDto { Key = "DiasAteVencimento", Label = "Dias atÃ© venc.", Kind = "number" },
+                        new DrilldownColumnDto { Key = "ValorOriginal", Label = "Valor Original", Kind = "currency" },
+                    };
+                    break;
+
+                default:
+                    return response;
+            }
+
+            var selectSql = chartId switch
+            {
+                "dist_tipo_pag" => @"SELECT
+                        DOCUMENTO as Documento,
+                        TIPOPAG as TipoPagamento,
+                        DATAPAGAMENTO as Pagamento,
+                        VALORPAG as ValorPago,
+                        UF as Uf",
+                "aging" => @"SELECT
+                        DOCUMENTO as Documento,
+                        CLIENTE as Cliente,
+                        DATAVENCIMENTO as Vencimento,
+                        DATEDIFF(day, DATAVENCIMENTO, GETDATE()) as DiasAtraso,
+                        (VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "dist_faixa_prazo" => @"SELECT
+                        DOCUMENTO as Documento,
+                        CLIENTE as Cliente,
+                        DATAVENCIMENTO as Vencimento,
+                        DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) as DiasAteVencimento,
+                        VALORORIG as ValorOriginal",
+                "dist_cond_pag" => @"SELECT
+                        DOCUMENTO as Documento,
+                        CONDPAG as CondicaoPagamento,
+                        DATAVENCIMENTO as Vencimento,
+                        VALORORIG as ValorOriginal,
+                        (VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "geo_pagar" => @"SELECT
+                        DOCUMENTO as Documento,
+                        UF as Uf,
+                        DATAVENCIMENTO as Vencimento,
+                        VALORORIG as ValorOriginal,
+                        (VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "geo_receber" => @"SELECT
+                        DOCUMENTO as Documento,
+                        UF as Uf,
+                        DATAVENCIMENTO as Vencimento,
+                        VALORORIG as ValorOriginal,
+                        (VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "dist_pag_fornecedor" => @"SELECT
+                        DOCUMENTO as Documento,
+                        FORNECEDOR as Fornecedor,
+                        UF as Uf,
+                        DATAVENCIMENTO as Vencimento,
+                        VALORORIG as ValorOriginal,
+                        (VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "dist_rec_cliente" => @"SELECT
+                        DOCUMENTO as Documento,
+                        CLIENTE as Cliente,
+                        UF as Uf,
+                        DATAVENCIMENTO as Vencimento,
+                        VALORORIG as ValorOriginal,
+                        (VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                _ => @"SELECT DOCUMENTO as Documento"
+            };
+
+            var sqlPage = $@"
+                {selectSql}
+                {baseSql}
+                {where}
+                {orderBy}
+                OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
+
+            var sqlCount = $@"SELECT COUNT(1) {baseSql} {where};";
+
+            var total = await connection.ExecuteScalarAsync<int>(sqlCount, parameters);
+            response.Meta.Total = total;
+
+            var data = await connection.QueryAsync(sqlPage, parameters);
+            response.Rows = data.Select(ToDictionary).ToList();
+            return response;
         }
     }
 }
