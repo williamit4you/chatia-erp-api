@@ -3,6 +3,7 @@ using IT4You.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
+using System;
 using System.Security.Claims;
 
 namespace IT4You.API.Controllers;
@@ -81,14 +82,38 @@ public class ChatController : ControllerBase
             return Unauthorized();
 
         var sessions = await _chatService.GetSessionsAsync(userId, tenantId);
-        return Ok(sessions);
+
+        // EF/materialization often loses DateTimeKind (comes back as Unspecified).
+        // We treat stored timestamps as UTC and force Kind=Utc so the frontend renders local time correctly.
+        var payload = sessions.Select(s => new
+        {
+            id = s.Id,
+            title = s.Title,
+            createdAt = DateTime.SpecifyKind(s.CreatedAt, DateTimeKind.Utc),
+            updatedAt = DateTime.SpecifyKind(s.UpdatedAt, DateTimeKind.Utc),
+            userId = s.UserId,
+            tenantId = s.TenantId,
+            isVisible = s.IsVisible,
+        });
+
+        return Ok(payload);
     }
 
     [HttpGet("messages/{sessionId}")]
     public async Task<IActionResult> GetMessages(string sessionId)
     {
         var messages = await _chatService.GetMessagesAsync(sessionId);
-        return Ok(messages);
+
+        var payload = messages.Select(m => new
+        {
+            id = m.Id,
+            role = m.Role,
+            content = m.Content,
+            createdAt = DateTime.SpecifyKind(m.CreatedAt, DateTimeKind.Utc),
+            sqlQueries = m.SqlQueries,
+        });
+
+        return Ok(payload);
     }
 
     [HttpGet("sql-logs")]
