@@ -93,16 +93,25 @@ namespace IT4You.API.Controllers
         public async Task<IActionResult> GetChartQueryDetails([FromBody] ChartQueryDetailsRequestDto request)
         {
             var user = User;
-            var showChartDetailsClaim = user.FindFirst("showChartDetails")?.Value;
-            var canSee = user.IsInRole("TENANT_ADMIN") && showChartDetailsClaim == "true";
-            if (!canSee) return Forbid();
+            var canSeeSql = user.IsInRole("TENANT_ADMIN") || user.IsInRole("SUPER_ADMIN");
 
             var tenantId = GetTenantId();
             var rights = GetFinanceRights();
             var chartIds = request?.ChartIds?.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList() ?? new();
 
-            var items = await _financeAnalyticsService.GetChartQueryDetailsAsync(tenantId, rights, chartIds, request?.StartDate, request?.EndDate);
-            return Ok(new ChartQueryDetailsResponseDto { Items = items.ToList() });
+            var items = (await _financeAnalyticsService.GetChartQueryDetailsAsync(tenantId, rights, chartIds, request?.StartDate, request?.EndDate)).ToList();
+
+            // "Detalhes dos gráficos" é visível para todos os usuários autenticados,
+            // porém as consultas SQL (SELECT/query) ficam restritas a SUPER_ADMIN e TENANT_ADMIN.
+            if (!canSeeSql)
+            {
+                foreach (var item in items)
+                {
+                    item.SqlQueries = new();
+                }
+            }
+
+            return Ok(new ChartQueryDetailsResponseDto { Items = items });
         }
 
         [HttpPost("charts/metrics")]
