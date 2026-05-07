@@ -464,8 +464,26 @@ ORDER BY DayIndex;";
             kpisFase2.ConcentracaoTop5Fornecedores = totalPagPago > 0 ? (top5ForSum / totalPagPago) * 100 : 0;
 
             // 22. Volume Financeiro por CPF/CNPJ
-            var sqlVolCpf = @"SELECT TOP 10 CPFCNPJ as Label, SUM(VALORORIG) as Valor FROM (SELECT CPFCNPJ, VALORORIG FROM VW_SWIA_DOC_FIN_REC_PAGO UNION ALL SELECT CPFCNPJ, VALORORIG FROM VW_SWIA_DOC_FIN_PAG_PAGO) t GROUP BY CPFCNPJ ORDER BY Valor DESC";
-            volumePorCpfCnpj = await connection.QueryAsync<DistributionDto>(sqlVolCpf);
+            var sqlVolCpf = $@"
+SELECT TOP 10
+    Nome as Label,
+    SUM(Valor) as Valor
+FROM (
+    SELECT CLIENTE as Nome, CPFCNPJ, VALORORIG as Valor
+    FROM VW_SWIA_DOC_FIN_REC_PAGO
+    WHERE DATAPAGAMENTO IS NOT NULL {dateFilterRecPago}
+
+    UNION ALL
+
+    SELECT FORNECEDOR as Nome, CPFCNPJ, VALORORIG as Valor
+    FROM VW_SWIA_DOC_FIN_PAG_PAGO
+    WHERE DATAPAGAMENTO IS NOT NULL {dateFilterPagPago}
+) t
+WHERE CPFCNPJ IS NOT NULL AND LTRIM(RTRIM(CPFCNPJ)) <> ''
+  AND Nome IS NOT NULL AND LTRIM(RTRIM(Nome)) <> ''
+GROUP BY Nome
+ORDER BY Valor DESC;";
+            volumePorCpfCnpj = await connection.QueryAsync<DistributionDto>(sqlVolCpf, parameters);
 
             // 23 & 24. Crescimento (Simulação: Comparando este mês vs anterior)
             kpisFase2.CrescimentoRecebimentos = 15.5m; // Mock logic or complex SQL for YoY/MoM
@@ -913,8 +931,19 @@ ORDER BY DayIndex");
                         break;
 
                     case "vol_cpf_cnpj":
-                        item.SqlQueries.Add(@"SELECT TOP 10 CPFCNPJ as Label, SUM(VALORORIG) as Valor FROM (SELECT CPFCNPJ, VALORORIG FROM VW_SWIA_DOC_FIN_REC_PAGO UNION ALL SELECT CPFCNPJ, VALORORIG FROM VW_SWIA_DOC_FIN_PAG_PAGO) t GROUP BY CPFCNPJ ORDER BY Valor DESC");
+                        item.SqlQueries.Add($@"SELECT TOP 10 Nome as Label, SUM(Valor) as Valor
+FROM (
+    SELECT CLIENTE as Nome, CPFCNPJ, VALORORIG as Valor FROM VW_SWIA_DOC_FIN_REC_PAGO WHERE DATAPAGAMENTO IS NOT NULL {dateFilterRecPago}
+    UNION ALL
+    SELECT FORNECEDOR as Nome, CPFCNPJ, VALORORIG as Valor FROM VW_SWIA_DOC_FIN_PAG_PAGO WHERE DATAPAGAMENTO IS NOT NULL {dateFilterPagPago}
+) t
+WHERE CPFCNPJ IS NOT NULL AND LTRIM(RTRIM(CPFCNPJ)) <> ''
+  AND Nome IS NOT NULL AND LTRIM(RTRIM(Nome)) <> ''
+GROUP BY Nome
+ORDER BY Valor DESC");
                         item.Rules.Add("Agrupa volume financeiro por CPF/CNPJ (pagos) e soma VALORORIG, trazendo top 10.");
+                        item.Rules.Add("Aplica filtro por data de pagamento conforme período selecionado.");
+                        item.Rules.Add("No gráfico, o rótulo exibido é o nome (cliente/fornecedor); CPF/CNPJ aparece no drill-down.");
                         break;
 
                     case "dist_faixa_prazo":
@@ -1271,6 +1300,49 @@ ORDER BY DayIndex");
                     };
                     break;
 
+                case "vol_cpf_cnpj":
+                    if (!rights.HasReceivableDashboardAccess && !rights.HasPayableDashboardAccess) return response;
+                    if (selectionKind != "category") return response;
+
+                    var sources = new List<string>();
+                    if (rights.HasReceivableDashboardAccess)
+                    {
+                        sources.Add(@"SELECT
+    DOCUMENTO,
+    CLIENTE as Nome,
+    CPFCNPJ,
+    DATAPAGAMENTO,
+    VALORPAG as ValorPago
+FROM VW_SWIA_DOC_FIN_REC_PAGO
+WHERE DATAPAGAMENTO IS NOT NULL");
+                    }
+                    if (rights.HasPayableDashboardAccess)
+                    {
+                        sources.Add(@"SELECT
+    DOCUMENTO,
+    FORNECEDOR as Nome,
+    CPFCNPJ,
+    DATAPAGAMENTO,
+    VALORPAG as ValorPago
+FROM VW_SWIA_DOC_FIN_PAG_PAGO
+WHERE DATAPAGAMENTO IS NOT NULL");
+                    }
+
+                    baseSql = $@"FROM ({string.Join(" UNION ALL ", sources)}) t";
+                    orderBy = "ORDER BY ValorPago DESC";
+                    where += AddDateFilters(parameters, request.StartDate, request.EndDate, "DATAPAGAMENTO", "StartDate", "EndDate");
+                    AddEquals("Nome", "Nome", selection.Key ?? selection.Label);
+
+                    response.Columns = new()
+                    {
+                        new DrilldownColumnDto { Key = "Documento", Label = "Documento", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Nome", Label = "Nome", Kind = "text" },
+                        new DrilldownColumnDto { Key = "CpfCnpj", Label = "CPF/CNPJ", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Pagamento", Label = "Pagamento", Kind = "date" },
+                        new DrilldownColumnDto { Key = "ValorPago", Label = "Valor Pago", Kind = "currency" },
+                    };
+                    break;
+
                 default:
                     return response;
             }
@@ -1327,6 +1399,12 @@ ORDER BY DayIndex");
                         DATAVENCIMENTO as Vencimento,
                         VALORORIG as ValorOriginal,
                         (VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "vol_cpf_cnpj" => @"SELECT
+                        DOCUMENTO as Documento,
+                        Nome as Nome,
+                        CPFCNPJ as CpfCnpj,
+                        DATAPAGAMENTO as Pagamento,
+                        ValorPago as ValorPago",
                 _ => @"SELECT DOCUMENTO as Documento"
             };
 
