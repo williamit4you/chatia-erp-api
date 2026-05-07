@@ -23,16 +23,26 @@ namespace IT4You.API.Controllers
 
         private int GetTenantId()
         {
-            var tenantClaim = User.FindFirst("TenantId")?.Value;
+            var tenantClaim = User.FindFirst("tenantId")?.Value ?? User.FindFirst("TenantId")?.Value;
             if (int.TryParse(tenantClaim, out int tenantId))
                 return tenantId;
             return 0; // Default to 0, which likely won't return data or will be handled by Db
         }
 
+        private bool HasAnyRole(params string[] roles)
+        {
+            var role = User.FindFirst(ClaimTypes.Role)?.Value
+                ?? User.FindFirst("role")?.Value
+                ?? string.Empty;
+
+            role = role.Trim();
+            return roles.Any(r => string.Equals(role, r, StringComparison.OrdinalIgnoreCase));
+        }
+
         private FinanceRightsDto GetFinanceRights()
         {
             var user = User;
-            bool isFullAdmin = user.IsInRole("TENANT_ADMIN") || user.IsInRole("SUPER_ADMIN");
+            bool isFullAdmin = user.IsInRole("TENANT_ADMIN") || user.IsInRole("SUPER_ADMIN") || HasAnyRole("TENANT_ADMIN", "SUPER_ADMIN");
             
             if (isFullAdmin) 
                 return new FinanceRightsDto(true, true, true);
@@ -92,8 +102,7 @@ namespace IT4You.API.Controllers
         [HttpPost("chart-query-details")]
         public async Task<IActionResult> GetChartQueryDetails([FromBody] ChartQueryDetailsRequestDto request)
         {
-            var user = User;
-            var canSeeSql = user.IsInRole("TENANT_ADMIN") || user.IsInRole("SUPER_ADMIN");
+            var canSeeSql = User.IsInRole("TENANT_ADMIN") || User.IsInRole("SUPER_ADMIN") || HasAnyRole("TENANT_ADMIN", "SUPER_ADMIN");
 
             var tenantId = GetTenantId();
             var rights = GetFinanceRights();
