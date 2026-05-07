@@ -158,8 +158,7 @@ namespace IT4You.Application.FinanceAnalytics.Services
                     case "vol_dia_mes":
                         return Sum(adv?.VolumePorDia, x => x.Valor);
                     case "vol_dia_semana":
-                        // Built on frontend from VolumePorDia; backend returns monthly distribution as best proxy.
-                        return Sum(adv?.VolumePorDia, x => x.Valor);
+                        return Sum(adv?.VolumePorDiaSemana, x => x.Valor);
                     case "liq_empresa":
                         return adv?.IndiceLiquidezPorEmpresa?.Any() == true ? adv.IndiceLiquidezPorEmpresa.Average(x => x.Valor) : 0m;
                     case "fluxo_diario_proj":

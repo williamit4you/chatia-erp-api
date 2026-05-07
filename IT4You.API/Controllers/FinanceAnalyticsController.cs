@@ -116,7 +116,12 @@ namespace IT4You.API.Controllers
             {
                 foreach (var item in items)
                 {
+                    var hadSql = item.SqlQueries?.Count > 0;
                     item.SqlQueries = new();
+                    if (hadSql)
+                    {
+                        item.Rules.Add("SQL oculto: disponível apenas para TENANT_ADMIN e SUPER_ADMIN.");
+                    }
                 }
             }
 

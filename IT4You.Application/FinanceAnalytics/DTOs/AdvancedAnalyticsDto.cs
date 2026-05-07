@@ -133,6 +133,7 @@ namespace IT4You.Application.FinanceAnalytics.DTOs
 
         // Novas Coleções Fase 2
         public IEnumerable<DistributionDto> VolumePorDia { get; set; }
+        public IEnumerable<DistributionDto> VolumePorDiaSemana { get; set; }
         public IEnumerable<DistributionDto> IndiceLiquidezPorEmpresa { get; set; }
         public IEnumerable<MonthlyEvolutionDto> FluxoCaixaDiarioProjetado { get; set; }
         public IEnumerable<DistributionDto> VolumePorCpfCnpj { get; set; }

@@ -286,6 +286,7 @@ namespace IT4You.Infrastructure.Repositories
 
             // Novas Variáveis Fase 2
             IEnumerable<DistributionDto> volumePorDia = Enumerable.Empty<DistributionDto>();
+            IEnumerable<DistributionDto> volumePorDiaSemana = Enumerable.Empty<DistributionDto>();
             IEnumerable<DistributionDto> liquidezPorEmpresa = Enumerable.Empty<DistributionDto>();
             IEnumerable<MonthlyEvolutionDto> fluxoDiarioProjetado = Enumerable.Empty<MonthlyEvolutionDto>();
             IEnumerable<DistributionDto> volumePorCpfCnpj = Enumerable.Empty<DistributionDto>();
@@ -395,9 +396,42 @@ namespace IT4You.Infrastructure.Repositories
             // 10. Rotação Financeira
             kpisFase2.RotacaoFinanceira = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORPAG) / NULLIF(COUNT(DOCUMENTO), 0) FROM VW_SWIA_DOC_FIN_REC_PAGO") ?? 0;
 
-            // 11. Volume Financeiro por Dia do Mês
-            var sqlVolDia = @"SELECT DAY(DATAPAGAMENTO) as Label, SUM(VALORPAG) as Valor FROM VW_SWIA_DOC_FIN_REC_PAGO WHERE DATAPAGAMENTO IS NOT NULL GROUP BY DAY(DATAPAGAMENTO) ORDER BY Label";
-            volumePorDia = await connection.QueryAsync<DistributionDto>(sqlVolDia);
+            // 11. Volume Financeiro por Dia do Mês (filtrado pelo período)
+            var sqlVolDia = $@"SELECT DAY(DATAPAGAMENTO) as Label, SUM(VALORPAG) as Valor
+FROM VW_SWIA_DOC_FIN_REC_PAGO
+WHERE DATAPAGAMENTO IS NOT NULL {dateFilterRecPago}
+GROUP BY DAY(DATAPAGAMENTO)
+ORDER BY Label";
+            volumePorDia = await connection.QueryAsync<DistributionDto>(sqlVolDia, parameters);
+
+            // 11b. Volume Financeiro por Dia da Semana (filtrado pelo período; domingo=0 ... sábado=6)
+            var sqlVolDiaSemana = $@"
+SELECT
+    (DATEDIFF(DAY, '19000107', CAST(DATAPAGAMENTO AS date)) % 7) as DayIndex,
+    SUM(VALORPAG) as Valor
+FROM VW_SWIA_DOC_FIN_REC_PAGO
+WHERE DATAPAGAMENTO IS NOT NULL {dateFilterRecPago}
+GROUP BY (DATEDIFF(DAY, '19000107', CAST(DATAPAGAMENTO AS date)) % 7)
+ORDER BY DayIndex;";
+            var volDiaSemanaRaw = await connection.QueryAsync<dynamic>(sqlVolDiaSemana, parameters);
+            var weekdayLabels = new[] { "Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab" };
+            var weekdayTotals = new decimal[7];
+            foreach (var row in volDiaSemanaRaw)
+            {
+                try
+                {
+                    int idx = Convert.ToInt32(row.DayIndex);
+                    if (idx >= 0 && idx < 7)
+                        weekdayTotals[idx] = Convert.ToDecimal(row.Valor);
+                }
+                catch
+                {
+                    // Ignore malformed rows
+                }
+            }
+            volumePorDiaSemana = Enumerable.Range(0, 7)
+                .Select(i => new DistributionDto { Label = weekdayLabels[i], Valor = weekdayTotals[i], Percentual = 0m })
+                .ToList();
 
             // 12 & 13. Prazo Médio Restante
             kpisFase2.PrazoMedioRestanteReceber = await connection.ExecuteScalarAsync<decimal?>("SELECT AVG(CAST(DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) AS DECIMAL)) FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO > GETDATE()") ?? 0;
@@ -622,6 +656,7 @@ namespace IT4You.Infrastructure.Repositories
  
                 // FASE 2 COLLECTIONS
                 VolumePorDia = volumePorDia,
+                VolumePorDiaSemana = volumePorDiaSemana,
                 IndiceLiquidezPorEmpresa = liquidezPorEmpresa,
                 FluxoCaixaDiarioProjetado = fluxoDiarioProjetado,
                 VolumePorCpfCnpj = volumePorCpfCnpj,
@@ -847,8 +882,24 @@ namespace IT4You.Infrastructure.Repositories
 
                     // Fase 2/3 (gráficos adicionais do dashboard)
                     case "vol_dia_mes":
-                        item.SqlQueries.Add(@"SELECT DAY(DATAPAGAMENTO) as Label, SUM(VALORPAG) as Valor FROM VW_SWIA_DOC_FIN_REC_PAGO WHERE DATAPAGAMENTO IS NOT NULL GROUP BY DAY(DATAPAGAMENTO) ORDER BY Label");
+                        item.SqlQueries.Add($@"SELECT DAY(DATAPAGAMENTO) as Label, SUM(VALORPAG) as Valor
+FROM VW_SWIA_DOC_FIN_REC_PAGO
+WHERE DATAPAGAMENTO IS NOT NULL {dateFilterRecPago}
+GROUP BY DAY(DATAPAGAMENTO)
+ORDER BY Label");
                         item.Rules.Add("Agrega recebimentos por dia do mês (DAY(DATAPAGAMENTO)) e soma VALORPAG.");
+                        item.Rules.Add("Aplica filtro por data de pagamento conforme período selecionado.");
+                        break;
+
+                    case "vol_dia_semana":
+                        item.SqlQueries.Add($@"SELECT (DATEDIFF(DAY, '19000107', CAST(DATAPAGAMENTO AS date)) % 7) as DayIndex, SUM(VALORPAG) as Valor
+FROM VW_SWIA_DOC_FIN_REC_PAGO
+WHERE DATAPAGAMENTO IS NOT NULL {dateFilterRecPago}
+GROUP BY (DATEDIFF(DAY, '19000107', CAST(DATAPAGAMENTO AS date)) % 7)
+ORDER BY DayIndex");
+                        item.Rules.Add("Agrega recebimentos por dia da semana e soma VALORPAG (domingo=0 ... sábado=6).");
+                        item.Rules.Add("O backend mapeia DayIndex para rótulos: Dom, Seg, Ter, Qua, Qui, Sex, Sab.");
+                        item.Rules.Add("Aplica filtro por data de pagamento conforme período selecionado.");
                         break;
 
                     case "liq_empresa":
