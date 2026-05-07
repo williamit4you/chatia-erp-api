@@ -105,6 +105,20 @@ namespace IT4You.API.Controllers
             return Ok(new ChartQueryDetailsResponseDto { Items = items.ToList() });
         }
 
+        [HttpPost("charts/metrics")]
+        public async Task<IActionResult> GetChartMetrics([FromBody] ChartMetricsRequestDto request)
+        {
+            var tenantId = GetTenantId();
+            var rights = GetFinanceRights();
+
+            var chartIds = request?.ChartIds?.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList() ?? new();
+            if (chartIds.Count == 0)
+                return Ok(new ChartMetricsResponseDto { Items = new() });
+
+            var response = await _financeAnalyticsService.GetChartMetricsAsync(tenantId, rights, request);
+            return Ok(response);
+        }
+
         [HttpPost("charts/export")]
         public async Task<IActionResult> ExportChart([FromBody] ChartExportRequestDto request)
         {
