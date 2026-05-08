@@ -1167,6 +1167,13 @@ ORDER BY Valor DESC");
                 };
             }
 
+            void AddMonthBucket(string column, string paramName, string? value)
+            {
+                if (string.IsNullOrWhiteSpace(value)) return;
+                where += $" AND CONVERT(char(7), {column}, 23) = @{paramName}";
+                parameters.Add(paramName, value.Trim());
+            }
+
             switch (chartId)
             {
                 case "dist_pag_fornecedor":
@@ -1203,6 +1210,23 @@ ORDER BY Valor DESC");
                     };
                     break;
 
+                case "curva_rec":
+                    if (!rights.HasReceivableDashboardAccess) return response;
+                    if (selectionKind != "time_bucket") return response;
+                    baseSql = "FROM VW_SWIA_DOC_FIN_REC_ABERTO";
+                    where += AddDateFilters(parameters, request.StartDate, request.EndDate, "DATAVENCIMENTO", "StartDate", "EndDate");
+                    AddMonthBucket("DATAVENCIMENTO", "MesAno", selection.Value ?? selection.Label);
+                    response.Columns = new()
+                    {
+                        new DrilldownColumnDto { Key = "Documento", Label = "Documento", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Cliente", Label = "Cliente", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Uf", Label = "UF", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Vencimento", Label = "Vencimento", Kind = "date" },
+                        new DrilldownColumnDto { Key = "ValorOriginal", Label = "Valor Original", Kind = "currency" },
+                        new DrilldownColumnDto { Key = "SaldoAberto", Label = "Saldo Aberto", Kind = "currency" },
+                    };
+                    break;
+
                 case "dist_tipo_pag":
                     if (!rights.HasPayableDashboardAccess) return response;
                     if (selectionKind != "category") return response;
@@ -1230,6 +1254,23 @@ ORDER BY Valor DESC");
                     {
                         new DrilldownColumnDto { Key = "Documento", Label = "Documento", Kind = "text" },
                         new DrilldownColumnDto { Key = "CondicaoPagamento", Label = "CondiÃ§Ã£o", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Vencimento", Label = "Vencimento", Kind = "date" },
+                        new DrilldownColumnDto { Key = "ValorOriginal", Label = "Valor Original", Kind = "currency" },
+                        new DrilldownColumnDto { Key = "SaldoAberto", Label = "Saldo Aberto", Kind = "currency" },
+                    };
+                    break;
+
+                case "curva_pag":
+                    if (!rights.HasPayableDashboardAccess) return response;
+                    if (selectionKind != "time_bucket") return response;
+                    baseSql = "FROM VW_SWIA_DOC_FIN_PAG_ABERTO";
+                    where += AddDateFilters(parameters, request.StartDate, request.EndDate, "DATAVENCIMENTO", "StartDate", "EndDate");
+                    AddMonthBucket("DATAVENCIMENTO", "MesAno", selection.Value ?? selection.Label);
+                    response.Columns = new()
+                    {
+                        new DrilldownColumnDto { Key = "Documento", Label = "Documento", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Fornecedor", Label = "Fornecedor", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Uf", Label = "UF", Kind = "text" },
                         new DrilldownColumnDto { Key = "Vencimento", Label = "Vencimento", Kind = "date" },
                         new DrilldownColumnDto { Key = "ValorOriginal", Label = "Valor Original", Kind = "currency" },
                         new DrilldownColumnDto { Key = "SaldoAberto", Label = "Saldo Aberto", Kind = "currency" },
@@ -1373,6 +1414,13 @@ WHERE DATAPAGAMENTO IS NOT NULL");
                         DATAVENCIMENTO as Vencimento,
                         VALORORIG as ValorOriginal,
                         (VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "curva_pag" => @"SELECT
+                        DOCUMENTO as Documento,
+                        FORNECEDOR as Fornecedor,
+                        UF as Uf,
+                        DATAVENCIMENTO as Vencimento,
+                        VALORORIG as ValorOriginal,
+                        (VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
                 "geo_pagar" => @"SELECT
                         DOCUMENTO as Documento,
                         UF as Uf,
@@ -1393,6 +1441,13 @@ WHERE DATAPAGAMENTO IS NOT NULL");
                         VALORORIG as ValorOriginal,
                         (VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
                 "dist_rec_cliente" => @"SELECT
+                        DOCUMENTO as Documento,
+                        CLIENTE as Cliente,
+                        UF as Uf,
+                        DATAVENCIMENTO as Vencimento,
+                        VALORORIG as ValorOriginal,
+                        (VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "curva_rec" => @"SELECT
                         DOCUMENTO as Documento,
                         CLIENTE as Cliente,
                         UF as Uf,
