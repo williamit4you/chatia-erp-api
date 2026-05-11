@@ -42,6 +42,11 @@ namespace IT4You.Application.FinanceAnalytics.DTOs
         public string? SortDirection { get; set; } // asc | desc
     }
 
+    public class ChartDrilldownExportRequestDto : ChartDrilldownRequestDto
+    {
+        public string Format { get; set; } = "xlsx"; // xlsx | pdf
+    }
+
     public class DrilldownColumnDto
     {
         public string Key { get; set; } = string.Empty;

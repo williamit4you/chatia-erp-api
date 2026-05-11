@@ -186,5 +186,48 @@ namespace IT4You.API.Controllers
             var response = await _financeAnalyticsService.GetChartDrilldownAsync(tenantId, rights, request);
             return Ok(response);
         }
+
+        [HttpPost("charts/drilldown/export")]
+        public async Task<IActionResult> ExportDrilldown([FromBody] ChartDrilldownExportRequestDto request)
+        {
+            var tenantId = GetTenantId();
+            var rights = GetFinanceRights();
+
+            if (request == null || string.IsNullOrWhiteSpace(request.ChartId))
+                return BadRequest(new { message = "ChartId e obrigatorio." });
+
+            if (request.Selection == null || string.IsNullOrWhiteSpace(request.Selection.Kind))
+                return BadRequest(new { message = "Selection.kind e obrigatorio." });
+
+            var format = (request.Format ?? "xlsx").Trim().ToLowerInvariant();
+            if (format != "xlsx" && format != "pdf")
+                return BadRequest(new { message = "Formato nao suportado. Use 'xlsx' ou 'pdf'." });
+
+            var response = await _financeAnalyticsService.GetChartDrilldownExportAsync(tenantId, rights, request);
+
+            string selectionLabel = request.Selection.Label
+                ?? request.Selection.Key
+                ?? request.Selection.Value
+                ?? request.Selection.Uf
+                ?? "recorte";
+
+            var title = $"Drilldown - {request.ChartId}";
+            var startDateLabel = request.StartDate?.ToString("yyyy-MM-dd") ?? "-";
+            var endDateLabel = request.EndDate?.ToString("yyyy-MM-dd") ?? "-";
+            var safeChartId = request.ChartId.Trim().Replace(" ", "-").ToLowerInvariant();
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+
+            if (format == "pdf")
+            {
+                var pdfBytes = _financeAnalyticsService.BuildDrilldownPdf(title, startDateLabel, endDateLabel, selectionLabel, response);
+                return File(pdfBytes, "application/pdf", $"drilldown-{safeChartId}-{timestamp}.pdf");
+            }
+
+            var xlsxBytes = _financeAnalyticsService.BuildDrilldownExcel(title, startDateLabel, endDateLabel, selectionLabel, response);
+            return File(
+                xlsxBytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"drilldown-{safeChartId}-{timestamp}.xlsx");
+        }
     }
 }

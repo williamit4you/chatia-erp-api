@@ -5,6 +5,10 @@ using IT4You.Application.FinanceAnalytics.Interfaces;
 using IT4You.Application.FinanceAnalytics.DTOs;
 using System.Linq;
 using System.Text;
+using ClosedXML.Excel;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 
 namespace IT4You.Application.FinanceAnalytics.Services
 {
@@ -256,6 +260,279 @@ namespace IT4You.Application.FinanceAnalytics.Services
         public async Task<ChartDrilldownResponseDto> GetChartDrilldownAsync(int tenantId, FinanceRightsDto rights, ChartDrilldownRequestDto request)
         {
             return await _repository.GetChartDrilldownAsync(tenantId, rights, request);
+        }
+
+        public async Task<ChartDrilldownResponseDto> GetChartDrilldownExportAsync(int tenantId, FinanceRightsDto rights, ChartDrilldownRequestDto request)
+        {
+            var probeRequest = CloneDrilldownRequest(request);
+            probeRequest.Page = 1;
+            probeRequest.PageSize = 1;
+
+            var probeResponse = await _repository.GetChartDrilldownAsync(tenantId, rights, probeRequest);
+            var total = Math.Max(probeResponse.Meta.Total ?? 0, probeResponse.Rows.Count);
+
+            if (total == 0)
+                return probeResponse;
+
+            var fullRequest = CloneDrilldownRequest(request);
+            fullRequest.Page = 1;
+            fullRequest.PageSize = total;
+
+            return await _repository.GetChartDrilldownAsync(tenantId, rights, fullRequest);
+        }
+
+        public byte[] BuildDrilldownExcel(string title, string startDateLabel, string endDateLabel, string selectionLabel, ChartDrilldownResponseDto response)
+        {
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Drilldown");
+
+            var rowIndex = 1;
+            worksheet.Cell(rowIndex, 1).Value = title;
+            worksheet.Cell(rowIndex, 1).Style.Font.Bold = true;
+            worksheet.Cell(rowIndex, 1).Style.Font.FontSize = 16;
+            rowIndex++;
+
+            worksheet.Cell(rowIndex, 1).Value = $"Periodo: {startDateLabel} a {endDateLabel}";
+            rowIndex++;
+            worksheet.Cell(rowIndex, 1).Value = $"Recorte: {selectionLabel}";
+            rowIndex++;
+            worksheet.Cell(rowIndex, 1).Value = $"Documentos filtrados: {response.Meta.Total ?? response.Rows.Count}";
+            rowIndex += 2;
+
+            for (var i = 0; i < response.Columns.Count; i++)
+            {
+                var cell = worksheet.Cell(rowIndex, i + 1);
+                cell.Value = response.Columns[i].Label;
+                cell.Style.Font.Bold = true;
+                cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#F5F5F5");
+                cell.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
+            }
+
+            rowIndex++;
+
+            foreach (var row in response.Rows)
+            {
+                for (var i = 0; i < response.Columns.Count; i++)
+                {
+                    var column = response.Columns[i];
+                    var cell = worksheet.Cell(rowIndex, i + 1);
+                    WriteExcelCell(cell, row.TryGetValue(column.Key, out var value) ? value : null, column.Kind);
+                }
+
+                rowIndex++;
+            }
+
+            if (response.Rows.Count > 0)
+            {
+                worksheet.Cell(rowIndex, 1).Value = "Total geral";
+                worksheet.Cell(rowIndex, 1).Style.Font.Bold = true;
+
+                for (var i = 1; i < response.Columns.Count; i++)
+                {
+                    var column = response.Columns[i];
+                    if (!IsNumericKind(column.Kind)) continue;
+
+                    response.Totals.TryGetValue(column.Key, out var totalValue);
+                    var cell = worksheet.Cell(rowIndex, i + 1);
+                    WriteExcelCell(cell, totalValue, column.Kind);
+                    cell.Style.Font.Bold = true;
+                }
+            }
+
+            worksheet.Columns().AdjustToContents();
+            worksheet.SheetView.FreezeRows(5);
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            return stream.ToArray();
+        }
+
+        public byte[] BuildDrilldownPdf(string title, string startDateLabel, string endDateLabel, string selectionLabel, ChartDrilldownResponseDto response)
+        {
+            QuestPDF.Settings.License = LicenseType.Community;
+
+            string FormatValue(object? value, string? kind)
+            {
+                if (value == null) return "-";
+
+                if (string.Equals(kind, "currency", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (decimal.TryParse(Convert.ToString(value), out var money))
+                        return money.ToString("C", new System.Globalization.CultureInfo("pt-BR"));
+                }
+
+                if (string.Equals(kind, "date", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (value is DateTime dt) return dt.ToString("dd/MM/yyyy");
+                    if (DateTime.TryParse(Convert.ToString(value), out var parsedDate)) return parsedDate.ToString("dd/MM/yyyy");
+                }
+
+                if (string.Equals(kind, "number", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (decimal.TryParse(Convert.ToString(value), out var number))
+                        return number.ToString("N0", new System.Globalization.CultureInfo("pt-BR"));
+                }
+
+                return Convert.ToString(value) ?? "-";
+            }
+
+            return Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4.Landscape());
+                    page.Margin(24);
+                    page.DefaultTextStyle(x => x.FontSize(10));
+
+                    page.Header().Column(column =>
+                    {
+                        column.Item().Text(title).Bold().FontSize(18);
+                        column.Item().Text($"Periodo: {startDateLabel} a {endDateLabel}");
+                        column.Item().Text($"Recorte: {selectionLabel}");
+                        column.Item().Text($"Documentos filtrados: {response.Meta.Total ?? response.Rows.Count}");
+                    });
+
+                    page.Content().PaddingVertical(12).Column(column =>
+                    {
+                        if (response.Rows.Count == 0)
+                        {
+                            column.Item().Text("Nenhum registro encontrado para o recorte selecionado.");
+                            return;
+                        }
+
+                        column.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                foreach (var _ in response.Columns)
+                                    columns.RelativeColumn();
+                            });
+
+                            table.Header(header =>
+                            {
+                                foreach (var col in response.Columns)
+                                {
+                                    header.Cell().Background(Colors.Grey.Lighten3).Padding(6).Text(col.Label).Bold();
+                                }
+                            });
+
+                            foreach (var row in response.Rows)
+                            {
+                                foreach (var col in response.Columns)
+                                {
+                                    var text = FormatValue(row.TryGetValue(col.Key, out var value) ? value : null, col.Kind);
+                                    var cell = table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten3).Padding(6);
+                                    if (IsNumericKind(col.Kind))
+                                        cell.AlignRight().Text(text);
+                                    else
+                                        cell.Text(text);
+                                }
+                            }
+                        });
+
+                        if (response.Totals.Count > 0)
+                        {
+                            column.Item().PaddingTop(12).Column(totals =>
+                            {
+                                totals.Item().Text("Totais do filtro").Bold();
+                                foreach (var col in response.Columns.Where(c => IsNumericKind(c.Kind)))
+                                {
+                                    response.Totals.TryGetValue(col.Key, out var totalValue);
+                                    totals.Item().Text($"{col.Label}: {FormatValue(totalValue, col.Kind)}");
+                                }
+                            });
+                        }
+                    });
+
+                    page.Footer().AlignRight().Text(x =>
+                    {
+                        x.Span("Gerado em ");
+                        x.Span(DateTime.Now.ToString("dd/MM/yyyy HH:mm")).SemiBold();
+                    });
+                });
+            }).GeneratePdf();
+        }
+
+        private static ChartDrilldownRequestDto CloneDrilldownRequest(ChartDrilldownRequestDto request)
+        {
+            return new ChartDrilldownRequestDto
+            {
+                ChartId = request.ChartId,
+                StartDate = request.StartDate,
+                EndDate = request.EndDate,
+                EntityValue = request.EntityValue,
+                Page = request.Page,
+                PageSize = request.PageSize,
+                SortField = request.SortField,
+                SortDirection = request.SortDirection,
+                Selection = request.Selection == null
+                    ? new ChartSelectionDto()
+                    : new ChartSelectionDto
+                    {
+                        Kind = request.Selection.Kind,
+                        Key = request.Selection.Key,
+                        Label = request.Selection.Label,
+                        Bucket = request.Selection.Bucket,
+                        Value = request.Selection.Value,
+                        Uf = request.Selection.Uf
+                    }
+            };
+        }
+
+        private static bool IsNumericKind(string? kind)
+        {
+            return string.Equals(kind, "currency", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(kind, "number", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void WriteExcelCell(IXLCell cell, object? value, string? kind)
+        {
+            if (value == null)
+            {
+                cell.Value = "-";
+                return;
+            }
+
+            if (string.Equals(kind, "currency", StringComparison.OrdinalIgnoreCase))
+            {
+                if (decimal.TryParse(Convert.ToString(value), out var money))
+                {
+                    cell.Value = money;
+                    cell.Style.NumberFormat.Format = "\"R$\" #,##0.00";
+                    cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                    return;
+                }
+            }
+
+            if (string.Equals(kind, "date", StringComparison.OrdinalIgnoreCase))
+            {
+                if (value is DateTime dt)
+                {
+                    cell.Value = dt;
+                    cell.Style.DateFormat.Format = "dd/MM/yyyy";
+                    return;
+                }
+
+                if (DateTime.TryParse(Convert.ToString(value), out var parsedDate))
+                {
+                    cell.Value = parsedDate;
+                    cell.Style.DateFormat.Format = "dd/MM/yyyy";
+                    return;
+                }
+            }
+
+            if (string.Equals(kind, "number", StringComparison.OrdinalIgnoreCase))
+            {
+                if (decimal.TryParse(Convert.ToString(value), out var number))
+                {
+                    cell.Value = number;
+                    cell.Style.NumberFormat.Format = "#,##0";
+                    cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                    return;
+                }
+            }
+
+            cell.Value = Convert.ToString(value) ?? "-";
         }
     }
 }

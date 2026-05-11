@@ -18,5 +18,8 @@ namespace IT4You.Application.FinanceAnalytics.Interfaces
         Task<IEnumerable<Dictionary<string, object?>>> GetChartExportDatasetAsync(int tenantId, FinanceRightsDto rights, string chartId, DateTime? startDate = null, DateTime? endDate = null, string? entityValue = null);
         byte[] BuildCsv(IEnumerable<Dictionary<string, object?>> rows);
         Task<ChartDrilldownResponseDto> GetChartDrilldownAsync(int tenantId, FinanceRightsDto rights, ChartDrilldownRequestDto request);
+        Task<ChartDrilldownResponseDto> GetChartDrilldownExportAsync(int tenantId, FinanceRightsDto rights, ChartDrilldownRequestDto request);
+        byte[] BuildDrilldownExcel(string title, string startDateLabel, string endDateLabel, string selectionLabel, ChartDrilldownResponseDto response);
+        byte[] BuildDrilldownPdf(string title, string startDateLabel, string endDateLabel, string selectionLabel, ChartDrilldownResponseDto response);
     }
 }

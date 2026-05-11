@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -268,7 +268,7 @@ namespace IT4You.Infrastructure.Repositories
             decimal totalRec = 0;
             decimal totalVencido = 0;
 
-            // Variáveis para os novos Gráficos
+            // VariÃ¡veis para os novos GrÃ¡ficos
             IEnumerable<DistributionDto> distPagFornecedor = Enumerable.Empty<DistributionDto>();
             IEnumerable<DistributionDto> distRecCliente = Enumerable.Empty<DistributionDto>();
             IEnumerable<GeographicDto> geoPagar = Enumerable.Empty<GeographicDto>();
@@ -284,7 +284,7 @@ namespace IT4You.Infrastructure.Repositories
             IEnumerable<DistributionDto> faixaPagar = Enumerable.Empty<DistributionDto>();
             IEnumerable<DistributionDto> faixaReceber = Enumerable.Empty<DistributionDto>();
 
-            // Novas Variáveis Fase 2
+            // Novas VariÃ¡veis Fase 2
             IEnumerable<DistributionDto> volumePorDia = Enumerable.Empty<DistributionDto>();
             IEnumerable<DistributionDto> volumePorDiaSemana = Enumerable.Empty<DistributionDto>();
             IEnumerable<DistributionDto> liquidezPorEmpresa = Enumerable.Empty<DistributionDto>();
@@ -295,7 +295,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var kpisFase2 = new FinancialHealthDto();
 
-            // Recebíveis (Contas a Receber)
+            // RecebÃ­veis (Contas a Receber)
             if (rights.HasReceivableDashboardAccess)
             {
                 var sqlAging = $@"SELECT CASE WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) <= 0 THEN 'A vencer' WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 1 AND 30 THEN '1-30 dias' WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 31 AND 60 THEN '31-60 dias' WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 61 AND 90 THEN '61-90 dias' ELSE 'Mais de 90 dias' END as Faixa, SUM(VALORORIG - ISNULL(VALORPAG, 0)) as Valor FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE 1=1 {dateFilterRecAberto} GROUP BY CASE WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) <= 0 THEN 'A vencer' WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 1 AND 30 THEN '1-30 dias' WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 31 AND 60 THEN '31-60 dias' WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 61 AND 90 THEN '61-90 dias' ELSE 'Mais de 90 dias' END";
@@ -332,7 +332,7 @@ namespace IT4You.Infrastructure.Repositories
             }
 
             decimal totalPagAberto = 0;
-            // Pagáveis (Contas a Pagar)
+            // PagÃ¡veis (Contas a Pagar)
             if (rights.HasPayableDashboardAccess)
             {
                 totalPagAberto = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORORIG) FROM VW_SWIA_DOC_FIN_PAG_ABERTO", parameters) ?? 0;
@@ -346,7 +346,7 @@ namespace IT4You.Infrastructure.Repositories
                 var sqlDistTipoPagamento = $@"SELECT TOP 10 TIPOPAG as Label, SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_PAG_PAGO WHERE TIPOPAG IS NOT NULL {dateFilterPagPago} GROUP BY TIPOPAG ORDER BY Valor DESC";
                 distTipoPagamento = await connection.QueryAsync<DistributionDto>(sqlDistTipoPagamento, parameters);
 
-                var sqlDistCondPag = $@"SELECT TOP 10 CONDPAG as Label, SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE CONDPAG IS NOT NULL {dateFilterPagAberto} GROUP BY CONDPAG ORDER BY Valor DESC";
+                var sqlDistCondPag = $@"SELECT CONDPAG as Label, SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE CONDPAG IS NOT NULL {dateFilterPagAberto} GROUP BY CONDPAG ORDER BY Valor DESC";
                 distCondicaoPagamento = await connection.QueryAsync<DistributionDto>(sqlDistCondPag, parameters);
 
                 var sqlEvolucaoPag = $@"SELECT YEAR(DATAPAGAMENTO) as Ano, MONTH(DATAPAGAMENTO) as Mes, SUM(VALORPAG) as Valor FROM VW_SWIA_DOC_FIN_PAG_PAGO WHERE DATAPAGAMENTO IS NOT NULL {dateFilterPagPago} GROUP BY YEAR(DATAPAGAMENTO), MONTH(DATAPAGAMENTO) ORDER BY Ano, Mes";
@@ -362,28 +362,28 @@ namespace IT4You.Infrastructure.Repositories
                 faixaPagar = await connection.QueryAsync<DistributionDto>(sqlFaixaPag, parameters);
             }
 
-            // --- FASE 2: IMPLEMENTAÇÃO DAS 29 ANÁLISES ---
+            // --- FASE 2: IMPLEMENTAÃ‡ÃƒO DAS 29 ANÃLISES ---
 
-            // 1. Índice de Cobertura & 2. Gap Financeiro
+            // 1. Ãndice de Cobertura & 2. Gap Financeiro
             var totalRecGeral = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORORIG) FROM VW_SWIA_DOC_FIN_REC_ABERTO") ?? 0;
             var totalPagGeral = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORORIG) FROM VW_SWIA_DOC_FIN_PAG_ABERTO") ?? 0;
             kpisFase2.IndiceCobertura = totalPagGeral > 0 ? (totalRecGeral / totalPagGeral) : 0;
             kpisFase2.GapFinanceiro = totalRecGeral - totalPagGeral;
 
-            // 3. Projeção de Caixa 30 Dias
+            // 3. ProjeÃ§Ã£o de Caixa 30 Dias
             var rec30 = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORORIG) FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO <= DATEADD(DAY,30,GETDATE())") ?? 0;
             var pag30 = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORORIG) FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO <= DATEADD(DAY,30,GETDATE())") ?? 0;
             kpisFase2.SaldoFinanceiro30Dias = rec30 - pag30;
 
-            // 4 & 5. Eficiência de Pagamento/Recebimento no Prazo
+            // 4 & 5. EficiÃªncia de Pagamento/Recebimento no Prazo
             kpisFase2.PercRecebidoNoPrazo = await connection.ExecuteScalarAsync<decimal?>(@"SELECT CAST(SUM(CASE WHEN DATAPAGAMENTO <= DATAVENCIMENTO THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0) * 100 FROM VW_SWIA_DOC_FIN_REC_PAGO") ?? 0;
             kpisFase2.PercPagoNoPrazo = await connection.ExecuteScalarAsync<decimal?>(@"SELECT CAST(SUM(CASE WHEN DATAPAGAMENTO <= DATAVENCIMENTO THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0) * 100 FROM VW_SWIA_DOC_FIN_PAG_PAGO") ?? 0;
 
-            // 6 & 7. Dias Médios de Atraso
+            // 6 & 7. Dias MÃ©dios de Atraso
             kpisFase2.DiasMedioAtrasoReceber = await connection.ExecuteScalarAsync<decimal?>("SELECT AVG(CAST(DATEDIFF(DAY, DATAVENCIMENTO, DATAPAGAMENTO) AS DECIMAL)) FROM VW_SWIA_DOC_FIN_REC_PAGO WHERE DATAPAGAMENTO > DATAVENCIMENTO") ?? 0;
             kpisFase2.DiasMedioAtrasoPagar = await connection.ExecuteScalarAsync<decimal?>("SELECT AVG(CAST(DATEDIFF(DAY, DATAVENCIMENTO, DATAPAGAMENTO) AS DECIMAL)) FROM VW_SWIA_DOC_FIN_PAG_PAGO WHERE DATAPAGAMENTO > DATAVENCIMENTO") ?? 0;
 
-            // 8 & 9. Índices de Dependência
+            // 8 & 9. Ãndices de DependÃªncia
             var sqlDepCli = @"SELECT TOP 1 SUM(VALORORIG) as MaxVal FROM VW_SWIA_DOC_FIN_REC_PAGO GROUP BY CLIENTE ORDER BY MaxVal DESC";
             var maxCli = await connection.ExecuteScalarAsync<decimal?>(sqlDepCli) ?? 0;
             var totalRecPago = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORORIG) FROM VW_SWIA_DOC_FIN_REC_PAGO") ?? 0;
@@ -394,10 +394,10 @@ namespace IT4You.Infrastructure.Repositories
             var totalPagPago = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORORIG) FROM VW_SWIA_DOC_FIN_PAG_PAGO") ?? 0;
             kpisFase2.IndiceDependenciaFornecedor = totalPagPago > 0 ? (maxFor / totalPagPago) * 100 : 0;
 
-            // 10. Rotação Financeira
+            // 10. RotaÃ§Ã£o Financeira
             kpisFase2.RotacaoFinanceira = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORPAG) / NULLIF(COUNT(DOCUMENTO), 0) FROM VW_SWIA_DOC_FIN_REC_PAGO") ?? 0;
 
-            // 11. Volume Financeiro por Dia do Mês (filtrado pelo período)
+            // 11. Volume Financeiro por Dia do MÃªs (filtrado pelo perÃ­odo)
             var sqlVolDia = $@"SELECT DAY(DATAPAGAMENTO) as Label, SUM(VALORPAG) as Valor
 FROM VW_SWIA_DOC_FIN_REC_PAGO
 WHERE DATAPAGAMENTO IS NOT NULL {dateFilterRecPago}
@@ -405,7 +405,7 @@ GROUP BY DAY(DATAPAGAMENTO)
 ORDER BY Label";
             volumePorDia = await connection.QueryAsync<DistributionDto>(sqlVolDia, parameters);
 
-            // 11b. Volume Financeiro por Dia da Semana (filtrado pelo período; domingo=0 ... sábado=6)
+            // 11b. Volume Financeiro por Dia da Semana (filtrado pelo perÃ­odo; domingo=0 ... sÃ¡bado=6)
             var sqlVolDiaSemana = $@"
 SELECT
     (DATEDIFF(DAY, '19000107', CAST(DATAPAGAMENTO AS date)) % 7) as DayIndex,
@@ -434,7 +434,7 @@ ORDER BY DayIndex;";
                 .Select(i => new DistributionDto { Label = weekdayLabels[i], Valor = weekdayTotals[i], Percentual = 0m })
                 .ToList();
 
-            // 12 & 13. Prazo Médio Restante
+            // 12 & 13. Prazo MÃ©dio Restante
             var paidMovementSources = new List<string>();
             if (rights.HasReceivableDashboardAccess)
             {
@@ -502,11 +502,11 @@ ORDER BY DayIndex;";
             kpisFase2.PrazoMedioRestanteReceber = await connection.ExecuteScalarAsync<decimal?>("SELECT AVG(CAST(DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) AS DECIMAL)) FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO > GETDATE()") ?? 0;
             kpisFase2.PrazoMedioRestantePagar = await connection.ExecuteScalarAsync<decimal?>("SELECT AVG(CAST(DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) AS DECIMAL)) FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO > GETDATE()") ?? 0;
 
-            // 14. Índice de Liquidez por Empresa
+            // 14. Ãndice de Liquidez por Empresa
             var sqlLiqEmp = @"SELECT ISNULL(r.EMPRESA, p.EMPRESA) as Label, SUM(ISNULL(r.VAL, 0)) / NULLIF(SUM(ISNULL(p.VAL, 0)), 0) as Valor FROM (SELECT EMPRESA, SUM(VALORORIG) as VAL FROM VW_SWIA_DOC_FIN_REC_ABERTO GROUP BY EMPRESA) r FULL OUTER JOIN (SELECT EMPRESA, SUM(VALORORIG) as VAL FROM VW_SWIA_DOC_FIN_PAG_ABERTO GROUP BY EMPRESA) p ON r.EMPRESA = p.EMPRESA GROUP BY ISNULL(r.EMPRESA, p.EMPRESA)";
             liquidezPorEmpresa = await connection.QueryAsync<DistributionDto>(sqlLiqEmp);
 
-            // 15. Fluxo de Caixa Diário Projetado
+            // 15. Fluxo de Caixa DiÃ¡rio Projetado
             var sqlFluxoDiario = @"SELECT DATAVENCIMENTO as Data, SUM(CASE WHEN Tipo = 'REC' THEN Valor ELSE -Valor END) as Valor FROM (SELECT DATAVENCIMENTO, VALORORIG as Valor, 'REC' as Tipo FROM VW_SWIA_DOC_FIN_REC_ABERTO UNION ALL SELECT DATAVENCIMENTO, VALORORIG as Valor, 'PAG' as Tipo FROM VW_SWIA_DOC_FIN_PAG_ABERTO) t GROUP BY DATAVENCIMENTO ORDER BY DATAVENCIMENTO";
             var fluxoDiarioRaw = await connection.QueryAsync<dynamic>(sqlFluxoDiario);
             fluxoDiarioProjetado = fluxoDiarioRaw.Select(x => new MonthlyEvolutionDto { Ano = ((DateTime)x.Data).Year, Mes = ((DateTime)x.Data).Month, Valor = (decimal)x.Valor });
@@ -579,14 +579,14 @@ ORDER BY Data;";
             // 16. Percentual de Parcelas em Atraso
             kpisFase2.PercParcelasAtraso = await connection.ExecuteScalarAsync<decimal?>(@"SELECT CAST(COUNT(*) AS DECIMAL) / NULLIF((SELECT COUNT(*) FROM VW_SWIA_DOC_FIN_REC_ABERTO), 0) * 100 FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO < GETDATE()") ?? 0;
 
-            // 17 & 18. Valor Médio por Cliente/Fornecedor Ativo
+            // 17 & 18. Valor MÃ©dio por Cliente/Fornecedor Ativo
             kpisFase2.ValorMedioCliente = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORPAG) / NULLIF(COUNT(DISTINCT CLIENTE), 0) FROM VW_SWIA_DOC_FIN_REC_PAGO") ?? 0;
             kpisFase2.ValorMedioFornecedor = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORPAG) / NULLIF(COUNT(DISTINCT FORNECEDOR), 0) FROM VW_SWIA_DOC_FIN_PAG_PAGO") ?? 0;
 
-            // 19. Índice de Liquidação de Documentos
+            // 19. Ãndice de LiquidaÃ§Ã£o de Documentos
             kpisFase2.IndiceLiquidacaoDocumentos = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORPAG) / NULLIF(SUM(VALORORIG), 0) FROM VW_SWIA_DOC_FIN_REC_PAGO") ?? 0;
 
-            // 20 & 21. Concentração Top 5
+            // 20 & 21. ConcentraÃ§Ã£o Top 5
             var top5CliSum = await connection.ExecuteScalarAsync<decimal?>(@"SELECT SUM(Valor) FROM (SELECT TOP 5 SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_REC_PAGO GROUP BY CLIENTE ORDER BY Valor DESC) t") ?? 0;
             kpisFase2.ConcentracaoTop5Clientes = totalRecPago > 0 ? (top5CliSum / totalRecPago) * 100 : 0;
 
@@ -615,30 +615,30 @@ GROUP BY Nome
 ORDER BY Valor DESC;";
             volumePorCpfCnpj = await connection.QueryAsync<DistributionDto>(sqlVolCpf, parameters);
 
-            // 23 & 24. Crescimento (Simulação: Comparando este mês vs anterior)
+            // 23 & 24. Crescimento (SimulaÃ§Ã£o: Comparando este mÃªs vs anterior)
             kpisFase2.CrescimentoRecebimentos = 15.5m; // Mock logic or complex SQL for YoY/MoM
             kpisFase2.CrescimentoPagamentos = 8.2m;
 
-            // 26. Percentual de Contas Próximas do Vencimento (7 dias)
+            // 26. Percentual de Contas PrÃ³ximas do Vencimento (7 dias)
             kpisFase2.PercContasProximoVencimento = await connection.ExecuteScalarAsync<decimal?>(@"SELECT CAST(COUNT(*) AS DECIMAL) / NULLIF((SELECT COUNT(*) FROM VW_SWIA_DOC_FIN_REC_ABERTO), 0) * 100 FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO <= DATEADD(DAY,7,GETDATE())") ?? 0;
 
-            // 27. Média de Dias entre Emissão e Vencimento
+            // 27. MÃ©dia de Dias entre EmissÃ£o e Vencimento
             kpisFase2.MediaDiasEmissaoVencimento = await connection.ExecuteScalarAsync<decimal?>("SELECT AVG(CAST(DATEDIFF(DAY, EMISSAO, DATAVENCIMENTO) AS DECIMAL)) FROM VW_SWIA_DOC_FIN_REC_ABERTO") ?? 0;
 
-            // 28. Valor Médio de Parcelamento
+            // 28. Valor MÃ©dio de Parcelamento
             kpisFase2.ValorMedioParcelamento = await connection.ExecuteScalarAsync<decimal?>("SELECT SUM(VALORORIG) / NULLIF(COUNT(PARCELA), 0) FROM VW_SWIA_DOC_FIN_REC_ABERTO") ?? 0;
 
-            // 29. Distribuição de Valores por Faixa de Prazo
+            // 29. DistribuiÃ§Ã£o de Valores por Faixa de Prazo
             var sqlFaixaPrazo = $@"SELECT CASE WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 15 THEN '0-15' WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 30 THEN '16-30' WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 60 THEN '31-60' ELSE '60+' END as Label, SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_REC_ABERTO GROUP BY CASE WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 15 THEN '0-15' WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 30 THEN '16-30' WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 60 THEN '31-60' ELSE '60+' END";
             faixaPrazoVencimento = await connection.QueryAsync<DistributionDto>(sqlFaixaPrazo);
 
-            // --- FASE 3: 20 NOVAS ANÁLISES ---
+            // --- FASE 3: 20 NOVAS ANÃLISES ---
             
-            // 1. Prazo Médio de Recebimento por Cliente
+            // 1. Prazo MÃ©dio de Recebimento por Cliente
             var sqlPMRecCli = "SELECT TOP 20 CLIENTE as Label, AVG(CAST(DATEDIFF(DAY, DATAVENCIMENTO, DATAPAGAMENTO) AS DECIMAL)) as Valor FROM VW_SWIA_DOC_FIN_REC_PAGO GROUP BY CLIENTE ORDER BY Valor DESC";
             var distPMRecCli = await connection.QueryAsync<DistributionDto>(sqlPMRecCli);
 
-            // 2. Prazo Médio de Pagamento por Fornecedor
+            // 2. Prazo MÃ©dio de Pagamento por Fornecedor
             var sqlPMPagFor = "SELECT TOP 20 FORNECEDOR as Label, AVG(CAST(DATEDIFF(DAY, DATAVENCIMENTO, DATAPAGAMENTO) AS DECIMAL)) as Valor FROM VW_SWIA_DOC_FIN_PAG_PAGO GROUP BY FORNECEDOR ORDER BY Valor DESC";
             var distPMPagFor = await connection.QueryAsync<DistributionDto>(sqlPMPagFor);
 
@@ -648,16 +648,16 @@ ORDER BY Valor DESC;";
             // 4. % Pagamentos Antecipados
             kpisFase2.PercPagamentoAntecipado = await connection.ExecuteScalarAsync<decimal?>(@"SELECT CAST(SUM(CASE WHEN DATAPAGAMENTO < DATAVENCIMENTO THEN 1 ELSE 0 END) AS DECIMAL) / NULLIF(COUNT(*), 0) * 100 FROM VW_SWIA_DOC_FIN_PAG_PAGO") ?? 0;
 
-            // 5. Tempo Médio entre Emissão e Pagamento
+            // 5. Tempo MÃ©dio entre EmissÃ£o e Pagamento
             kpisFase2.TempoMedioEmissaoPagamento = await connection.ExecuteScalarAsync<decimal?>("SELECT AVG(CAST(DATEDIFF(DAY, EMISSAO, DATAPAGAMENTO) AS DECIMAL)) FROM (SELECT EMISSAO, DATAPAGAMENTO FROM VW_SWIA_DOC_FIN_REC_PAGO UNION ALL SELECT EMISSAO, DATAPAGAMENTO FROM VW_SWIA_DOC_FIN_PAG_PAGO) t") ?? 0;
 
             // 7. % Documentos Parcelados
             kpisFase2.PercDocumentosParcelados = await connection.ExecuteScalarAsync<decimal?>(@"SELECT CAST(COUNT(DISTINCT CASE WHEN PARCELA > 1 THEN DOCUMENTO END) AS DECIMAL) / NULLIF(COUNT(DISTINCT DOCUMENTO), 0) * 100 FROM (SELECT DOCUMENTO, PARCELA FROM VW_SWIA_DOC_FIN_REC_ABERTO UNION ALL SELECT DOCUMENTO, PARCELA FROM VW_SWIA_DOC_FIN_PAG_ABERTO) t") ?? 0;
 
-            // 8. Média de Parcelas por Documento
+            // 8. MÃ©dia de Parcelas por Documento
             kpisFase2.MediaParcelasPorDocumento = await connection.ExecuteScalarAsync<decimal?>(@"SELECT CAST(COUNT(PARCELA) AS DECIMAL) / NULLIF(COUNT(DISTINCT DOCUMENTO), 0) FROM (SELECT DOCUMENTO, PARCELA FROM VW_SWIA_DOC_FIN_REC_ABERTO UNION ALL SELECT DOCUMENTO, PARCELA FROM VW_SWIA_DOC_FIN_PAG_ABERTO) t") ?? 0;
 
-            // 11 & 12. Variação Mensal
+            // 11 & 12. VariaÃ§Ã£o Mensal
             // (Mocking MoM logic for now, usually requires lag function or comparing current month to last)
             kpisFase2.CrescimentoRecebimentos = 0; // Handled in front for trend
             kpisFase2.CrescimentoPagamentos = 0;
@@ -665,11 +665,11 @@ ORDER BY Valor DESC;";
             // 14. % Recebimentos em 7 Dias
             kpisFase2.PercRecebimentos7Dias = await connection.ExecuteScalarAsync<decimal?>(@"SELECT CAST(COUNT(*) AS DECIMAL) / NULLIF((SELECT COUNT(*) FROM VW_SWIA_DOC_FIN_REC_ABERTO), 0) * 100 FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO <= DATEADD(DAY,7,GETDATE())") ?? 0;
 
-            // 15. Ticket Médio por Cliente
+            // 15. Ticket MÃ©dio por Cliente
             var sqlTMRecCli = "SELECT TOP 20 CLIENTE as Label, SUM(VALORPAG) / COUNT(DOCUMENTO) as Valor FROM VW_SWIA_DOC_FIN_REC_PAGO GROUP BY CLIENTE ORDER BY Valor DESC";
             var distTMRecCli = await connection.QueryAsync<DistributionDto>(sqlTMRecCli);
 
-            // 16. Ticket Médio por Fornecedor (CLIENTE in view)
+            // 16. Ticket MÃ©dio por Fornecedor (CLIENTE in view)
             var sqlTMPagFor = "SELECT TOP 20 FORNECEDOR as Label, SUM(VALORPAG) / COUNT(DOCUMENTO) as Valor FROM VW_SWIA_DOC_FIN_PAG_PAGO GROUP BY FORNECEDOR ORDER BY Valor DESC";
             var distTMPagFor = await connection.QueryAsync<DistributionDto>(sqlTMPagFor);
 
@@ -681,7 +681,7 @@ ORDER BY Valor DESC;";
             var sqlDocFor = "SELECT TOP 20 FORNECEDOR as Label, COUNT(DOCUMENTO) as Valor FROM VW_SWIA_DOC_FIN_PAG_PAGO GROUP BY FORNECEDOR ORDER BY Valor DESC";
             var distDocFor = await connection.QueryAsync<DistributionDto>(sqlDocFor);
 
-            // 20. Tempo Médio Restante até Vencimento
+            // 20. Tempo MÃ©dio Restante atÃ© Vencimento
             kpisFase2.TempoMedioRestanteVencimento = await connection.ExecuteScalarAsync<decimal?>("SELECT AVG(CAST(DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) AS DECIMAL)) FROM (SELECT DATAVENCIMENTO FROM VW_SWIA_DOC_FIN_REC_ABERTO UNION ALL SELECT DATAVENCIMENTO FROM VW_SWIA_DOC_FIN_PAG_ABERTO) t") ?? 0;
 
 
@@ -878,13 +878,13 @@ ORDER BY Valor DESC;";
                         {
                             item.SqlQueries.Add($"SELECT SUM(VALORORIG - ISNULL(VALORPAG, 0)) FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE 1=1 {whereAberto}");
                             item.SqlQueries.Add($"SELECT SUM(VALORPAG) FROM VW_SWIA_DOC_FIN_PAG_PAGO WHERE 1=1 {wherePago}");
-                            item.Rules.Add("Contas a pagar: soma aberto (VALORORIG - VALORPAG) e soma pagos (VALORPAG), filtrando por vencimento/pagamento no período.");
+                            item.Rules.Add("Contas a pagar: soma aberto (VALORORIG - VALORPAG) e soma pagos (VALORPAG), filtrando por vencimento/pagamento no perÃ­odo.");
                         }
                         if (rights.HasReceivableDashboardAccess)
                         {
                             item.SqlQueries.Add($"SELECT SUM(VALORORIG - ISNULL(VALORPAG, 0)) FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE 1=1 {whereAberto}");
                             item.SqlQueries.Add($"SELECT SUM(VALORPAG) FROM VW_SWIA_DOC_FIN_REC_PAGO WHERE 1=1 {wherePago}");
-                            item.Rules.Add("Contas a receber: soma aberto (VALORORIG - VALORPAG) e soma recebidos (VALORPAG), filtrando por vencimento/pagamento no período.");
+                            item.Rules.Add("Contas a receber: soma aberto (VALORORIG - VALORPAG) e soma recebidos (VALORPAG), filtrando por vencimento/pagamento no perÃ­odo.");
                         }
                         item.Rules.Add("Saldo projetado calculado como (recebido + receber em aberto) - (pago + pagar em aberto).");
                         break;
@@ -894,15 +894,15 @@ ORDER BY Valor DESC;";
                         {
                             item.SqlQueries.Add($@"SELECT FORMAT(DATAPAGAMENTO, 'MM/yyyy') as Mes, SUM(VALORPAG) as Valor FROM VW_SWIA_DOC_FIN_REC_PAGO WHERE DATAPAGAMENTO IS NOT NULL {wherePago} GROUP BY FORMAT(DATAPAGAMENTO, 'MM/yyyy')");
                             item.SqlQueries.Add($@"SELECT FORMAT(DATAVENCIMENTO, 'MM/yyyy') as Mes, SUM(VALORORIG - ISNULL(VALORPAG, 0)) as Valor FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO IS NOT NULL {whereAberto} GROUP BY FORMAT(DATAVENCIMENTO, 'MM/yyyy')");
-                            item.Rules.Add("Entradas: agrega recebimentos por mês (pago) e soma a receber em aberto por mês (vencimento).");
+                            item.Rules.Add("Entradas: agrega recebimentos por mÃªs (pago) e soma a receber em aberto por mÃªs (vencimento).");
                         }
                         if (rights.HasPayableDashboardAccess)
                         {
                             item.SqlQueries.Add($@"SELECT FORMAT(DATAPAGAMENTO, 'MM/yyyy') as Mes, SUM(VALORPAG) as Valor FROM VW_SWIA_DOC_FIN_PAG_PAGO WHERE DATAPAGAMENTO IS NOT NULL {wherePago} GROUP BY FORMAT(DATAPAGAMENTO, 'MM/yyyy')");
                             item.SqlQueries.Add($@"SELECT FORMAT(DATAVENCIMENTO, 'MM/yyyy') as Mes, SUM(VALORORIG - ISNULL(VALORPAG, 0)) as Valor FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO IS NOT NULL {whereAberto} GROUP BY FORMAT(DATAVENCIMENTO, 'MM/yyyy')");
-                            item.Rules.Add("Saídas: agrega pagamentos por mês (pago) e soma a pagar em aberto por mês (vencimento).");
+                            item.Rules.Add("SaÃ­das: agrega pagamentos por mÃªs (pago) e soma a pagar em aberto por mÃªs (vencimento).");
                         }
-                        item.Rules.Add("Consolida por competência (MM/yyyy) e ordena cronologicamente.");
+                        item.Rules.Add("Consolida por competÃªncia (MM/yyyy) e ordena cronologicamente.");
                         break;
 
                     case "projection":
@@ -911,133 +911,133 @@ ORDER BY Valor DESC;";
                             if (rights.HasReceivableDashboardAccess && rights.HasPayableDashboardAccess)
                             {
                                 projectionSql = "SELECT DATAVENCIMENTO, (VALORORIG - ISNULL(VALORPAG, 0)) as Valor, 'REC' as Tipo FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO >= CAST(GETDATE() AS DATE) UNION ALL SELECT DATAVENCIMENTO, (VALORORIG - ISNULL(VALORPAG, 0)) as Valor, 'PAG' as Tipo FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO >= CAST(GETDATE() AS DATE)";
-                                item.Rules.Add("Projeção usa títulos futuros a receber e a pagar (em aberto) a partir de hoje.");
+                                item.Rules.Add("ProjeÃ§Ã£o usa tÃ­tulos futuros a receber e a pagar (em aberto) a partir de hoje.");
                             }
                             else if (rights.HasReceivableDashboardAccess)
                             {
                                 projectionSql = "SELECT DATAVENCIMENTO, (VALORORIG - ISNULL(VALORPAG, 0)) as Valor, 'REC' as Tipo FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO >= CAST(GETDATE() AS DATE)";
-                                item.Rules.Add("Projeção usa apenas títulos futuros a receber (em aberto) a partir de hoje.");
+                                item.Rules.Add("ProjeÃ§Ã£o usa apenas tÃ­tulos futuros a receber (em aberto) a partir de hoje.");
                             }
                             else if (rights.HasPayableDashboardAccess)
                             {
                                 projectionSql = "SELECT DATAVENCIMENTO, (VALORORIG - ISNULL(VALORPAG, 0)) as Valor, 'PAG' as Tipo FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO >= CAST(GETDATE() AS DATE)";
-                                item.Rules.Add("Projeção usa apenas títulos futuros a pagar (em aberto) a partir de hoje.");
+                                item.Rules.Add("ProjeÃ§Ã£o usa apenas tÃ­tulos futuros a pagar (em aberto) a partir de hoje.");
                             }
 
                             if (projectionSql != null)
                             {
                                 item.SqlQueries.Add(projectionSql);
                                 item.SqlQueries.Add($@"SELECT DATAVENCIMENTO as Data, SUM(CASE WHEN Tipo = 'REC' THEN Valor ELSE 0 END) as Recebimentos, SUM(CASE WHEN Tipo = 'PAG' THEN Valor ELSE 0 END) as Pagamentos FROM ({projectionSql}) t WHERE DATAVENCIMENTO <= DATEADD(day, 30, GETDATE()) GROUP BY DATAVENCIMENTO ORDER BY DATAVENCIMENTO");
-                                item.Rules.Add("Agrega por data de vencimento, somando entradas e saídas para os próximos 30 dias.");
+                                item.Rules.Add("Agrega por data de vencimento, somando entradas e saÃ­das para os prÃ³ximos 30 dias.");
                             }
                         }
                         break;
 
                     case "aging":
                         item.SqlQueries.Add($@"SELECT CASE WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) <= 0 THEN 'A vencer' WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 1 AND 30 THEN '1-30 dias' WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 31 AND 60 THEN '31-60 dias' WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 61 AND 90 THEN '61-90 dias' ELSE 'Mais de 90 dias' END as Faixa, SUM(VALORORIG - ISNULL(VALORPAG, 0)) as Valor FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE 1=1 {dateFilterRecAberto} GROUP BY CASE WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) <= 0 THEN 'A vencer' WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 1 AND 30 THEN '1-30 dias' WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 31 AND 60 THEN '31-60 dias' WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) BETWEEN 61 AND 90 THEN '61-90 dias' ELSE 'Mais de 90 dias' END");
-                        item.Rules.Add("Classifica títulos em aberto de receber por faixa de atraso (DATEDIFF) e soma o saldo aberto.");
-                        item.Rules.Add("Aplica filtro por data de vencimento conforme período selecionado.");
+                        item.Rules.Add("Classifica tÃ­tulos em aberto de receber por faixa de atraso (DATEDIFF) e soma o saldo aberto.");
+                        item.Rules.Add("Aplica filtro por data de vencimento conforme perÃ­odo selecionado.");
                         break;
 
                     case "performance":
                         item.SqlQueries.Add($@"SELECT CASE WHEN DATAPAGAMENTO <= DATAVENCIMENTO THEN 'No prazo' ELSE 'Com atraso' END as Categoria, SUM(VALORPAG) as Valor FROM VW_SWIA_DOC_FIN_REC_PAGO WHERE DATAPAGAMENTO IS NOT NULL {dateFilterRecPago} GROUP BY CASE WHEN DATAPAGAMENTO <= DATAVENCIMENTO THEN 'No prazo' ELSE 'Com atraso' END");
                         item.Rules.Add("Separa recebimentos pagos em 'No prazo' vs 'Com atraso' e soma valor pago.");
-                        item.Rules.Add("Aplica filtro por data de pagamento conforme período selecionado.");
+                        item.Rules.Add("Aplica filtro por data de pagamento conforme perÃ­odo selecionado.");
                         break;
 
                     case "dist_pag_fornecedor":
                         item.SqlQueries.Add($@"SELECT TOP 15 FORNECEDOR as Label, SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE 1=1 {dateFilterPagAberto} GROUP BY FORNECEDOR ORDER BY Valor DESC");
                         item.Rules.Add("Agrupa contas a pagar em aberto por fornecedor e soma o valor original, ordenando pelos maiores.");
-                        item.Rules.Add("Aplica filtro por data de vencimento conforme período selecionado.");
+                        item.Rules.Add("Aplica filtro por data de vencimento conforme perÃ­odo selecionado.");
                         break;
 
                     case "dist_rec_cliente":
                         item.SqlQueries.Add($@"SELECT TOP 15 CLIENTE as Label, SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE 1=1 {dateFilterRecAberto} GROUP BY CLIENTE ORDER BY Valor DESC");
                         item.Rules.Add("Agrupa contas a receber em aberto por cliente e soma o valor original, ordenando pelos maiores.");
-                        item.Rules.Add("Aplica filtro por data de vencimento conforme período selecionado.");
+                        item.Rules.Add("Aplica filtro por data de vencimento conforme perÃ­odo selecionado.");
                         break;
 
                     case "geo_pagar":
                         item.SqlQueries.Add($@"SELECT TOP 10 UF as Local, SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE UF IS NOT NULL {dateFilterPagAberto} GROUP BY UF ORDER BY Valor DESC");
                         item.Rules.Add("Agrupa contas a pagar em aberto por UF e soma o valor original, ordenando pelos maiores.");
-                        item.Rules.Add("Aplica filtro por data de vencimento conforme período selecionado.");
+                        item.Rules.Add("Aplica filtro por data de vencimento conforme perÃ­odo selecionado.");
                         break;
 
                     case "geo_receber":
                         item.SqlQueries.Add($@"SELECT TOP 10 UF as Local, SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE UF IS NOT NULL {dateFilterRecAberto} GROUP BY UF ORDER BY Valor DESC");
                         item.Rules.Add("Agrupa contas a receber em aberto por UF e soma o valor original, ordenando pelos maiores.");
-                        item.Rules.Add("Aplica filtro por data de vencimento conforme período selecionado.");
+                        item.Rules.Add("Aplica filtro por data de vencimento conforme perÃ­odo selecionado.");
                         break;
 
                     case "dist_tipo_pag":
                         item.SqlQueries.Add($@"SELECT TOP 10 TIPOPAG as Label, SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_PAG_PAGO WHERE TIPOPAG IS NOT NULL {dateFilterPagPago} GROUP BY TIPOPAG ORDER BY Valor DESC");
                         item.Rules.Add("Agrupa pagamentos por tipo de pagamento e soma o valor original, ordenando pelos maiores.");
-                        item.Rules.Add("Aplica filtro por data de pagamento conforme período selecionado.");
+                        item.Rules.Add("Aplica filtro por data de pagamento conforme perÃ­odo selecionado.");
                         break;
 
                     case "dist_cond_pag":
-                        item.SqlQueries.Add($@"SELECT TOP 10 CONDPAG as Label, SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE CONDPAG IS NOT NULL {dateFilterPagAberto} GROUP BY CONDPAG ORDER BY Valor DESC");
-                        item.Rules.Add("Agrupa contas a pagar em aberto por condição de pagamento e soma o valor original, ordenando pelos maiores.");
-                        item.Rules.Add("Aplica filtro por data de vencimento conforme período selecionado.");
+                        item.SqlQueries.Add($@"SELECT CONDPAG as Label, SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE CONDPAG IS NOT NULL {dateFilterPagAberto} GROUP BY CONDPAG ORDER BY Valor DESC");
+                        item.Rules.Add("Agrupa contas a pagar em aberto por condiÃ§Ã£o de pagamento e soma o valor original, ordenando pelos maiores.");
+                        item.Rules.Add("Aplica filtro por data de vencimento conforme perÃ­odo selecionado.");
                         break;
 
                     case "evolucao_pag":
                         item.SqlQueries.Add($@"SELECT YEAR(DATAPAGAMENTO) as Ano, MONTH(DATAPAGAMENTO) as Mes, SUM(VALORPAG) as Valor FROM VW_SWIA_DOC_FIN_PAG_PAGO WHERE DATAPAGAMENTO IS NOT NULL {dateFilterPagPago} GROUP BY YEAR(DATAPAGAMENTO), MONTH(DATAPAGAMENTO) ORDER BY Ano, Mes");
-                        item.Rules.Add("Agrega pagamentos por ano/mês e soma VALORPAG para evolução mensal.");
-                        item.Rules.Add("Aplica filtro por data de pagamento conforme período selecionado.");
+                        item.Rules.Add("Agrega pagamentos por ano/mÃªs e soma VALORPAG para evoluÃ§Ã£o mensal.");
+                        item.Rules.Add("Aplica filtro por data de pagamento conforme perÃ­odo selecionado.");
                         break;
 
                     case "evolucao_rec":
                         item.SqlQueries.Add($@"SELECT YEAR(DATAPAGAMENTO) as Ano, MONTH(DATAPAGAMENTO) as Mes, SUM(VALORPAG) as Valor FROM VW_SWIA_DOC_FIN_REC_PAGO WHERE DATAPAGAMENTO IS NOT NULL {dateFilterRecPago} GROUP BY YEAR(DATAPAGAMENTO), MONTH(DATAPAGAMENTO) ORDER BY Ano, Mes");
-                        item.Rules.Add("Agrega recebimentos por ano/mês e soma VALORPAG para evolução mensal.");
-                        item.Rules.Add("Aplica filtro por data de pagamento conforme período selecionado.");
+                        item.Rules.Add("Agrega recebimentos por ano/mÃªs e soma VALORPAG para evoluÃ§Ã£o mensal.");
+                        item.Rules.Add("Aplica filtro por data de pagamento conforme perÃ­odo selecionado.");
                         break;
 
                     case "curva_pag":
                         item.SqlQueries.Add($@"SELECT YEAR(DATAVENCIMENTO) as Ano, MONTH(DATAVENCIMENTO) as Mes, SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO IS NOT NULL {dateFilterPagAberto} GROUP BY YEAR(DATAVENCIMENTO), MONTH(DATAVENCIMENTO) ORDER BY Ano, Mes");
-                        item.Rules.Add("Agrega contas a pagar em aberto por vencimento (ano/mês) e soma VALORORIG para curva de vencimento.");
-                        item.Rules.Add("Aplica filtro por data de vencimento conforme período selecionado.");
+                        item.Rules.Add("Agrega contas a pagar em aberto por vencimento (ano/mÃªs) e soma VALORORIG para curva de vencimento.");
+                        item.Rules.Add("Aplica filtro por data de vencimento conforme perÃ­odo selecionado.");
                         break;
 
                     case "curva_rec":
                         item.SqlQueries.Add($@"SELECT YEAR(DATAVENCIMENTO) as Ano, MONTH(DATAVENCIMENTO) as Mes, SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO IS NOT NULL {dateFilterRecAberto} GROUP BY YEAR(DATAVENCIMENTO), MONTH(DATAVENCIMENTO) ORDER BY Ano, Mes");
-                        item.Rules.Add("Agrega contas a receber em aberto por vencimento (ano/mês) e soma VALORORIG para curva de vencimento.");
-                        item.Rules.Add("Aplica filtro por data de vencimento conforme período selecionado.");
+                        item.Rules.Add("Agrega contas a receber em aberto por vencimento (ano/mÃªs) e soma VALORORIG para curva de vencimento.");
+                        item.Rules.Add("Aplica filtro por data de vencimento conforme perÃ­odo selecionado.");
                         break;
 
                     case "top_pag":
                         item.SqlQueries.Add($@"SELECT TOP 10 DOCUMENTO as Documento, SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE 1=1 {dateFilterPagAberto} GROUP BY DOCUMENTO ORDER BY Valor DESC");
                         item.Rules.Add("Lista os 10 documentos (contas a pagar em aberto) com maior VALORORIG, agrupando por DOCUMENTO.");
-                        item.Rules.Add("Aplica filtro por data de vencimento conforme período selecionado.");
+                        item.Rules.Add("Aplica filtro por data de vencimento conforme perÃ­odo selecionado.");
                         break;
 
                     case "top_rec":
                         item.SqlQueries.Add($@"SELECT TOP 10 DOCUMENTO as Documento, SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE 1=1 {dateFilterRecAberto} GROUP BY DOCUMENTO ORDER BY Valor DESC");
                         item.Rules.Add("Lista os 10 documentos (contas a receber em aberto) com maior VALORORIG, agrupando por DOCUMENTO.");
-                        item.Rules.Add("Aplica filtro por data de vencimento conforme período selecionado.");
+                        item.Rules.Add("Aplica filtro por data de vencimento conforme perÃ­odo selecionado.");
                         break;
 
                     case "faixa_pag":
                         item.SqlQueries.Add($@"SELECT CASE WHEN VALORORIG <= 500 THEN '0-500' WHEN VALORORIG <= 2000 THEN '500-2000' WHEN VALORORIG <= 10000 THEN '2000-10000' ELSE '10000+' END as Label, COUNT(*) as Valor FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE 1=1 {dateFilterPagAberto} GROUP BY CASE WHEN VALORORIG <= 500 THEN '0-500' WHEN VALORORIG <= 2000 THEN '500-2000' WHEN VALORORIG <= 10000 THEN '2000-10000' ELSE '10000+' END");
                         item.Rules.Add("Classifica contas a pagar em aberto por faixa de valor (buckets) e conta quantidade por faixa.");
-                        item.Rules.Add("Aplica filtro por data de vencimento conforme período selecionado.");
+                        item.Rules.Add("Aplica filtro por data de vencimento conforme perÃ­odo selecionado.");
                         break;
 
                     case "faixa_rec":
                         item.SqlQueries.Add($@"SELECT CASE WHEN VALORORIG <= 500 THEN '0-500' WHEN VALORORIG <= 2000 THEN '500-2000' WHEN VALORORIG <= 10000 THEN '2000-10000' ELSE '10000+' END as Label, COUNT(*) as Valor FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE 1=1 {dateFilterRecAberto} GROUP BY CASE WHEN VALORORIG <= 500 THEN '0-500' WHEN VALORORIG <= 2000 THEN '500-2000' WHEN VALORORIG <= 10000 THEN '2000-10000' ELSE '10000+' END");
                         item.Rules.Add("Classifica contas a receber em aberto por faixa de valor (buckets) e conta quantidade por faixa.");
-                        item.Rules.Add("Aplica filtro por data de vencimento conforme período selecionado.");
+                        item.Rules.Add("Aplica filtro por data de vencimento conforme perÃ­odo selecionado.");
                         break;
 
-                    // Fase 2/3 (gráficos adicionais do dashboard)
+                    // Fase 2/3 (grÃ¡ficos adicionais do dashboard)
                     case "vol_dia_mes":
                         item.SqlQueries.Add($@"SELECT DAY(DATAPAGAMENTO) as Label, SUM(VALORPAG) as Valor
 FROM VW_SWIA_DOC_FIN_REC_PAGO
 WHERE DATAPAGAMENTO IS NOT NULL {dateFilterRecPago}
 GROUP BY DAY(DATAPAGAMENTO)
 ORDER BY Label");
-                        item.Rules.Add("Agrega recebimentos por dia do mês (DAY(DATAPAGAMENTO)) e soma VALORPAG.");
-                        item.Rules.Add("Aplica filtro por data de pagamento conforme período selecionado.");
+                        item.Rules.Add("Agrega recebimentos por dia do mÃªs (DAY(DATAPAGAMENTO)) e soma VALORPAG.");
+                        item.Rules.Add("Aplica filtro por data de pagamento conforme perÃ­odo selecionado.");
                         break;
 
                     case "vol_dia_semana":
@@ -1046,19 +1046,19 @@ FROM VW_SWIA_DOC_FIN_REC_PAGO
 WHERE DATAPAGAMENTO IS NOT NULL {dateFilterRecPago}
 GROUP BY (DATEDIFF(DAY, '19000107', CAST(DATAPAGAMENTO AS date)) % 7)
 ORDER BY DayIndex");
-                        item.Rules.Add("Agrega recebimentos por dia da semana e soma VALORPAG (domingo=0 ... sábado=6).");
-                        item.Rules.Add("O backend mapeia DayIndex para rótulos: Dom, Seg, Ter, Qua, Qui, Sex, Sab.");
-                        item.Rules.Add("Aplica filtro por data de pagamento conforme período selecionado.");
+                        item.Rules.Add("Agrega recebimentos por dia da semana e soma VALORPAG (domingo=0 ... sÃ¡bado=6).");
+                        item.Rules.Add("O backend mapeia DayIndex para rÃ³tulos: Dom, Seg, Ter, Qua, Qui, Sex, Sab.");
+                        item.Rules.Add("Aplica filtro por data de pagamento conforme perÃ­odo selecionado.");
                         break;
 
                     case "liq_empresa":
                         item.SqlQueries.Add(@"SELECT ISNULL(r.EMPRESA, p.EMPRESA) as Label, (ISNULL(SUM(r.VAL),0) - ISNULL(SUM(p.VAL),0)) as Valor FROM (SELECT EMPRESA, SUM(VALORORIG) as VAL FROM VW_SWIA_DOC_FIN_REC_ABERTO GROUP BY EMPRESA) r FULL OUTER JOIN (SELECT EMPRESA, SUM(VALORORIG) as VAL FROM VW_SWIA_DOC_FIN_PAG_ABERTO GROUP BY EMPRESA) p ON r.EMPRESA = p.EMPRESA GROUP BY ISNULL(r.EMPRESA, p.EMPRESA)");
-                        item.Rules.Add("Calcula (receber em aberto - pagar em aberto) por empresa, usando FULL OUTER JOIN entre as duas visões.");
+                        item.Rules.Add("Calcula (receber em aberto - pagar em aberto) por empresa, usando FULL OUTER JOIN entre as duas visÃµes.");
                         break;
 
                     case "fluxo_diario_proj":
                         item.SqlQueries.Add(@"SELECT DATAVENCIMENTO as Data, SUM(CASE WHEN Tipo = 'REC' THEN Valor ELSE -Valor END) as Valor FROM (SELECT DATAVENCIMENTO, VALORORIG as Valor, 'REC' as Tipo FROM VW_SWIA_DOC_FIN_REC_ABERTO UNION ALL SELECT DATAVENCIMENTO, VALORORIG as Valor, 'PAG' as Tipo FROM VW_SWIA_DOC_FIN_PAG_ABERTO) t GROUP BY DATAVENCIMENTO ORDER BY DATAVENCIMENTO");
-                        item.Rules.Add("Consolida fluxo diário projetado somando receber (positivo) e pagar (negativo) por data de vencimento.");
+                        item.Rules.Add("Consolida fluxo diÃ¡rio projetado somando receber (positivo) e pagar (negativo) por data de vencimento.");
                         break;
 
                     case "vol_cpf_cnpj":
@@ -1073,17 +1073,17 @@ WHERE CPFCNPJ IS NOT NULL AND LTRIM(RTRIM(CPFCNPJ)) <> ''
 GROUP BY Nome
 ORDER BY Valor DESC");
                         item.Rules.Add("Agrupa volume financeiro por CPF/CNPJ (pagos) e soma VALORORIG, trazendo top 10.");
-                        item.Rules.Add("Aplica filtro por data de pagamento conforme período selecionado.");
-                        item.Rules.Add("No gráfico, o rótulo exibido é o nome (cliente/fornecedor); CPF/CNPJ aparece no drill-down.");
+                        item.Rules.Add("Aplica filtro por data de pagamento conforme perÃ­odo selecionado.");
+                        item.Rules.Add("No grÃ¡fico, o rÃ³tulo exibido Ã© o nome (cliente/fornecedor); CPF/CNPJ aparece no drill-down.");
                         break;
 
                     case "dist_faixa_prazo":
                         item.SqlQueries.Add(@"SELECT CASE WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 15 THEN '0-15' WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 30 THEN '16-30' WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 60 THEN '31-60' ELSE '60+' END as Label, SUM(VALORORIG) as Valor FROM VW_SWIA_DOC_FIN_REC_ABERTO GROUP BY CASE WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 15 THEN '0-15' WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 30 THEN '16-30' WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 60 THEN '31-60' ELSE '60+' END");
-                        item.Rules.Add("Distribui valores a receber em aberto por faixa de prazo até o vencimento (DATEDIFF).");
+                        item.Rules.Add("Distribui valores a receber em aberto por faixa de prazo atÃ© o vencimento (DATEDIFF).");
                         break;
 
                     case "ai":
-                        item.Rules.Add("Painel de análise inteligente usa os mesmos dados de Summary + Top Debtors para montar o contexto do insight.");
+                        item.Rules.Add("Painel de anÃ¡lise inteligente usa os mesmos dados de Summary + Top Debtors para montar o contexto do insight.");
                         if (rights.HasReceivableDashboardAccess)
                         {
                             item.SqlQueries.Add($"SELECT SUM(VALORORIG - ISNULL(VALORPAG, 0)) FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE 1=1 {whereAberto}");
@@ -1101,7 +1101,7 @@ ORDER BY Valor DESC");
                         break;
 
                     case "kpis":
-                        item.Rules.Add("KPIs são consolidados a partir de diversas consultas no Advanced Analytics; as principais envolvem médias (DATEDIFF) e somas por visões de pago/em aberto.");
+                        item.Rules.Add("KPIs sÃ£o consolidados a partir de diversas consultas no Advanced Analytics; as principais envolvem mÃ©dias (DATEDIFF) e somas por visÃµes de pago/em aberto.");
                         item.SqlQueries.Add("SELECT AVG(CAST(DATEDIFF(DAY, EMISSAO, DATAPAGAMENTO) AS DECIMAL)) FROM VW_SWIA_DOC_FIN_PAG_PAGO WHERE EMISSAO IS NOT NULL AND DATAPAGAMENTO IS NOT NULL");
                         item.SqlQueries.Add("SELECT AVG(CAST(DATEDIFF(DAY, EMISSAO, DATAPAGAMENTO) AS DECIMAL)) FROM VW_SWIA_DOC_FIN_REC_PAGO WHERE EMISSAO IS NOT NULL AND DATAPAGAMENTO IS NOT NULL");
                         item.SqlQueries.Add("SELECT CAST(SUM(VALORPAG) AS DECIMAL) / NULLIF(COUNT(DOCUMENTO), 0) FROM VW_SWIA_DOC_FIN_PAG_PAGO");
@@ -1109,7 +1109,7 @@ ORDER BY Valor DESC");
                         break;
 
                     case "saldo_acumulado":
-                        item.Rules.Add("Este gráfico usa a coleção 'EvolucaoSaldo' do Advanced Analytics; atualmente o backend não preenche essa série explicitamente.");
+                        item.Rules.Add("Este grÃ¡fico usa a coleÃ§Ã£o 'EvolucaoSaldo' do Advanced Analytics; atualmente o backend nÃ£o preenche essa sÃ©rie explicitamente.");
                         break;
                 }
 
@@ -1341,6 +1341,40 @@ ORDER BY Valor DESC");
                     };
                     break;
 
+                case "top_pag":
+                    if (!rights.HasPayableDashboardAccess) return response;
+                    if (selectionKind != "category") return response;
+                    baseSql = "FROM VW_SWIA_DOC_FIN_PAG_ABERTO";
+                    where += AddDateFilters(parameters, request.StartDate, request.EndDate, "DATAVENCIMENTO", "StartDate", "EndDate");
+                    AddEquals("DOCUMENTO", "Documento", selection.Key ?? selection.Label);
+                    response.Columns = new()
+                    {
+                        new DrilldownColumnDto { Key = "Documento", Label = "Documento", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Fornecedor", Label = "Fornecedor", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Uf", Label = "UF", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Vencimento", Label = "Vencimento", Kind = "date" },
+                        new DrilldownColumnDto { Key = "ValorOriginal", Label = "Valor Original", Kind = "currency" },
+                        new DrilldownColumnDto { Key = "SaldoAberto", Label = "Saldo Aberto", Kind = "currency" },
+                    };
+                    break;
+
+                case "top_rec":
+                    if (!rights.HasReceivableDashboardAccess) return response;
+                    if (selectionKind != "category") return response;
+                    baseSql = "FROM VW_SWIA_DOC_FIN_REC_ABERTO";
+                    where += AddDateFilters(parameters, request.StartDate, request.EndDate, "DATAVENCIMENTO", "StartDate", "EndDate");
+                    AddEquals("DOCUMENTO", "Documento", selection.Key ?? selection.Label);
+                    response.Columns = new()
+                    {
+                        new DrilldownColumnDto { Key = "Documento", Label = "Documento", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Cliente", Label = "Cliente", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Uf", Label = "UF", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Vencimento", Label = "Vencimento", Kind = "date" },
+                        new DrilldownColumnDto { Key = "ValorOriginal", Label = "Valor Original", Kind = "currency" },
+                        new DrilldownColumnDto { Key = "SaldoAberto", Label = "Saldo Aberto", Kind = "currency" },
+                    };
+                    break;
+
                 case "curva_rec":
                     if (!rights.HasReceivableDashboardAccess) return response;
                     if (selectionKind != "time_bucket") return response;
@@ -1384,7 +1418,7 @@ ORDER BY Valor DESC");
                     response.Columns = new()
                     {
                         new DrilldownColumnDto { Key = "Documento", Label = "Documento", Kind = "text" },
-                        new DrilldownColumnDto { Key = "CondicaoPagamento", Label = "CondiÃ§Ã£o", Kind = "text" },
+                        new DrilldownColumnDto { Key = "CondicaoPagamento", Label = "Condicao", Kind = "text" },
                         new DrilldownColumnDto { Key = "Vencimento", Label = "Vencimento", Kind = "date" },
                         new DrilldownColumnDto { Key = "ValorOriginal", Label = "Valor Original", Kind = "currency" },
                         new DrilldownColumnDto { Key = "SaldoAberto", Label = "Saldo Aberto", Kind = "currency" },
@@ -1467,7 +1501,7 @@ ORDER BY Valor DESC");
                         new DrilldownColumnDto { Key = "Documento", Label = "Documento", Kind = "text" },
                         new DrilldownColumnDto { Key = "Cliente", Label = "Cliente", Kind = "text" },
                         new DrilldownColumnDto { Key = "Vencimento", Label = "Vencimento", Kind = "date" },
-                        new DrilldownColumnDto { Key = "DiasAteVencimento", Label = "Dias atÃ© venc.", Kind = "number" },
+                        new DrilldownColumnDto { Key = "DiasAteVencimento", Label = "Dias atÃƒÂ© venc.", Kind = "number" },
                         new DrilldownColumnDto { Key = "ValorOriginal", Label = "Valor Original", Kind = "currency" },
                     };
                     break;
@@ -1619,7 +1653,21 @@ WHERE DATAPAGAMENTO IS NOT NULL");
                         DATAVENCIMENTO as Vencimento,
                         VALORORIG as ValorOriginal,
                         (VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "top_pag" => @"SELECT
+                        DOCUMENTO as Documento,
+                        FORNECEDOR as Fornecedor,
+                        UF as Uf,
+                        DATAVENCIMENTO as Vencimento,
+                        VALORORIG as ValorOriginal,
+                        (VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
                 "dist_rec_cliente" => @"SELECT
+                        DOCUMENTO as Documento,
+                        CLIENTE as Cliente,
+                        UF as Uf,
+                        DATAVENCIMENTO as Vencimento,
+                        VALORORIG as ValorOriginal,
+                        (VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "top_rec" => @"SELECT
                         DOCUMENTO as Documento,
                         CLIENTE as Cliente,
                         UF as Uf,
@@ -1673,7 +1721,13 @@ WHERE DATAPAGAMENTO IS NOT NULL");
                 "dist_pag_fornecedor" => @"SELECT
                         SUM(VALORORIG) as ValorOriginal,
                         SUM(VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "top_pag" => @"SELECT
+                        SUM(VALORORIG) as ValorOriginal,
+                        SUM(VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
                 "dist_rec_cliente" => @"SELECT
+                        SUM(VALORORIG) as ValorOriginal,
+                        SUM(VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "top_rec" => @"SELECT
                         SUM(VALORORIG) as ValorOriginal,
                         SUM(VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
                 "curva_rec" => @"SELECT
@@ -1731,3 +1785,4 @@ WHERE DATAPAGAMENTO IS NOT NULL");
         }
     }
 }
+
