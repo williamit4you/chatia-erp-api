@@ -54,6 +54,7 @@ namespace IT4You.Application.FinanceAnalytics.DTOs
         public int Page { get; set; }
         public int PageSize { get; set; }
         public int? Total { get; set; }
+        public int? PageRowCount { get; set; }
     }
 
     public class ChartDrilldownResponseDto
@@ -61,6 +62,7 @@ namespace IT4You.Application.FinanceAnalytics.DTOs
         public List<DrilldownColumnDto> Columns { get; set; } = new();
         public List<Dictionary<string, object?>> Rows { get; set; } = new();
         public DrilldownMetaDto Meta { get; set; } = new();
+        public Dictionary<string, decimal> Totals { get; set; } = new();
     }
 }
 

@@ -1648,6 +1648,44 @@ WHERE DATAPAGAMENTO IS NOT NULL");
                 _ => @"SELECT DOCUMENTO as Documento"
             };
 
+            var aggregateSql = chartId switch
+            {
+                "dist_tipo_pag" => @"SELECT
+                        SUM(VALORPAG) as ValorPago",
+                "aging" => @"SELECT
+                        SUM(DATEDIFF(day, DATAVENCIMENTO, GETDATE())) as DiasAtraso,
+                        SUM(VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "dist_faixa_prazo" => @"SELECT
+                        SUM(DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO)) as DiasAteVencimento,
+                        SUM(VALORORIG) as ValorOriginal",
+                "dist_cond_pag" => @"SELECT
+                        SUM(VALORORIG) as ValorOriginal,
+                        SUM(VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "curva_pag" => @"SELECT
+                        SUM(VALORORIG) as ValorOriginal,
+                        SUM(VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "geo_pagar" => @"SELECT
+                        SUM(VALORORIG) as ValorOriginal,
+                        SUM(VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "geo_receber" => @"SELECT
+                        SUM(VALORORIG) as ValorOriginal,
+                        SUM(VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "dist_pag_fornecedor" => @"SELECT
+                        SUM(VALORORIG) as ValorOriginal,
+                        SUM(VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "dist_rec_cliente" => @"SELECT
+                        SUM(VALORORIG) as ValorOriginal,
+                        SUM(VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "curva_rec" => @"SELECT
+                        SUM(VALORORIG) as ValorOriginal,
+                        SUM(VALORORIG - ISNULL(VALORPAG, 0)) as SaldoAberto",
+                "vol_cpf_cnpj" => @"SELECT
+                        SUM(ValorPago) as ValorPago",
+                "vol_dia_mes" => @"SELECT
+                        SUM(ValorPago) as ValorPago",
+                _ => ""
+            };
+
             var sqlPage = $@"
                 {selectSql}
                 {baseSql}
@@ -1656,12 +1694,39 @@ WHERE DATAPAGAMENTO IS NOT NULL");
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
 
             var sqlCount = $@"SELECT COUNT(1) {baseSql} {where};";
+            var sqlAggregate = string.IsNullOrWhiteSpace(aggregateSql)
+                ? null
+                : $@"
+                {aggregateSql}
+                {baseSql}
+                {where};";
 
             var total = await connection.ExecuteScalarAsync<int>(sqlCount, parameters);
             response.Meta.Total = total;
 
             var data = await connection.QueryAsync(sqlPage, parameters);
             response.Rows = data.Select(ToDictionary).ToList();
+            response.Meta.PageRowCount = response.Rows.Count;
+
+            if (!string.IsNullOrWhiteSpace(sqlAggregate))
+            {
+                var aggregateRow = await connection.QueryFirstOrDefaultAsync(sqlAggregate, parameters);
+                if (aggregateRow != null)
+                {
+                    Dictionary<string, object?> aggregateDict = ToDictionary(aggregateRow);
+                    var totals = new Dictionary<string, decimal>();
+                    foreach (var kvp in aggregateDict)
+                    {
+                        if (kvp.Value == null) continue;
+                        if (decimal.TryParse(Convert.ToString(kvp.Value), out var parsed))
+                        {
+                            totals[kvp.Key] = parsed;
+                        }
+                    }
+                    response.Totals = totals;
+                }
+            }
+
             return response;
         }
     }
