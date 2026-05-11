@@ -289,6 +289,7 @@ namespace IT4You.Infrastructure.Repositories
             IEnumerable<DistributionDto> volumePorDiaSemana = Enumerable.Empty<DistributionDto>();
             IEnumerable<DistributionDto> liquidezPorEmpresa = Enumerable.Empty<DistributionDto>();
             IEnumerable<MonthlyEvolutionDto> fluxoDiarioProjetado = Enumerable.Empty<MonthlyEvolutionDto>();
+            IEnumerable<BalancePointDto> evolucaoSaldo = Enumerable.Empty<BalancePointDto>();
             IEnumerable<DistributionDto> volumePorCpfCnpj = Enumerable.Empty<DistributionDto>();
             IEnumerable<DistributionDto> faixaPrazoVencimento = Enumerable.Empty<DistributionDto>();
 
@@ -434,6 +435,70 @@ ORDER BY DayIndex;";
                 .ToList();
 
             // 12 & 13. Prazo Médio Restante
+            var paidMovementSources = new List<string>();
+            if (rights.HasReceivableDashboardAccess)
+            {
+                paidMovementSources.Add($@"
+SELECT CAST(DATAPAGAMENTO AS date) as DataMovimento, VALORPAG as Valor
+FROM VW_SWIA_DOC_FIN_REC_PAGO
+WHERE DATAPAGAMENTO IS NOT NULL {dateFilterRecPago}");
+            }
+
+            if (rights.HasPayableDashboardAccess)
+            {
+                paidMovementSources.Add($@"
+SELECT CAST(DATAPAGAMENTO AS date) as DataMovimento, VALORPAG as Valor
+FROM VW_SWIA_DOC_FIN_PAG_PAGO
+WHERE DATAPAGAMENTO IS NOT NULL {dateFilterPagPago}");
+            }
+
+            if (paidMovementSources.Any())
+            {
+                var paidMovementSql = string.Join(@"
+UNION ALL
+", paidMovementSources);
+
+                var sqlVolDiaConsolidado = $@"
+WITH movimentos AS (
+{paidMovementSql}
+)
+SELECT CAST(DAY(DataMovimento) AS varchar(2)) as Label, SUM(Valor) as Valor
+FROM movimentos
+GROUP BY DAY(DataMovimento)
+ORDER BY DAY(DataMovimento);";
+                volumePorDia = await connection.QueryAsync<DistributionDto>(sqlVolDiaConsolidado, parameters);
+
+                var sqlVolDiaSemanaConsolidado = $@"
+WITH movimentos AS (
+{paidMovementSql}
+)
+SELECT
+    (DATEDIFF(DAY, '19000107', DataMovimento) % 7) as DayIndex,
+    SUM(Valor) as Valor
+FROM movimentos
+GROUP BY (DATEDIFF(DAY, '19000107', DataMovimento) % 7)
+ORDER BY DayIndex;";
+                var volDiaSemanaConsolidadoRaw = await connection.QueryAsync<dynamic>(sqlVolDiaSemanaConsolidado, parameters);
+                var weekdayTotalsConsolidado = new decimal[7];
+                foreach (var row in volDiaSemanaConsolidadoRaw)
+                {
+                    try
+                    {
+                        int idx = Convert.ToInt32(row.DayIndex);
+                        if (idx >= 0 && idx < 7)
+                            weekdayTotalsConsolidado[idx] = Convert.ToDecimal(row.Valor);
+                    }
+                    catch
+                    {
+                        // Ignore malformed rows
+                    }
+                }
+
+                volumePorDiaSemana = Enumerable.Range(0, 7)
+                    .Select(i => new DistributionDto { Label = weekdayLabels[i], Valor = weekdayTotalsConsolidado[i], Percentual = 0m })
+                    .ToList();
+            }
+
             kpisFase2.PrazoMedioRestanteReceber = await connection.ExecuteScalarAsync<decimal?>("SELECT AVG(CAST(DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) AS DECIMAL)) FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO > GETDATE()") ?? 0;
             kpisFase2.PrazoMedioRestantePagar = await connection.ExecuteScalarAsync<decimal?>("SELECT AVG(CAST(DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) AS DECIMAL)) FROM VW_SWIA_DOC_FIN_PAG_ABERTO WHERE DATAVENCIMENTO > GETDATE()") ?? 0;
 
@@ -445,6 +510,71 @@ ORDER BY DayIndex;";
             var sqlFluxoDiario = @"SELECT DATAVENCIMENTO as Data, SUM(CASE WHEN Tipo = 'REC' THEN Valor ELSE -Valor END) as Valor FROM (SELECT DATAVENCIMENTO, VALORORIG as Valor, 'REC' as Tipo FROM VW_SWIA_DOC_FIN_REC_ABERTO UNION ALL SELECT DATAVENCIMENTO, VALORORIG as Valor, 'PAG' as Tipo FROM VW_SWIA_DOC_FIN_PAG_ABERTO) t GROUP BY DATAVENCIMENTO ORDER BY DATAVENCIMENTO";
             var fluxoDiarioRaw = await connection.QueryAsync<dynamic>(sqlFluxoDiario);
             fluxoDiarioProjetado = fluxoDiarioRaw.Select(x => new MonthlyEvolutionDto { Ano = ((DateTime)x.Data).Year, Mes = ((DateTime)x.Data).Month, Valor = (decimal)x.Valor });
+
+            string? saldoAcumuladoSql = null;
+            if (rights.HasPayableDashboardAccess && rights.HasReceivableDashboardAccess)
+            {
+                saldoAcumuladoSql = $@"
+WITH movimentos AS (
+    SELECT CAST(DATAPAGAMENTO AS date) as Data, SUM(VALORPAG) as Valor
+    FROM VW_SWIA_DOC_FIN_REC_PAGO
+    WHERE DATAPAGAMENTO IS NOT NULL {dateFilterRecPago}
+    GROUP BY CAST(DATAPAGAMENTO AS date)
+
+    UNION ALL
+
+    SELECT CAST(DATAPAGAMENTO AS date) as Data, -SUM(VALORPAG) as Valor
+    FROM VW_SWIA_DOC_FIN_PAG_PAGO
+    WHERE DATAPAGAMENTO IS NOT NULL {dateFilterPagPago}
+    GROUP BY CAST(DATAPAGAMENTO AS date)
+)
+SELECT
+    Data,
+    SUM(Valor) as Valor,
+    SUM(SUM(Valor)) OVER (ORDER BY Data ROWS UNBOUNDED PRECEDING) as SaldoAcumulado
+FROM movimentos
+GROUP BY Data
+ORDER BY Data;";
+            }
+            else if (rights.HasReceivableDashboardAccess)
+            {
+                saldoAcumuladoSql = $@"
+WITH movimentos AS (
+    SELECT CAST(DATAPAGAMENTO AS date) as Data, SUM(VALORPAG) as Valor
+    FROM VW_SWIA_DOC_FIN_REC_PAGO
+    WHERE DATAPAGAMENTO IS NOT NULL {dateFilterRecPago}
+    GROUP BY CAST(DATAPAGAMENTO AS date)
+)
+SELECT
+    Data,
+    SUM(Valor) as Valor,
+    SUM(SUM(Valor)) OVER (ORDER BY Data ROWS UNBOUNDED PRECEDING) as SaldoAcumulado
+FROM movimentos
+GROUP BY Data
+ORDER BY Data;";
+            }
+            else if (rights.HasPayableDashboardAccess)
+            {
+                saldoAcumuladoSql = $@"
+WITH movimentos AS (
+    SELECT CAST(DATAPAGAMENTO AS date) as Data, -SUM(VALORPAG) as Valor
+    FROM VW_SWIA_DOC_FIN_PAG_PAGO
+    WHERE DATAPAGAMENTO IS NOT NULL {dateFilterPagPago}
+    GROUP BY CAST(DATAPAGAMENTO AS date)
+)
+SELECT
+    Data,
+    SUM(Valor) as Valor,
+    SUM(SUM(Valor)) OVER (ORDER BY Data ROWS UNBOUNDED PRECEDING) as SaldoAcumulado
+FROM movimentos
+GROUP BY Data
+ORDER BY Data;";
+            }
+
+            if (!string.IsNullOrWhiteSpace(saldoAcumuladoSql))
+            {
+                evolucaoSaldo = await connection.QueryAsync<BalancePointDto>(saldoAcumuladoSql, parameters);
+            }
 
             // 16. Percentual de Parcelas em Atraso
             kpisFase2.PercParcelasAtraso = await connection.ExecuteScalarAsync<decimal?>(@"SELECT CAST(COUNT(*) AS DECIMAL) / NULLIF((SELECT COUNT(*) FROM VW_SWIA_DOC_FIN_REC_ABERTO), 0) * 100 FROM VW_SWIA_DOC_FIN_REC_ABERTO WHERE DATAVENCIMENTO < GETDATE()") ?? 0;
@@ -611,6 +741,7 @@ ORDER BY Valor DESC;";
                 Geografico = geo,
                 DistribuicaoReceber = dist,
                 PerformanceRecebimento = perf,
+                EvolucaoSaldo = evolucaoSaldo,
                 PrevisaoCaixa = projections,
                 SaudeFinanceira = new FinancialHealthDto {
                     Score = 85,
