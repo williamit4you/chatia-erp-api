@@ -1515,6 +1515,54 @@ WHERE DATAPAGAMENTO IS NOT NULL");
                     };
                     break;
 
+                case "vol_dia_mes":
+                    if (!rights.HasReceivableDashboardAccess && !rights.HasPayableDashboardAccess) return response;
+                    if (selectionKind != "category") return response;
+
+                    if (!int.TryParse((selection.Key ?? selection.Label ?? "").Trim(), out var diaMes) || diaMes < 1 || diaMes > 31)
+                        return response;
+
+                    parameters.Add("DiaMes", diaMes);
+
+                    var paidDaySources = new List<string>();
+                    if (rights.HasReceivableDashboardAccess)
+                    {
+                        paidDaySources.Add(@"SELECT
+    DOCUMENTO,
+    CLIENTE as Nome,
+    'Receber' as TipoMovimento,
+    DATAPAGAMENTO,
+    VALORPAG as ValorPago
+FROM VW_SWIA_DOC_FIN_REC_PAGO
+WHERE DATAPAGAMENTO IS NOT NULL");
+                    }
+                    if (rights.HasPayableDashboardAccess)
+                    {
+                        paidDaySources.Add(@"SELECT
+    DOCUMENTO,
+    FORNECEDOR as Nome,
+    'Pagar' as TipoMovimento,
+    DATAPAGAMENTO,
+    VALORPAG as ValorPago
+FROM VW_SWIA_DOC_FIN_PAG_PAGO
+WHERE DATAPAGAMENTO IS NOT NULL");
+                    }
+
+                    baseSql = $@"FROM ({string.Join(" UNION ALL ", paidDaySources)}) t";
+                    orderBy = "ORDER BY Pagamento DESC, ValorPago DESC";
+                    where += AddDateFilters(parameters, request.StartDate, request.EndDate, "DATAPAGAMENTO", "StartDate", "EndDate");
+                    where += " AND DAY(DATAPAGAMENTO) = @DiaMes";
+
+                    response.Columns = new()
+                    {
+                        new DrilldownColumnDto { Key = "Documento", Label = "Documento", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Nome", Label = "Nome", Kind = "text" },
+                        new DrilldownColumnDto { Key = "TipoMovimento", Label = "Tipo", Kind = "text" },
+                        new DrilldownColumnDto { Key = "Pagamento", Label = "Pagamento", Kind = "date" },
+                        new DrilldownColumnDto { Key = "ValorPago", Label = "Valor Pago", Kind = "currency" },
+                    };
+                    break;
+
                 default:
                     return response;
             }
@@ -1589,6 +1637,12 @@ WHERE DATAPAGAMENTO IS NOT NULL");
                         DOCUMENTO as Documento,
                         Nome as Nome,
                         CPFCNPJ as CpfCnpj,
+                        DATAPAGAMENTO as Pagamento,
+                        ValorPago as ValorPago",
+                "vol_dia_mes" => @"SELECT
+                        DOCUMENTO as Documento,
+                        Nome as Nome,
+                        TipoMovimento as TipoMovimento,
                         DATAPAGAMENTO as Pagamento,
                         ValorPago as ValorPago",
                 _ => @"SELECT DOCUMENTO as Documento"
