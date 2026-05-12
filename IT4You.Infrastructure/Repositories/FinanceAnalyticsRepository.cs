@@ -1480,6 +1480,7 @@ ORDER BY Valor DESC");
                     baseSql = "FROM VW_SWIA_DOC_FIN_REC_ABERTO";
                     where += AddDateFilters(parameters, request.StartDate, request.EndDate, "DATAVENCIMENTO", "StartDate", "EndDate");
                     where += AgingBucketWhere(selection.Key ?? selection.Label ?? "");
+                    orderBy = "ORDER BY (VALORORIG - ISNULL(VALORPAG, 0)) DESC";
                     response.Columns = new()
                     {
                         new DrilldownColumnDto { Key = "Documento", Label = "Documento", Kind = "text" },
