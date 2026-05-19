@@ -183,7 +183,7 @@ namespace IT4You.Infrastructure.Repositories
 
         public async Task<SalesBudgetChartBatchResponseDto> GetChartsAsync(SalesBudgetChartBatchRequestDto request)
         {
-            using var connection = await CreateConnectionAsync();
+            var connection = await CreateConnectionAsync();
             var response = new SalesBudgetChartBatchResponseDto();
             var chartIds = request.ChartIds
                 .Where(id => !string.IsNullOrWhiteSpace(id))
@@ -191,9 +191,55 @@ namespace IT4You.Infrastructure.Repositories
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            foreach (var chartId in chartIds)
+            try
             {
-                response.Items.Add(await BuildChartAsync(connection, request.Filters, chartId));
+                if (connection.State != ConnectionState.Open)
+                    connection.Open();
+
+                foreach (var chartId in chartIds)
+                {
+                    try
+                    {
+                        response.Items.Add(await BuildChartAsync(connection, request.Filters, chartId));
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Falha ao construir grafico '{ChartId}': {Message}", chartId, ex.Message);
+                        response.Items.Add(new SalesBudgetChartDatasetDto
+                        {
+                            ChartId = chartId,
+                            Title = chartId,
+                            Visualization = "error",
+                            Data = new List<SalesBudgetChartPointDto>(),
+                            Totals = new Dictionary<string, decimal>(),
+                            Meta = new SalesBudgetChartMetaDto
+                            {
+                                Source = "error",
+                                Warnings = new List<string> { $"Erro ao gerar este grafico: {ex.Message}" }
+                            }
+                        });
+
+                        // Reconnect if connection was broken by the error
+                        if (connection.State != ConnectionState.Open)
+                        {
+                            try
+                            {
+                                connection.Dispose();
+                                connection = await CreateConnectionAsync();
+                                if (connection.State != ConnectionState.Open)
+                                    connection.Open();
+                            }
+                            catch (Exception reconnectEx)
+                            {
+                                _logger.LogError(reconnectEx, "Falha ao reconectar apos erro no grafico '{ChartId}'.", chartId);
+                            }
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                connection.Dispose();
             }
 
             return response;
