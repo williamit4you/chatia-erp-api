@@ -418,7 +418,7 @@ namespace IT4You.Infrastructure.Repositories
             var points = rows.Select(row =>
             {
                 var index = Convert.ToInt32(SafeToDecimal(row, "DiaSemanaNumero"));
-                var label = map.TryGetValue(index, out var shortLabel) ? shortLabel : (SafeToString(row, "DiaSemana") ?? "-");
+                var label = map.TryGetValue(index, out string? shortLabel) ? shortLabel : (SafeToString(row, "DiaSemana") ?? "-");
                 var total = SafeToDecimal(row, "TotalValor");
                 return new SalesBudgetChartPointDto
                 {
