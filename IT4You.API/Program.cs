@@ -3,6 +3,8 @@ using IT4You.Application.Interfaces;
 using IT4You.Application.Services;
 using IT4You.Application.FinanceAnalytics.Interfaces;
 using IT4You.Application.FinanceAnalytics.Services;
+using IT4You.Application.SalesBudgetAnalytics.Interfaces;
+using IT4You.Application.SalesBudgetAnalytics.Services;
 using IT4You.Infrastructure.Repositories;
 using IT4You.Infrastructure.Services;
 using IT4You.Domain.Entities;
@@ -83,6 +85,8 @@ builder.Services.AddScoped<IEmailLogService, EmailLogService>();
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<IFinanceAnalyticsRepository, FinanceAnalyticsRepository>();
 builder.Services.AddScoped<IFinanceAnalyticsService, FinanceAnalyticsService>();
+builder.Services.AddScoped<ISalesBudgetAnalyticsRepository, SalesBudgetAnalyticsRepository>();
+builder.Services.AddScoped<ISalesBudgetAnalyticsService, SalesBudgetAnalyticsService>();
 
 builder.Services.AddScoped<IT4You.Application.Plugins.ErpPlugin>();
 builder.Services.AddScoped<IT4You.Application.Plugins.BudgetPlugin>();
