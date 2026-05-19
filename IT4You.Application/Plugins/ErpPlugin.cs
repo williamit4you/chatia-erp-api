@@ -14,10 +14,11 @@ using ClosedXML.Excel;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using IT4You.Application.Interfaces;
 
 namespace IT4You.Application.Plugins;
 
-public class ErpPlugin
+public class ErpPlugin : IChatQueryPlugin
 {
     private readonly IErpConnectionFactory _connectionFactory;
     private readonly IMemoryCache _cache;

@@ -88,6 +88,8 @@ public class TenantService : ITenantService
                 u.HasReceivableDashboardAccess,
                 u.HasBankingChatAccess,
                 u.HasBankingDashboardAccess,
+                u.HasBudgetChatAccess,
+                u.HasBudgetDashboardAccess,
                 u.IsInactive,
                 u.BlockedUntil
             ))
@@ -123,7 +125,14 @@ public class TenantService : ITenantService
             EncryptionHelper.Decrypt(tenant.DbPassword ?? ""),
             tenant.ShowChartDetails,
             tenant.CreatedAt,
-            tenant.Users.Select(u => new UserDto(u.Id, u.Name, u.Email, u.Role.ToString(), u.QueryCount, u.CreatedAt, u.IsActive, u.HasPayableChatAccess, u.HasPayableDashboardAccess, u.HasReceivableChatAccess, u.HasReceivableDashboardAccess, u.HasBankingChatAccess, u.HasBankingDashboardAccess, u.IsInactive, u.BlockedUntil))
+            tenant.Users.Select(u => new UserDto(
+                u.Id, u.Name, u.Email, u.Role.ToString(), u.QueryCount, u.CreatedAt, u.IsActive,
+                u.HasPayableChatAccess, u.HasPayableDashboardAccess,
+                u.HasReceivableChatAccess, u.HasReceivableDashboardAccess,
+                u.HasBankingChatAccess, u.HasBankingDashboardAccess,
+                u.HasBudgetChatAccess, u.HasBudgetDashboardAccess,
+                u.IsInactive, u.BlockedUntil
+            ))
         );
     }
 
@@ -149,7 +158,9 @@ public class TenantService : ITenantService
             HasReceivableChatAccess = isAdmin || request.HasReceivableChatAccess,
             HasReceivableDashboardAccess = isAdmin || request.HasReceivableDashboardAccess,
             HasBankingChatAccess = isAdmin || request.HasBankingChatAccess,
-            HasBankingDashboardAccess = isAdmin || request.HasBankingDashboardAccess
+            HasBankingDashboardAccess = isAdmin || request.HasBankingDashboardAccess,
+            HasBudgetChatAccess = isAdmin || request.HasBudgetChatAccess,
+            HasBudgetDashboardAccess = isAdmin || request.HasBudgetDashboardAccess
         };
 
         _context.Users.Add(user);
@@ -189,6 +200,8 @@ public class TenantService : ITenantService
         if (request.HasReceivableDashboardAccess.HasValue) user.HasReceivableDashboardAccess = isAdmin || request.HasReceivableDashboardAccess.Value;
         if (request.HasBankingChatAccess.HasValue) user.HasBankingChatAccess = isAdmin || request.HasBankingChatAccess.Value;
         if (request.HasBankingDashboardAccess.HasValue) user.HasBankingDashboardAccess = isAdmin || request.HasBankingDashboardAccess.Value;
+        if (request.HasBudgetChatAccess.HasValue) user.HasBudgetChatAccess = isAdmin || request.HasBudgetChatAccess.Value;
+        if (request.HasBudgetDashboardAccess.HasValue) user.HasBudgetDashboardAccess = isAdmin || request.HasBudgetDashboardAccess.Value;
 
         if (request.IsInactive.HasValue) user.IsInactive = request.IsInactive.Value;
         

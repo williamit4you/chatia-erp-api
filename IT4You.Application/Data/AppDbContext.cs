@@ -106,6 +106,8 @@ public class AppDbContext : DbContext
             entity.Property(e => e.HasReceivableDashboardAccess).HasColumnName("hasReceivableDashboardAccess");
             entity.Property(e => e.HasBankingChatAccess).HasColumnName("hasBankingChatAccess");
             entity.Property(e => e.HasBankingDashboardAccess).HasColumnName("hasBankingDashboardAccess");
+            entity.Property(e => e.HasBudgetChatAccess).HasColumnName("hasBudgetChatAccess");
+            entity.Property(e => e.HasBudgetDashboardAccess).HasColumnName("hasBudgetDashboardAccess");
             entity.Property(e => e.CurrentSessionId).HasColumnName("currentSessionId");
             entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
             entity.Property(e => e.UpdatedAt).HasColumnName("updatedAt");

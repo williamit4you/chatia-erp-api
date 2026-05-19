@@ -189,17 +189,39 @@ public class ChatController : ControllerBase
         decimal valorTotal = 0;
         foreach (var row in rows)
         {
-            if (row.TryGetValue("VALORORIG", out var v) && v is System.Text.Json.JsonElement je)
-            {
-                if (je.ValueKind == System.Text.Json.JsonValueKind.Number)
-                    valorTotal += je.GetDecimal();
-            }
+            valorTotal += TryGetDecimal(row, "VALORORIG")
+                       ?? TryGetDecimal(row, "VALORTOTAL")
+                       ?? TryGetDecimal(row, "Total")
+                       ?? 0;
         }
 
         var pdfBytes = IT4You.Application.Plugins.ErpPlugin.GerarPdf(rows, total, valorTotal);
 
         var fileName = $"relatorio_{exportId[..8]}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
         return File(pdfBytes, "application/pdf", fileName);
+    }
+
+    private static decimal? TryGetDecimal(Dictionary<string, object> row, string key)
+    {
+        if (!row.TryGetValue(key, out var v) || v is null)
+            return null;
+
+        if (v is decimal dec) return dec;
+        if (v is double dbl) return Convert.ToDecimal(dbl);
+        if (v is float flt) return Convert.ToDecimal(flt);
+        if (v is int i) return i;
+        if (v is long l) return l;
+
+        if (v is System.Text.Json.JsonElement je)
+        {
+            if (je.ValueKind == System.Text.Json.JsonValueKind.Number && je.TryGetDecimal(out var jDec))
+                return jDec;
+
+            if (je.ValueKind == System.Text.Json.JsonValueKind.String && decimal.TryParse(je.GetString(), out var sDec))
+                return sDec;
+        }
+
+        return null;
     }
 }
 

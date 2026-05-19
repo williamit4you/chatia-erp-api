@@ -21,6 +21,7 @@ using System.Text.RegularExpressions;
 using System.Text.Json;
 using OpenAI;
 using System.ClientModel;
+using IT4You.Application.AI.Routing;
 
 namespace IT4You.Application.Services;
 
@@ -30,18 +31,24 @@ public class ChatService : IChatService
     private readonly IConfiguration _configuration;
     private readonly ILogger<ChatService> _logger;
     private readonly IFinancialAgentFactory _agentFactory;
+    private readonly IBudgetAgentFactory _budgetAgentFactory;
     private readonly ErpPlugin _erpPlugin;
+    private readonly BudgetPlugin _budgetPlugin;
     private readonly IMemoryCache _cache;
+    private readonly ChatModuleRouter _chatModuleRouter;
 
     public ChatService(AppDbContext context, IConfiguration configuration, ILogger<ChatService> logger,
-        IFinancialAgentFactory agentFactory, ErpPlugin erpPlugin, IMemoryCache cache)
+        IFinancialAgentFactory agentFactory, IBudgetAgentFactory budgetAgentFactory, ErpPlugin erpPlugin, BudgetPlugin budgetPlugin, IMemoryCache cache, ChatModuleRouter chatModuleRouter)
     {
         _context = context;
         _configuration = configuration;
         _logger = logger;
         _agentFactory = agentFactory;
+        _budgetAgentFactory = budgetAgentFactory;
         _erpPlugin = erpPlugin;
+        _budgetPlugin = budgetPlugin;
         _cache = cache;
+        _chatModuleRouter = chatModuleRouter;
     }
 
     public async Task<IT4You.Application.DTOs.ChatResponse> ProcessMessageAsync(
@@ -95,12 +102,33 @@ public class ChatService : IChatService
                 // ================================
                 // 2️⃣ SALVA MENSAGEM DO USUÁRIO
                 // ================================
+                var lastModuleText = await _context.ChatMessages
+                    .Where(m => m.SessionId == sessionId)
+                    .OrderByDescending(m => m.CreatedAt)
+                    .Select(m => m.Module)
+                    .FirstOrDefaultAsync();
+
+                ChatModule? previousModule = lastModuleText switch
+                {
+                    "Orcamento" => ChatModule.Orcamento,
+                    "Financeiro" => ChatModule.Financeiro,
+                    _ => null
+                };
+
+                var route = _chatModuleRouter.Route(request.Message, previousModule);
+                var moduleLabel = route.Module switch
+                {
+                    ChatModule.Orcamento => "Orcamento",
+                    ChatModule.Financeiro => "Financeiro",
+                    _ => "Sistema"
+                };
+
                 var userMsg = new IT4You.Domain.Entities.ChatMessage
                 {
                     SessionId = sessionId,
                     Role = "user",
                     Content = request.Message,
-                    Module = "Financeiro"
+                    Module = moduleLabel
                 };
 
                 _context.ChatMessages.Add(userMsg);
@@ -116,17 +144,70 @@ public class ChatService : IChatService
                     // ================================
                     // 3️⃣ CRIA O AGENTE
                     // ================================
+                    if (route.NeedsClarification)
+                    {
+                        var clarificationReply = route.ClarificationPrompt ?? "Voce quer consultar Financeiro ou Orcamento?";
+
+                        var clarificationMsg = new IT4You.Domain.Entities.ChatMessage
+                        {
+                            SessionId = sessionId,
+                            Role = "assistant",
+                            Content = clarificationReply,
+                            Module = "Sistema"
+                        };
+
+                        _context.ChatMessages.Add(clarificationMsg);
+                        await _context.SaveChangesAsync();
+
+                        return new IT4You.Application.DTOs.ChatResponse(clarificationReply, sessionId, null, 0);
+                    }
+
                     bool isFullAdmin = user?.Role == UserRole.SUPER_ADMIN || 
                                      user?.Role == UserRole.TENANT_ADMIN || 
                                      user?.Role == UserRole.ADMIN;
 
-                    var agent = await _agentFactory.CreateAgentAsync(
-                        tenant.ChatAiToken,
-                        tenant.IaToken, 
-                        isFullAdmin || (user?.HasPayableChatAccess ?? false), 
-                        isFullAdmin || (user?.HasReceivableChatAccess ?? false),
-                        isFullAdmin || (user?.HasBankingChatAccess ?? false),
-                        request.Message, userId);
+                    if (route.Module == ChatModule.Orcamento && !(isFullAdmin || (user?.HasBudgetChatAccess ?? false)))
+                    {
+                        const string blockedReply = "Esse questionamento e somente para usuarios do modulo de orcamento";
+
+                        var blockedMsg = new IT4You.Domain.Entities.ChatMessage
+                        {
+                            SessionId = sessionId,
+                            Role = "assistant",
+                            Content = blockedReply,
+                            Module = "Orcamento"
+                        };
+
+                        _context.ChatMessages.Add(blockedMsg);
+                        await _context.SaveChangesAsync();
+
+                        return new IT4You.Application.DTOs.ChatResponse(blockedReply, sessionId, null, 0);
+                    }
+
+                    IChatQueryPlugin queryPlugin;
+                    AIAgent agent;
+
+                    if (route.Module == ChatModule.Orcamento)
+                    {
+                        queryPlugin = _budgetPlugin;
+                        agent = await _budgetAgentFactory.CreateAgentAsync(
+                            tenant.ChatAiToken,
+                            tenant.IaToken,
+                            isFullAdmin || (user?.HasBudgetChatAccess ?? false),
+                            request.Message,
+                            userId);
+                    }
+                    else
+                    {
+                        queryPlugin = _erpPlugin;
+                        agent = await _agentFactory.CreateAgentAsync(
+                            tenant.ChatAiToken,
+                            tenant.IaToken,
+                            isFullAdmin || (user?.HasPayableChatAccess ?? false),
+                            isFullAdmin || (user?.HasReceivableChatAccess ?? false),
+                            isFullAdmin || (user?.HasBankingChatAccess ?? false),
+                            request.Message, userId);
+                    }
 
                     // ================================
                     // 4️⃣ MONTA HISTÓRICO
@@ -157,20 +238,20 @@ public class ChatService : IChatService
                     // ================================
                     _logger.LogInformation("Calling agent with {Count} messages", messages.Count);
 
-                    _erpPlugin.ClearExecutedQueries();
-                    _erpPlugin.ClearExportMetadata(); // limpa estado do export anterior
+                    queryPlugin.ClearExecutedQueries();
+                    queryPlugin.ClearExportMetadata(); // limpa estado do export anterior
 
                     var response = await agent.RunAsync(messages);
-                    var sqlJson = _erpPlugin.GetExecutedQueriesJson();
+                    var sqlJson = queryPlugin.GetExecutedQueriesJson();
 
                     var reply = response.Messages.LastOrDefault()?.Text ?? "(Sem resposta)";
 
                     // Lê export metadata diretamente do plugin (confiável, sem regex no texto da IA)
-                    string? exportId = _erpPlugin.LastExportId;
-                    int exportTotal = _erpPlugin.LastExportTotalLinhas;
-                    decimal exportValor = _erpPlugin.LastExportValorTotal;
-                    int metricsTotal = _erpPlugin.AggregateTotalLinhas;
-                    decimal metricsValor = _erpPlugin.AggregateValorTotal;
+                    string? exportId = queryPlugin.LastExportId;
+                    int exportTotal = queryPlugin.LastExportTotalLinhas;
+                    decimal exportValor = queryPlugin.LastExportValorTotal;
+                    int metricsTotal = queryPlugin.AggregateTotalLinhas;
+                    decimal metricsValor = queryPlugin.AggregateValorTotal;
 
                     // ================================
                     // 6️⃣ SALVA RESPOSTA DO MODELO
@@ -181,7 +262,7 @@ public class ChatService : IChatService
                         Role = "assistant",
                         Content = reply,
                         SqlQueries = sqlJson,
-                        Module = "Financeiro"
+                        Module = moduleLabel
                     };
 
                     _context.ChatMessages.Add(modelMsg);
@@ -197,7 +278,7 @@ public class ChatService : IChatService
                     var rightRail = await BuildRightRailAsync(
                         userId,
                         tenant.ChatAiToken,
-                        "Financeiro",
+                        moduleLabel,
                         request.Message,
                         reply,
                         sqlJson,

@@ -12,6 +12,7 @@ using Microsoft.Extensions.Configuration;
 using System.Security.Claims;
 using Npgsql;
 using System.Text.Json.Serialization;
+using IT4You.Application.AI.Routing;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -84,7 +85,10 @@ builder.Services.AddScoped<IFinanceAnalyticsRepository, FinanceAnalyticsReposito
 builder.Services.AddScoped<IFinanceAnalyticsService, FinanceAnalyticsService>();
 
 builder.Services.AddScoped<IT4You.Application.Plugins.ErpPlugin>();
+builder.Services.AddScoped<IT4You.Application.Plugins.BudgetPlugin>();
 builder.Services.AddScoped<IFinancialAgentFactory, FinancialAgentFactory>();
+builder.Services.AddScoped<IBudgetAgentFactory, BudgetAgentFactory>();
+builder.Services.AddSingleton<ChatModuleRouter>();
 
 builder.Services.AddHostedService<MonitoringWorker>();
 

@@ -48,3 +48,13 @@ VALUES ('20260310122053_AddPayableReceivableAccess', '8.0.0');
 
 COMMIT;
 
+START TRANSACTION;
+
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "hasBudgetChatAccess" boolean NOT NULL DEFAULT FALSE;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "hasBudgetDashboardAccess" boolean NOT NULL DEFAULT FALSE;
+
+INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+VALUES ('20260519090000_AddBudgetAccess', '8.0.0');
+
+COMMIT;
+

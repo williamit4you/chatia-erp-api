@@ -31,6 +31,8 @@ public class User
     public bool HasReceivableDashboardAccess { get; set; } = false;
     public bool HasBankingChatAccess { get; set; } = false;
     public bool HasBankingDashboardAccess { get; set; } = false;
+    public bool HasBudgetChatAccess { get; set; } = false;
+    public bool HasBudgetDashboardAccess { get; set; } = false;
     public string? CurrentSessionId { get; set; }
     
     public ICollection<ChatSession> ChatSessions { get; set; } = new List<ChatSession>();

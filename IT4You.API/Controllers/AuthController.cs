@@ -180,6 +180,8 @@ public class AuthController : ControllerBase
                 new Claim("hasReceivableDashboardAccess", user.HasReceivableDashboardAccess.ToString().ToLower()),
                 new Claim("hasBankingChatAccess", user.HasBankingChatAccess.ToString().ToLower()),
                 new Claim("hasBankingDashboardAccess", user.HasBankingDashboardAccess.ToString().ToLower()),
+                new Claim("hasBudgetChatAccess", user.HasBudgetChatAccess.ToString().ToLower()),
+                new Claim("hasBudgetDashboardAccess", user.HasBudgetDashboardAccess.ToString().ToLower()),
                 new Claim("showChartDetails", user.ShowChartDetails.ToString().ToLower())
             }),
             Expires = DateTime.UtcNow.AddDays(7),
