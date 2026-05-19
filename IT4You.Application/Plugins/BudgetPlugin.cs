@@ -62,14 +62,14 @@ public class BudgetPlugin : IChatQueryPlugin
     public async Task<string> ConsultarOrcamentos(
         [Description("Data inicial de emissao (ISO 8601). Vazio para ignorar.")] string dataInicioISO = "",
         [Description("Data final de emissao (ISO 8601). Vazio para ignorar.")] string dataFimISO = "",
-        [Description("Numero do orcamento (OrcNum). Vazio para ignorar.")] string numeroOrcamento = "",
+        [Description("Numero do orcamento (OrcNum). Aceita multiplos separados por '|' ou ','. Vazio para ignorar.")] string numeroOrcamento = "",
         [Description("Numero do cliente no orcamento (NUMEROCLIENTE). Vazio para ignorar.")] string numeroCliente = "",
         [Description("Nome do cliente ou nome fantasia. Aceita multiplos separados por '|'. Vazio para ignorar.")] string cliente = "",
         [Description("CPF/CNPJ (somente numeros). Vazio para ignorar.")] string cnpj = "",
         [Description("Sigla do estado (UF). Vazio para ignorar.")] string uf = "",
         [Description("Cidade. Vazio para ignorar.")] string cidade = "",
         [Description("Empresa/filial (nome fantasia). Vazio para ignorar.")] string filial = "",
-        [Description("Codigo da empresa (EmpCod). Vazio para ignorar.")] string codigoEmpresa = "",
+        [Description("Codigo da empresa (EmpCod). Aceita multiplos separados por '|' ou ','. Vazio para ignorar.")] string codigoEmpresa = "",
         [Description("Status do orcamento. Vazio para ignorar.")] string status = "",
         [Description("Origem do orcamento. Vazio para ignorar.")] string origem = "",
         [Description("Condicao de pagamento. Vazio para ignorar.")] string condicaoPagamento = "",
@@ -108,8 +108,8 @@ public class BudgetPlugin : IChatQueryPlugin
         [Description("Codigo do item/produto (CODIGOITEM). Vazio para ignorar.")] string codigoItem = "",
         [Description("Nome do item/produto. Aceita multiplos separados por '|'. Vazio para ignorar.")] string item = "",
         [Description("Unidade de medida. Vazio para ignorar.")] string unidadeMedida = "",
-        [Description("Codigo da empresa (CODEMPRESA). Vazio para ignorar.")] string codigoEmpresa = "",
-        [Description("Numero do orcamento (ORCAMENTO). Vazio para ignorar.")] string numeroOrcamento = "",
+        [Description("Codigo da empresa (CODEMPRESA). Aceita multiplos separados por '|' ou ','. Vazio para ignorar.")] string codigoEmpresa = "",
+        [Description("Numero do orcamento (ORCAMENTO). Aceita multiplos separados por '|' ou ','. Vazio para ignorar.")] string numeroOrcamento = "",
         [Description("Quantidade minima. Vazio para ignorar.")] string quantidadeMinima = "",
         [Description("Quantidade maxima. Vazio para ignorar.")] string quantidadeMaxima = "",
         [Description("Valor unitario bruto minimo. Vazio para ignorar.")] string valorUnitarioBrutoMinimo = "",
@@ -148,23 +148,24 @@ public class BudgetPlugin : IChatQueryPlugin
     public async Task<string> ConsultarOrcamentosComItens(
         [Description("Data inicial de emissao (ISO 8601). Vazio para ignorar.")] string dataInicioISO = "",
         [Description("Data final de emissao (ISO 8601). Vazio para ignorar.")] string dataFimISO = "",
-        [Description("Numero do orcamento. Vazio para ignorar.")] string numeroOrcamento = "",
+        [Description("Numero do orcamento. Aceita multiplos separados por '|' ou ','. Vazio para ignorar.")] string numeroOrcamento = "",
         [Description("Cliente ou nome fantasia. Aceita multiplos separados por '|'. Vazio para ignorar.")] string cliente = "",
         [Description("CPF/CNPJ (somente numeros). Vazio para ignorar.")] string cnpj = "",
         [Description("UF. Vazio para ignorar.")] string uf = "",
         [Description("Filial/empresa (nome). Vazio para ignorar.")] string filial = "",
+        [Description("Codigo da empresa (CODEMPRESA). Aceita multiplos separados por '|' ou ','. Vazio para ignorar.")] string codigoEmpresa = "",
         [Description("Status do orcamento. Vazio para ignorar.")] string status = "",
         [Description("Vendedor. Vazio para ignorar.")] string vendedor = "",
         [Description("Codigo do item (CODIGOITEM). Vazio para ignorar.")] string codigoItem = "",
         [Description("Nome do item. Aceita multiplos separados por '|'. Vazio para ignorar.")] string item = "",
-        [Description("Agrupar por: TOTAL, ORCAMENTO, CLIENTE, VENDEDOR, STATUS, ITEM, UF, MES, FILIAL.")] string agrupamento = "TOTAL",
+        [Description("Agrupar por: TOTAL, ORCAMENTO, CLIENTE, VENDEDOR, STATUS, ITEM, UF, MES, FILIAL. (Obs: ITEM e ORCAMENTO ja retornam CodigoEmpresa para evitar mistura entre empresas).")] string agrupamento = "TOTAL",
         [Description("Metrica: VALORTOTAL_ORCAMENTO, VALORTOTAL_ITEM, QUANTIDADE_ITEM.")] string metrica = "VALORTOTAL_ITEM",
         [Description("Limite maximo de registros (quando agrupamento!=TOTAL). Use para top N.")] int limite = 0,
         [Description("Se verdadeiro, ordena por maior metrica/valor.")] bool ordenarPorMaiorValor = true
     )
     {
         var filters = new BudgetCrossFilters(
-            dataInicioISO, dataFimISO, numeroOrcamento, cliente, cnpj, uf, filial, status, vendedor, codigoItem, item
+            dataInicioISO, dataFimISO, numeroOrcamento, cliente, cnpj, uf, filial, codigoEmpresa, status, vendedor, codigoItem, item
         );
 
         return await ExecuteCrossQuery(filters, agrupamento, metrica, limite, ordenarPorMaiorValor);
@@ -187,8 +188,7 @@ public class BudgetPlugin : IChatQueryPlugin
         }
         if (!string.IsNullOrWhiteSpace(f.NumeroOrcamento))
         {
-            conditions.Add("ORCAMENTO = @orc");
-            parameters.Add(new SqlParameter("@orc", f.NumeroOrcamento.Trim()));
+            AddMultiEquals(conditions, parameters, "ORCAMENTO", "@orc", f.NumeroOrcamento);
         }
         if (!string.IsNullOrWhiteSpace(f.NumeroCliente))
         {
@@ -221,8 +221,7 @@ public class BudgetPlugin : IChatQueryPlugin
         }
         if (!string.IsNullOrWhiteSpace(f.CodigoEmpresa))
         {
-            conditions.Add("CODEMPRESA = @emp");
-            parameters.Add(new SqlParameter("@emp", f.CodigoEmpresa.Trim()));
+            AddMultiEquals(conditions, parameters, "CODEMPRESA", "@emp", f.CodigoEmpresa);
         }
         if (!string.IsNullOrWhiteSpace(f.Status))
         {
@@ -317,13 +316,11 @@ public class BudgetPlugin : IChatQueryPlugin
         }
         if (!string.IsNullOrWhiteSpace(f.CodigoEmpresa))
         {
-            conditions.Add("CODEMPRESA = @emp");
-            parameters.Add(new SqlParameter("@emp", f.CodigoEmpresa.Trim()));
+            AddMultiEquals(conditions, parameters, "CODEMPRESA", "@emp", f.CodigoEmpresa);
         }
         if (!string.IsNullOrWhiteSpace(f.NumeroOrcamento))
         {
-            conditions.Add("ORCAMENTO = @orc");
-            parameters.Add(new SqlParameter("@orc", f.NumeroOrcamento.Trim()));
+            AddMultiEquals(conditions, parameters, "ORCAMENTO", "@orc", f.NumeroOrcamento);
         }
 
         AddDecimalRange(conditions, parameters, "QUANTIDADE", "@q", f.QuantidadeMinima, f.QuantidadeMaxima);
@@ -376,8 +373,11 @@ public class BudgetPlugin : IChatQueryPlugin
         }
         if (!string.IsNullOrWhiteSpace(f.NumeroOrcamento))
         {
-            conditions.Add("O.ORCAMENTO = @orc");
-            parameters.Add(new SqlParameter("@orc", f.NumeroOrcamento.Trim()));
+            AddMultiEquals(conditions, parameters, "O.ORCAMENTO", "@orc", f.NumeroOrcamento);
+        }
+        if (!string.IsNullOrWhiteSpace(f.CodigoEmpresa))
+        {
+            AddMultiEquals(conditions, parameters, "O.CODEMPRESA", "@emp", f.CodigoEmpresa);
         }
         if (!string.IsNullOrWhiteSpace(f.Cliente))
         {
@@ -439,21 +439,10 @@ public class BudgetPlugin : IChatQueryPlugin
             return await ExecuteQuery(sql, parameters.ToArray());
         }
 
-        var groupCol = group.ToUpperInvariant() switch
-        {
-            "ORCAMENTO" => "O.ORCAMENTO",
-            "CLIENTE" => "O.CLIENTE",
-            "VENDEDOR" => "O.VENDEDOR",
-            "STATUS" => "O.STATUS",
-            "ITEM" => "I.ITEM",
-            "UF" => "O.UF",
-            "FILIAL" => "O.EMPRESA",
-            "MES" => "FORMAT(O.EMISSAO, 'yyyy-MM')",
-            _ => "O.CLIENTE"
-        };
+        var groupDef = ResolveCrossGroupDefinition(group);
 
         var orderDir = ordenarPorMaiorValor ? "DESC" : "ASC";
-        var sqlGrouped = $"SELECT {groupCol} as Grupo, SUM({metricExpr}) as Total, COUNT(*) as Quantidade {from}{where} GROUP BY {groupCol} ORDER BY Total {orderDir}";
+        var sqlGrouped = $"SELECT {groupDef.SelectSql}, SUM({metricExpr}) as Total, COUNT(*) as Quantidade {from}{where} GROUP BY {groupDef.GroupBySql} ORDER BY Total {orderDir}";
         if (limite > 0)
             sqlGrouped = $"SELECT TOP {limite} * FROM ({sqlGrouped}) X";
         return await ExecuteQuery(sqlGrouped, parameters.ToArray());
@@ -564,6 +553,29 @@ public class BudgetPlugin : IChatQueryPlugin
         conditions.Add("(" + string.Join(" OR ", orParts) + ")");
     }
 
+    private static void AddMultiEquals(List<string> conditions, List<SqlParameter> parameters, string column, string paramPrefix, string input)
+    {
+        var values = SplitListValues(input);
+        if (values.Count == 0) return;
+
+        if (values.Count == 1)
+        {
+            conditions.Add($"{column} = {paramPrefix}");
+            parameters.Add(new SqlParameter(paramPrefix, values[0]));
+            return;
+        }
+
+        var inParts = new List<string>();
+        for (int i = 0; i < values.Count; i++)
+        {
+            var p = $"{paramPrefix}{i}";
+            inParts.Add(p);
+            parameters.Add(new SqlParameter(p, values[i]));
+        }
+
+        conditions.Add($"{column} IN ({string.Join(", ", inParts)})");
+    }
+
     private static void AddDecimalRange(List<string> conditions, List<SqlParameter> parameters, string column, string paramPrefix, string minRaw, string maxRaw)
     {
         if (TryParseDecimal(minRaw, out var min))
@@ -592,6 +604,31 @@ public class BudgetPlugin : IChatQueryPlugin
             .Where(p => !string.IsNullOrWhiteSpace(p))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+    private static List<string> SplitListValues(string input) =>
+        input.Split(new[] { '|', ';', ',' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(p => p.Trim())
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private record CrossGroupDef(string SelectSql, string GroupBySql);
+
+    private static CrossGroupDef ResolveCrossGroupDefinition(string group)
+        => group.ToUpperInvariant() switch
+        {
+            // ORCAMENTO e ITEM sao chaves compostas (CODEMPRESA + ORCAMENTO) e podem colidir entre empresas.
+            "ORCAMENTO" => new CrossGroupDef("O.CODEMPRESA as CodigoEmpresa, O.ORCAMENTO as Grupo", "O.CODEMPRESA, O.ORCAMENTO"),
+            "ITEM" => new CrossGroupDef("O.CODEMPRESA as CodigoEmpresa, I.ITEM as Grupo", "O.CODEMPRESA, I.ITEM"),
+
+            "CLIENTE" => new CrossGroupDef("O.CLIENTE as Grupo", "O.CLIENTE"),
+            "VENDEDOR" => new CrossGroupDef("O.VENDEDOR as Grupo", "O.VENDEDOR"),
+            "STATUS" => new CrossGroupDef("O.STATUS as Grupo", "O.STATUS"),
+            "UF" => new CrossGroupDef("O.UF as Grupo", "O.UF"),
+            "FILIAL" => new CrossGroupDef("O.EMPRESA as Grupo", "O.EMPRESA"),
+            "MES" => new CrossGroupDef("FORMAT(O.EMISSAO, 'yyyy-MM') as Grupo", "FORMAT(O.EMISSAO, 'yyyy-MM')"),
+            _ => new CrossGroupDef("O.CLIENTE as Grupo", "O.CLIENTE")
+        };
 
     private static string Normalize(string? value, string fallback)
         => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
@@ -911,7 +948,7 @@ public class BudgetPlugin : IChatQueryPlugin
     );
 
     private record BudgetCrossFilters(
-        string DataInicioISO, string DataFimISO, string NumeroOrcamento, string Cliente, string Cnpj, string Uf, string Filial,
+        string DataInicioISO, string DataFimISO, string NumeroOrcamento, string Cliente, string Cnpj, string Uf, string Filial, string CodigoEmpresa,
         string Status, string Vendedor, string CodigoItem, string Item
     );
 }

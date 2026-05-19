@@ -133,6 +133,14 @@ app.UseAuthorization();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    // Optional: auto-apply EF migrations at startup.
+    // Enable via env var: Database__AutoMigrate=true
+    // This helps keep deploy environments in sync without manual dotnet-ef execution.
+    if (builder.Configuration.GetValue<bool>("Database:AutoMigrate"))
+    {
+        context.Database.Migrate();
+    }
     
     // Seed Super Admin if none exists
     if (!context.Users.Any(u => u.Role == IT4You.Domain.Entities.UserRole.SUPER_ADMIN))
