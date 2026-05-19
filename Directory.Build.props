@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <!--
+      Evita que pastas de build/experimentos (ex: obj2/bin2) virem "source files"
+      e causem erros de atributos duplicados (AssemblyInfo / TargetFramework).
+    -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj2\**;bin2\**;obj2/**;bin2/**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>
