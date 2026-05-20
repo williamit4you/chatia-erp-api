@@ -11,7 +11,7 @@ public class ChatModuleRouter
         if (string.IsNullOrWhiteSpace(text))
         {
             return new ChatModuleRouteResult(ChatModule.Indefinido, true,
-                "Sua pergunta ficou vazia. Voce quer consultar Financeiro (pagar/receber/bancos) ou Orcamento (orcamentos e itens)?");
+                "Sua pergunta ficou vazia. Você quer consultar Financeiro (pagar/receber/bancos) ou Orçamento (orçamentos e itens)?");
         }
 
         var isBudget = ContainsAny(text,
@@ -27,7 +27,7 @@ public class ChatModuleRouter
         if (isBudget && isFinance)
         {
             return new ChatModuleRouteResult(ChatModule.Indefinido, true,
-                "Sua pergunta mistura termos de Financeiro e Orcamento. Voce quer consultar Financeiro (pagar/receber/bancos) ou Orcamento (orcamentos e itens)?");
+                "Sua pergunta mistura termos de Financeiro e Orçamento. Você quer consultar Financeiro (pagar/receber/bancos) ou Orçamento (orçamentos e itens)?");
         }
 
         if (isBudget)
@@ -41,7 +41,7 @@ public class ChatModuleRouter
             return new ChatModuleRouteResult(previousModule.Value, false);
 
         return new ChatModuleRouteResult(ChatModule.Indefinido, true,
-            "Nao consegui identificar se sua pergunta e de Financeiro ou Orcamento. Voce quer consultar Financeiro (pagar/receber/bancos) ou Orcamento (orcamentos e itens)?");
+            "Não consegui identificar se sua pergunta é de Financeiro ou Orçamento. Você quer consultar Financeiro (pagar/receber/bancos) ou Orçamento (orçamentos e itens)?");
     }
 
     private static bool ContainsAny(string text, params string[] terms)
@@ -64,4 +64,3 @@ public class ChatModuleRouter
         return Regex.Replace(normalized, "\\s+", " ").Trim();
     }
 }
-

@@ -80,19 +80,19 @@ public class BudgetAgentFactory : IBudgetAgentFactory
         }
 
         var regrasDeBloqueio = hasBudgetChatAccess
-            ? "O usuario possui acesso ao modulo Orcamento. Execute consultas normalmente."
+            ? "O usuário possui acesso ao módulo Orçamento. Execute consultas normalmente."
             : """
-              - BLOQUEIO PRIORITARIO: O usuario NAO possui acesso ao modulo Orcamento.
-              - NUNCA execute ferramentas de Orcamento.
+              - BLOQUEIO PRIORITARIO: O usuário NÃO possui acesso ao módulo Orçamento.
+              - NUNCA execute ferramentas de Orçamento.
               - Responda APENAS a frase de bloqueio abaixo.
 
               Frase de bloqueio mandataria:
-              - ORCAMENTO NEGADO -> "Esse questionamento e somente para usuarios do modulo de orcamento"
+              - ORÇAMENTO NEGADO -> "Esse questionamento é somente para usuários do módulo de orçamento"
               """;
 
         var systemInstructions = $"""
             # PERFIL
-            Voce e um Analista Comercial/Orcamentos (IA) integrado ao ERP.
+            Voce e um Analista Comercial/Orçamentos (IA) integrado ao ERP.
             DATA ATUAL: {today}
 
             {ragKnowledge}
@@ -102,11 +102,11 @@ public class BudgetAgentFactory : IBudgetAgentFactory
             - FIDELIDADE: Relate exatamente os valores brutos retornados pelas ferramentas. Nao arredonde nem invente.
             - AGREGAÇÃO E CONTAGEM: Se o usuario perguntar "Quantos", "Qual a quantidade", "Qual o total", "Soma", "Valor total", voce DEVE usar agrupamento="TOTAL".
             - TOP N / MAIORES VALORES: Se o usuario pedir "top 10", "5 maiores", etc, use o parametro limite e ordenarPorMaiorValor=true.
-            - CHAVE DE RELACIONAMENTO: Para perguntas que cruzam orcamento + itens, use ConsultarOrcamentosComItens (relacao por CODEMPRESA + ORCAMENTO).
+            - CHAVE DE RELACIONAMENTO: Para perguntas que cruzam orçamento + itens, use ConsultarOrcamentosComItens (relacao por CODEMPRESA + ORCAMENTO).
 
             # 2. SEGURANCA E ACESSOS
             Permissao do usuario atual:
-            - Orcamento (Chat): {(hasBudgetChatAccess ? "PERMITIDO" : "NEGADO")}
+            - Orçamento (Chat): {(hasBudgetChatAccess ? "PERMITIDO" : "NEGADO")}
 
             REGRA DE BLOQUEIO:
             {regrasDeBloqueio}
@@ -139,4 +139,3 @@ public class BudgetAgentFactory : IBudgetAgentFactory
         return chatClient.AsAIAgent(agentOptions);
     }
 }
-

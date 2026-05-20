@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Dapper;
 using IT4You.Application.FinanceAnalytics.DTOs;
@@ -55,6 +56,23 @@ namespace IT4You.Infrastructure.Repositories
                 parameters.Add(endParam, endDate.Value);
             }
             return where;
+        }
+
+        private static string FixUtf8Mojibake(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return value;
+
+            // Heurística: só tenta corrigir quando há sinais clássicos de mojibake (UTF-8 lido como Latin-1).
+            if (!value.Contains('Ã') && !value.Contains('Â') && !value.Contains('â')) return value;
+
+            try
+            {
+                return Encoding.UTF8.GetString(Encoding.Latin1.GetBytes(value));
+            }
+            catch
+            {
+                return value;
+            }
         }
 
         public async Task<FinanceSummaryDto> GetSummaryAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
@@ -1116,6 +1134,14 @@ ORDER BY Valor DESC");
                 if (item.SqlQueries.Count > 0 || item.Rules.Count > 0)
                 {
                     result.Add(item);
+                }
+            }
+
+            foreach (var item in result)
+            {
+                for (var i = 0; i < item.Rules.Count; i++)
+                {
+                    item.Rules[i] = FixUtf8Mojibake(item.Rules[i]);
                 }
             }
 

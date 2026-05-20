@@ -174,19 +174,19 @@ namespace IT4You.Infrastructure.Repositories
             var conversionRate = totalCount > 0 ? (decimal)approvedCount / totalCount : 0m;
             var avgTicket = totalCount > 0 ? totalAmount / totalCount : 0m;
 
-            var items = new List<SalesBudgetKpiItemDto>
-            {
-                new() { KpiId = "kpi_total_budget_amount", Label = "Valor total orcado", Value = totalAmount, Format = "currency" },
-                new() { KpiId = "kpi_budget_count", Label = "Quantidade de orcamentos", Value = totalCount, Format = "number" },
-                new() { KpiId = "kpi_avg_ticket", Label = "Ticket medio", Value = avgTicket, Format = "currency" },
-                new() { KpiId = "kpi_open_amount", Label = "Valor em aberto", Value = openAmount, Format = "currency" },
-                new() { KpiId = "kpi_approved_amount", Label = "Valor aprovado", Value = approvedAmount, Format = "currency" },
-                new() { KpiId = "kpi_lost_amount", Label = "Valor perdido", Value = lostAmount, Format = "currency" },
-                new() { KpiId = "kpi_conversion_rate", Label = "Taxa de conversao", Value = conversionRate, Format = "percentage", Warning = "Depende do mapeamento atual de STATUS." },
-                new() { KpiId = "kpi_best_seller", Label = "Melhor vendedor", TextValue = bestSeller ?? "Sem dados", Format = "text" },
-                new() { KpiId = "kpi_best_customer", Label = "Melhor cliente", TextValue = bestCustomer ?? "Sem dados", Format = "text" },
-                new() { KpiId = "kpi_best_product", Label = "Melhor produto", TextValue = bestProduct ?? "Sem dados", Format = "text" },
-            };
+	            var items = new List<SalesBudgetKpiItemDto>
+	            {
+	                new() { KpiId = "kpi_total_budget_amount", Label = "Valor total orçado", Value = totalAmount, Format = "currency" },
+	                new() { KpiId = "kpi_budget_count", Label = "Quantidade de orçamentos", Value = totalCount, Format = "number" },
+	                new() { KpiId = "kpi_avg_ticket", Label = "Ticket médio", Value = avgTicket, Format = "currency" },
+	                new() { KpiId = "kpi_open_amount", Label = "Valor em aberto", Value = openAmount, Format = "currency" },
+	                new() { KpiId = "kpi_approved_amount", Label = "Valor aprovado", Value = approvedAmount, Format = "currency" },
+	                new() { KpiId = "kpi_lost_amount", Label = "Valor perdido", Value = lostAmount, Format = "currency" },
+	                new() { KpiId = "kpi_conversion_rate", Label = "Taxa de conversão", Value = conversionRate, Format = "percentage", Warning = "Depende do mapeamento atual de STATUS." },
+	                new() { KpiId = "kpi_best_seller", Label = "Melhor vendedor", TextValue = bestSeller ?? "Sem dados", Format = "text" },
+	                new() { KpiId = "kpi_best_customer", Label = "Melhor cliente", TextValue = bestCustomer ?? "Sem dados", Format = "text" },
+	                new() { KpiId = "kpi_best_product", Label = "Melhor produto", TextValue = bestProduct ?? "Sem dados", Format = "text" },
+	            };
 
             if (request?.KpiIds?.Count > 0)
             {
@@ -616,7 +616,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = "overview_avg_ticket",
-                Title = "Ticket medio dos orcamentos",
+                Title = "Ticket médio dos orçamentos",
                 Visualization = "kpi",
                 Data = new List<SalesBudgetChartPointDto>
                 {
@@ -659,7 +659,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = "overview_monthly_evolution",
-                Title = "Evolucao mensal de orcamentos",
+                Title = "Evolução mensal de orçamentos",
                 Visualization = "line",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -703,7 +703,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Evolucao semanal de orcamentos",
+                Title = "Evolução semanal de orçamentos",
                 Visualization = "line",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -746,7 +746,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Evolucao diaria de orcamentos",
+                Title = "Evolução diária de orçamentos",
                 Visualization = "line",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -807,17 +807,17 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Comparativo mes atual x mes anterior",
-                Visualization = "kpi_grid",
-                Data = new List<SalesBudgetChartPointDto>
-                {
-                    new() { Label = "Valor (mes atual)", Amount = current.TotalAmount },
-                    new() { Label = "Qtd orcamentos (mes atual)", Count = current.TotalCount },
-                    new() { Label = "Ticket medio (mes atual)", Amount = current.AvgTicket },
-                    new() { Label = "Valor (mes anterior)", Amount = previous.TotalAmount },
-                    new() { Label = "Qtd orcamentos (mes anterior)", Count = previous.TotalCount },
-                    new() { Label = "Ticket medio (mes anterior)", Amount = previous.AvgTicket },
-                },
+	                Title = "Comparativo mês atual x mês anterior",
+	                Visualization = "kpi_grid",
+	                Data = new List<SalesBudgetChartPointDto>
+	                {
+	                    new() { Label = "Valor (mês atual)", Amount = current.TotalAmount },
+	                    new() { Label = "Qtd. orçamentos (mês atual)", Count = current.TotalCount },
+	                    new() { Label = "Ticket médio (mês atual)", Amount = current.AvgTicket },
+	                    new() { Label = "Valor (mês anterior)", Amount = previous.TotalAmount },
+	                    new() { Label = "Qtd. orçamentos (mês anterior)", Count = previous.TotalCount },
+	                    new() { Label = "Ticket médio (mês anterior)", Amount = previous.AvgTicket },
+	                },
                 Totals = new Dictionary<string, decimal>
                 {
                     ["currentAmount"] = current.TotalAmount,
@@ -825,15 +825,15 @@ namespace IT4You.Infrastructure.Repositories
                     ["previousAmount"] = previous.TotalAmount,
                     ["previousCount"] = previous.TotalCount
                 },
-                Meta = new SalesBudgetChartMetaDto
-                {
-                    Warnings = new List<string>
-                    {
-                        "Comparativo MTD (mes atual ate a data final do filtro) vs periodo equivalente no mes anterior."
-                    }
-                }
-            };
-        }
+	                Meta = new SalesBudgetChartMetaDto
+	                {
+	                    Warnings = new List<string>
+	                    {
+	                        "Comparativo MTD (mês atual até a data final do filtro) vs período equivalente no mês anterior."
+	                    }
+	                }
+	            };
+	        }
 
         private async Task<SalesBudgetChartDatasetDto> BuildCurrentYearVsPreviousYearChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
         {
@@ -852,17 +852,17 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Comparativo ano atual x ano anterior",
-                Visualization = "kpi_grid",
-                Data = new List<SalesBudgetChartPointDto>
-                {
-                    new() { Label = "Valor (ano atual)", Amount = current.TotalAmount },
-                    new() { Label = "Qtd orcamentos (ano atual)", Count = current.TotalCount },
-                    new() { Label = "Ticket medio (ano atual)", Amount = current.AvgTicket },
-                    new() { Label = "Valor (ano anterior)", Amount = previous.TotalAmount },
-                    new() { Label = "Qtd orcamentos (ano anterior)", Count = previous.TotalCount },
-                    new() { Label = "Ticket medio (ano anterior)", Amount = previous.AvgTicket },
-                },
+	                Title = "Comparativo ano atual x ano anterior",
+	                Visualization = "kpi_grid",
+	                Data = new List<SalesBudgetChartPointDto>
+	                {
+	                    new() { Label = "Valor (ano atual)", Amount = current.TotalAmount },
+	                    new() { Label = "Qtd. orçamentos (ano atual)", Count = current.TotalCount },
+	                    new() { Label = "Ticket médio (ano atual)", Amount = current.AvgTicket },
+	                    new() { Label = "Valor (ano anterior)", Amount = previous.TotalAmount },
+	                    new() { Label = "Qtd. orçamentos (ano anterior)", Count = previous.TotalCount },
+	                    new() { Label = "Ticket médio (ano anterior)", Amount = previous.AvgTicket },
+	                },
                 Totals = new Dictionary<string, decimal>
                 {
                     ["currentAmount"] = current.TotalAmount,
@@ -870,15 +870,15 @@ namespace IT4You.Infrastructure.Repositories
                     ["previousAmount"] = previous.TotalAmount,
                     ["previousCount"] = previous.TotalCount
                 },
-                Meta = new SalesBudgetChartMetaDto
-                {
-                    Warnings = new List<string>
-                    {
-                        "Comparativo YTD (ano atual ate a data final do filtro) vs periodo equivalente no ano anterior."
-                    }
-                }
-            };
-        }
+	                Meta = new SalesBudgetChartMetaDto
+	                {
+	                    Warnings = new List<string>
+	                    {
+	                        "Comparativo YTD (ano atual até a data final do filtro) vs período equivalente no ano anterior."
+	                    }
+	                }
+	            };
+	        }
 
         private async Task<SalesBudgetChartDatasetDto> BuildTopDaysByVolumeChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId, int top = 10)
         {
@@ -909,7 +909,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Top dias com maior volume de orcamentos",
+                Title = "Top dias com maior volume de orçamentos",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -1013,7 +1013,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Sazonalidade de vendas/orcamentos por mes",
+                Title = "Sazonalidade de vendas/orçamentos por mês",
                 Visualization = "heatmap",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -1058,7 +1058,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Mapa de calor de orcamentos por mes e ano",
+                Title = "Mapa de calor de orçamentos por mês e ano",
                 Visualization = "heatmap",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["totalAmount"] = points.Sum(x => x.Amount ?? 0m) },
@@ -1281,7 +1281,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Taxa de perda/cancelamento de orcamentos",
+                Title = "Taxa de perda/cancelamento de orçamentos",
                 Visualization = "kpi",
                 Data = new List<SalesBudgetChartPointDto>
                 {
@@ -1338,7 +1338,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Evolucao da conversao ao longo do tempo",
+	                Title = "Evolução da conversão ao longo do tempo",
                 Visualization = "line",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -1347,10 +1347,10 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Conversao mensal aproximada com base no STATUS atual." }
-                }
-            };
-        }
+	                    Warnings = new List<string> { "Conversão mensal aproximada com base no STATUS atual." }
+	                }
+	            };
+	        }
 
         private async Task<SalesBudgetChartDatasetDto> BuildStatusParticipationChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId, int top = 15)
         {
@@ -1395,7 +1395,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Percentual de conversao por status",
+	                Title = "Percentual de conversão por status",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -1405,10 +1405,10 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Leitura inicial: percentual de participacao (por quantidade) em cada STATUS; o acumulado aparece no label." }
-                }
-            };
-        }
+	                    Warnings = new List<string> { "Leitura inicial: percentual de participação (por quantidade) em cada STATUS; o acumulado aparece no label." }
+	                }
+	            };
+	        }
 
         private async Task<SalesBudgetChartDatasetDto> BuildOpenApprovedLostChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
         {
@@ -1446,7 +1446,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Orcamentos em aberto x aprovados x perdidos",
+                Title = "Orçamentos em aberto x aprovados x perdidos",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -1570,16 +1570,16 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Clientes sem compra/orcamento recente",
+                Title = "Clientes sem compra/orçamento recente",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["customers"] = points.Count },
-                Meta = new SalesBudgetChartMetaDto
-                {
-                    Warnings = new List<string> { $"Recorte inicial: clientes sem orcamento nos ultimos {daysWithoutBudget} dias ate a data final do filtro." }
-                }
-            };
-        }
+	                Meta = new SalesBudgetChartMetaDto
+	                {
+	                    Warnings = new List<string> { $"Recorte inicial: clientes sem orçamento nos últimos {daysWithoutBudget} dias até a data final do filtro." }
+	                }
+	            };
+	        }
 
         private async Task<SalesBudgetChartDatasetDto> BuildLowConversionCustomersChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId, int minBudgets = 5, int top = 12)
         {
@@ -1620,7 +1620,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Clientes com baixa conversao",
+	                Title = "Clientes com baixa conversão",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -1630,10 +1630,10 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { $"Ordenado por menor conversao (minimo {minBudgets} orcamentos)." }
-                }
-            };
-        }
+	                    Warnings = new List<string> { $"Ordenado por menor conversão (mínimo {minBudgets} orçamentos)." }
+	                }
+	            };
+	        }
 
         private async Task<SalesBudgetChartDatasetDto> BuildDistinctCustomerCountByGroupChartAsync(
             IDbConnection connection,
@@ -2413,10 +2413,10 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { $"Aplica minimo de {minBudgets} orcamentos para evitar distorcao." }
-                }
-            };
-        }
+	                    Warnings = new List<string> { $"Aplica mínimo de {minBudgets} orçamentos para evitar distorção." }
+	                }
+	            };
+	        }
 
         private async Task<SalesBudgetChartDatasetDto> BuildTopCitiesTicketChartAsync(
             IDbConnection connection,
@@ -2471,10 +2471,10 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { $"Aplica minimo de {minBudgets} orcamentos por cidade." }
-                }
-            };
-        }
+	                    Warnings = new List<string> { $"Aplica mínimo de {minBudgets} orçamentos por cidade." }
+	                }
+	            };
+	        }
 
         private async Task<SalesBudgetChartDatasetDto> BuildRankingAvgMarkupBySellerChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId, int minBudgets = 5, int top = 12)
         {
@@ -3055,7 +3055,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Mix de produtos por orcamento",
+	                Title = "Mix de produtos por orçamento",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["budgets"] = points.Sum(x => x.Value ?? 0m) },
@@ -3152,16 +3152,16 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Relacao desconto x conversao",
+	                Title = "Relação desconto x conversão",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["avgConversion"] = points.Count > 0 ? points.Average(x => x.Value ?? 0m) : 0m },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Conversao aproximada por faixa de desconto." }
-                }
-            };
-        }
+	                    Warnings = new List<string> { "Conversão aproximada por faixa de desconto." }
+	                }
+	            };
+	        }
 
         private async Task<SalesBudgetChartDatasetDto> BuildSinglePercentKpiChartAsync(
             IDbConnection connection,
@@ -3283,10 +3283,10 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["items"] = points.Count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Value=valor do desconto; Count=valor total do orcamento; percentual aproximado no label." }
-                }
-            };
-        }
+	                    Warnings = new List<string> { "Value=valor do desconto; Count=valor total do orçamento; percentual aproximado no label." }
+	                }
+	            };
+	        }
 
         private async Task<SalesBudgetChartDatasetDto> BuildAboveAvgDiscountBudgetsChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId, int top = 10)
         {
@@ -3387,10 +3387,10 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["items"] = points.Count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Versao inicial: Value=desconto medio (%). Count=conversao aproximada (0-1)." }
-                }
-            };
-        }
+	                    Warnings = new List<string> { "Versão inicial: Value=desconto médio (%). Count=conversão aproximada (0-1)." }
+	                }
+	            };
+	        }
 
         private async Task<SalesBudgetChartDatasetDto> BuildGrossVsNetChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
         {
@@ -3481,7 +3481,7 @@ namespace IT4You.Infrastructure.Repositories
                 .ThenBy(x => x.Value ?? 0m)
                 .Take(top)
                 .ToList();
-            baseChart.Meta.Warnings.Add("Priorizado por maior volume e menor conversao.");
+            baseChart.Meta.Warnings.Add("Priorizado por maior volume e menor conversão.");
             return baseChart;
         }
 
@@ -3542,10 +3542,10 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Versao inicial: considera 'baixo volume' como abaixo (ou igual) a media de orcamentos por origem no periodo." }
-                }
-            };
-        }
+	                    Warnings = new List<string> { "Versão inicial: considera 'baixo volume' como abaixo (ou igual) à média de orçamentos por origem no período." }
+	                }
+	            };
+	        }
 
         private async Task<SalesBudgetChartDatasetDto> BuildApprovedAmountByGroupChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId, string title, string groupColumn, string labelAlias, int top = 10)
         {
@@ -3638,12 +3638,12 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Frete medio por orcamento",
+	                Title = "Frete médio por orçamento",
                 Visualization = "kpi",
                 Data = new List<SalesBudgetChartPointDto>
                 {
-                    new() { Label = "Frete medio", Value = avgFreight, Amount = avgFreight }
-                },
+	                    new() { Label = "Frete médio", Value = avgFreight, Amount = avgFreight }
+	                },
                 Totals = new Dictionary<string, decimal>
                 {
                     ["totalFreight"] = totalFrete,
@@ -3695,13 +3695,13 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["items"] = points.Count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Count=valor total do orcamento." }
-                }
-            };
-        }
+	                    Warnings = new List<string> { "Count=valor total do orçamento." }
+	                }
+	            };
+	        }
 
-        private async Task<SalesBudgetChartDatasetDto> BuildConversionByFreightTypeChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
-            => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Relacao frete x conversao", "TIPOFRETE", "Tipo de frete");
+	        private async Task<SalesBudgetChartDatasetDto> BuildConversionByFreightTypeChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
+	            => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Relação frete x conversão", "TIPOFRETE", "Tipo de frete");
 
         private async Task<SalesBudgetChartDatasetDto> BuildExecutiveDashboardChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
         {
@@ -3958,10 +3958,10 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["customers"] = points.Count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Heuristica inicial: clientes com historico e sem orcamento recente nos ultimos 30 dias." }
-                }
-            };
-        }
+	                    Warnings = new List<string> { "Heurística inicial: clientes com histórico e sem orçamento recente nos últimos 30 dias." }
+	                }
+	            };
+	        }
 
         private async Task<SalesBudgetChartDatasetDto> BuildMonthlyAmountSeriesChartAsync(
             IDbConnection connection,
@@ -4163,11 +4163,11 @@ namespace IT4You.Infrastructure.Repositories
                 {
                     Warnings = new List<string>
                     {
-                        "Versao inicial: ordena por score=TotalValor*(0.5+Conversao) e mostra barras por TotalValor. Percentage=conversao (0-1)."
-                    }
-                }
-            };
-        }
+	                        "Versão inicial: ordena por score=TotalValor*(0.5+Conversao) e mostra barras por TotalValor. Percentage=conversão (0-1)."
+	                    }
+	                }
+	            };
+	        }
 
         private async Task<SalesBudgetChartDatasetDto> BuildStrategicRankingByItemChartAsync(
             IDbConnection connection,
@@ -4234,11 +4234,11 @@ namespace IT4You.Infrastructure.Repositories
                 {
                     Warnings = new List<string>
                     {
-                        "Versao inicial: ordena por score=TotalValor*(0.5+Conversao) e mostra barras por TotalValor. Percentage=conversao (0-1)."
-                    }
-                }
-            };
-        }
+	                        "Versão inicial: ordena por score=TotalValor*(0.5+Conversao) e mostra barras por TotalValor. Percentage=conversão (0-1)."
+	                    }
+	                }
+	            };
+	        }
 
         private async Task<SalesBudgetChartDatasetDto> BuildSalesDropAlertsChartAsync(
             IDbConnection connection,
@@ -4367,16 +4367,16 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Clientes com maior chance de conversao",
+	                Title = "Clientes com maior chance de conversão",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["customers"] = points.Count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Versao inicial: barras por valor em aberto; Percentage=conversao historica (0-1) no periodo; requer mapeamento de STATUS." }
-                }
-            };
-        }
+	                    Warnings = new List<string> { "Versão inicial: barras por valor em aberto; Percentage=conversão histórica (0-1) no período; requer mapeamento de STATUS." }
+	                }
+	            };
+	        }
 
         private async Task<SalesBudgetChartDatasetDto> BuildCustomersStoppedQuotingChartAsync(
             IDbConnection connection,
@@ -4740,10 +4740,10 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["customers"] = points.Count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Value=desconto medio (pontos percentuais, 0-100). Percentage=conversao (0-1)." }
-                }
-            };
-        }
+	                    Warnings = new List<string> { "Value=desconto médio (pontos percentuais, 0-100). Percentage=conversão (0-1)." }
+	                }
+	            };
+	        }
 
         private async Task<SalesBudgetChartDatasetDto> BuildLowDiscountCustomersChartAsync(
             IDbConnection connection,
@@ -5296,10 +5296,10 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["budgets"] = count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Value exibido em moeda no modo kpi_text; representa quantidade de orcamentos (heuristica de exibicao)." }
-                }
-            };
-        }
+	                    Warnings = new List<string> { "Value exibido em moeda no modo kpi_text; representa quantidade de orçamentos (heurística de exibição)." }
+	                }
+	            };
+	        }
 
         private async Task<SalesBudgetChartDatasetDto> BuildHighestPotentialCustomerKpiChartAsync(
             IDbConnection connection,
@@ -5347,10 +5347,10 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["openAmount"] = openAmount },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Versao inicial: escolhe o cliente com maior valor em aberto. Percentage=conversao (0-1). Depende do mapeamento de STATUS." }
-                }
-            };
-        }
+	                    Warnings = new List<string> { "Versão inicial: escolhe o cliente com maior valor em aberto. Percentage=conversão (0-1). Depende do mapeamento de STATUS." }
+	                }
+	            };
+	        }
 
         private async Task<SalesBudgetChartDatasetDto> BuildHighestDeltaByGroupKpiChartAsync(
             IDbConnection connection,

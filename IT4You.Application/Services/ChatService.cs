@@ -146,7 +146,7 @@ public class ChatService : IChatService
                     // ================================
                     if (route.NeedsClarification)
                     {
-                        var clarificationReply = route.ClarificationPrompt ?? "Voce quer consultar Financeiro ou Orcamento?";
+                        var clarificationReply = route.ClarificationPrompt ?? "Você quer consultar Financeiro ou Orçamento?";
 
                         var clarificationMsg = new IT4You.Domain.Entities.ChatMessage
                         {
@@ -168,7 +168,7 @@ public class ChatService : IChatService
 
                     if (route.Module == ChatModule.Orcamento && !(isFullAdmin || (user?.HasBudgetChatAccess ?? false)))
                     {
-                        const string blockedReply = "Esse questionamento e somente para usuarios do modulo de orcamento";
+                        const string blockedReply = "Esse questionamento é somente para usuários do módulo de orçamento";
 
                         var blockedMsg = new IT4You.Domain.Entities.ChatMessage
                         {
