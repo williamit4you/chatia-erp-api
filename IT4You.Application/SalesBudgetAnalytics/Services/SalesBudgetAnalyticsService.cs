@@ -55,7 +55,6 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     PlannedCount = 15,
                     AvailableNowCount = 7,
                     NeedsNewViewCount = 0,
-                    NeedsMappingCount = 8,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
                         new() { Id = "funnel_by_status", Title = "Funil por status do orçamento", Availability = "available_now" },
@@ -83,7 +82,6 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     PlannedCount = 20,
                     AvailableNowCount = 17,
                     NeedsNewViewCount = 0,
-                    NeedsMappingCount = 3,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
                         new() { Id = "seller_total_amount", Title = "Valor total orçado por vendedor", Availability = "available_now" },
@@ -116,7 +114,6 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     PlannedCount = 20,
                     AvailableNowCount = 18,
                     NeedsNewViewCount = 0,
-                    NeedsMappingCount = 2,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
                         new() { Id = "customer_top_amount", Title = "Top clientes por valor orçado", Availability = "available_now" },
@@ -186,7 +183,6 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     PlannedCount = 25,
                     AvailableNowCount = 24,
                     NeedsNewViewCount = 0,
-                    NeedsMappingCount = 1,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
                         new() { Id = "margin_total_discount", Title = "Valor total de descontos concedidos", Availability = "available_now" },
@@ -224,7 +220,6 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     PlannedCount = 15,
                     AvailableNowCount = 13,
                     NeedsNewViewCount = 0,
-                    NeedsMappingCount = 2,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
                         new() { Id = "source_total_amount", Title = "Valor total por origem", Availability = "available_now" },
@@ -252,7 +247,6 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     PlannedCount = 17,
                     AvailableNowCount = 16,
                     NeedsNewViewCount = 0,
-                    NeedsMappingCount = 1,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
                         new() { Id = "geo_amount_by_uf", Title = "Valor total por UF", Availability = "available_now" },
@@ -282,7 +276,6 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     PlannedCount = 12,
                     AvailableNowCount = 10,
                     NeedsNewViewCount = 0,
-                    NeedsMappingCount = 2,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
                         new() { Id = "payment_total_amount", Title = "Valor total por condição de pagamento", Availability = "available_now" },
@@ -307,7 +300,6 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     PlannedCount = 11,
                     AvailableNowCount = 10,
                     NeedsNewViewCount = 0,
-                    NeedsMappingCount = 1,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
                         new() { Id = "freight_total_amount", Title = "Valor total de frete", Availability = "available_now" },
@@ -437,7 +429,6 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     PlannedCount = 25,
                     AvailableNowCount = 22,
                     NeedsNewViewCount = 0,
-                    NeedsMappingCount = 3,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
                         new() { Id = "kpi_total_budget_amount", Title = "Valor total orçado", Availability = "available_now" },
