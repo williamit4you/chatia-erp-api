@@ -253,9 +253,17 @@ namespace IT4You.Infrastructure.Repositories
                 "overview_total_count_period" => await BuildSingleValueChartAsync(connection, filters, chartId, "Quantidade de orcamentos por periodo", "kpi", $"SELECT {DistinctBudgetCountSql()} AS Valor FROM VW_SWIA_ORCAMENTO {{0}}", "Quantidade"),
                 "overview_avg_ticket" => await BuildAverageTicketChartAsync(connection, filters),
                 "overview_monthly_evolution" => await BuildMonthlyEvolutionChartAsync(connection, filters),
+                "overview_weekly_evolution" => await BuildWeeklyEvolutionChartAsync(connection, filters, chartId),
+                "overview_daily_evolution" => await BuildDailyEvolutionChartAsync(connection, filters, chartId),
+                "overview_current_vs_previous_month" => await BuildCurrentVsPreviousMonthChartAsync(connection, filters, chartId),
+                "overview_current_year_vs_previous_year" => await BuildCurrentYearVsPreviousYearChartAsync(connection, filters, chartId),
+                "overview_top_days_by_volume" => await BuildTopDaysByVolumeChartAsync(connection, filters, chartId),
+                "overview_top_months_by_amount" => await BuildTopMonthsByAmountChartAsync(connection, filters, chartId),
+                "overview_month_seasonality" => await BuildMonthSeasonalityChartAsync(connection, filters, chartId),
                 "overview_amount_by_company" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Valor total por empresa/filial", "bar", "EMPRESA", "Empresa", "SUM(VALORTOTAL)", "currency"),
                 "overview_count_by_company" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Quantidade de orcamentos por empresa/filial", "bar", "EMPRESA", "Empresa", DistinctBudgetCountSql(), "number"),
                 "overview_weekday_heatmap" => await BuildWeekdayHeatmapChartAsync(connection, filters),
+                "overview_month_year_heatmap" => await BuildMonthYearHeatmapChartAsync(connection, filters, chartId),
 
                 "funnel_by_status" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Funil por status do orcamento", "bar", "STATUS", "Status", "SUM(VALORTOTAL)", "currency"),
                 "funnel_approval_rate" => await BuildConversionKpiChartAsync(connection, filters, chartId, "Taxa de aprovacao de orcamentos"),
@@ -429,6 +437,401 @@ namespace IT4You.Infrastructure.Repositories
                     ["totalAmount"] = points.Sum(x => x.Amount ?? 0m),
                     ["totalCount"] = points.Sum(x => x.Count ?? 0m)
                 },
+                Meta = new SalesBudgetChartMetaDto()
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildWeeklyEvolutionChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+
+            var sql = $@"
+                SELECT
+                    YEAR(EMISSAO) AS Ano,
+                    DATEPART(ISO_WEEK, EMISSAO) AS Semana,
+                    CONCAT(CAST(YEAR(EMISSAO) AS VARCHAR(4)), '-W', RIGHT('00' + CAST(DATEPART(ISO_WEEK, EMISSAO) AS VARCHAR(2)), 2)) AS SemanaAno,
+                    ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
+                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                FROM VW_SWIA_ORCAMENTO
+                {where}
+                GROUP BY YEAR(EMISSAO), DATEPART(ISO_WEEK, EMISSAO)
+                ORDER BY YEAR(EMISSAO), DATEPART(ISO_WEEK, EMISSAO)";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row => new SalesBudgetChartPointDto
+            {
+                Label = SafeToString(row, "SemanaAno") ?? "-",
+                Date = SafeToString(row, "SemanaAno"),
+                Amount = SafeToDecimal(row, "TotalValor"),
+                Count = SafeToDecimal(row, "TotalOrcamentos"),
+                Value = SafeToDecimal(row, "TotalValor")
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Evolucao semanal de orcamentos",
+                Visualization = "line",
+                Data = points,
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["totalAmount"] = points.Sum(x => x.Amount ?? 0m),
+                    ["totalCount"] = points.Sum(x => x.Count ?? 0m)
+                },
+                Meta = new SalesBudgetChartMetaDto()
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildDailyEvolutionChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+
+            var sql = $@"
+                SELECT
+                    CONVERT(date, EMISSAO) AS Dia,
+                    CONVERT(VARCHAR(10), CONVERT(date, EMISSAO), 103) AS DiaLabel,
+                    ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
+                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                FROM VW_SWIA_ORCAMENTO
+                {where}
+                GROUP BY CONVERT(date, EMISSAO)
+                ORDER BY CONVERT(date, EMISSAO)";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row => new SalesBudgetChartPointDto
+            {
+                Label = SafeToString(row, "DiaLabel") ?? "-",
+                Date = SafeToString(row, "DiaLabel"),
+                Amount = SafeToDecimal(row, "TotalValor"),
+                Count = SafeToDecimal(row, "TotalOrcamentos"),
+                Value = SafeToDecimal(row, "TotalValor")
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Evolucao diaria de orcamentos",
+                Visualization = "line",
+                Data = points,
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["totalAmount"] = points.Sum(x => x.Amount ?? 0m),
+                    ["totalCount"] = points.Sum(x => x.Count ?? 0m)
+                },
+                Meta = new SalesBudgetChartMetaDto()
+            };
+        }
+
+        private sealed record PeriodTotals(decimal TotalAmount, int TotalCount)
+        {
+            public decimal AvgTicket => TotalCount > 0 ? TotalAmount / TotalCount : 0m;
+        }
+
+        private async Task<PeriodTotals> QueryPeriodTotalsAsync(IDbConnection connection, DateTime startDate, DateTime endDate)
+        {
+            var sql = $@"
+                SELECT
+                    ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
+                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                FROM VW_SWIA_ORCAMENTO
+                WHERE EMISSAO >= @StartDate AND EMISSAO <= @EndDate";
+
+            var row = await connection.QuerySingleAsync(sql, new
+            {
+                StartDate = startDate.Date,
+                EndDate = endDate.Date
+            });
+
+            var totalAmount = SafeToDecimal(row, "TotalValor");
+            var totalCount = Convert.ToInt32(SafeToDecimal(row, "TotalOrcamentos"));
+            return new PeriodTotals(totalAmount, totalCount);
+        }
+
+        private static DateTime ClampDate(DateTime value, DateTime min, DateTime max)
+        {
+            if (value < min) return min;
+            if (value > max) return max;
+            return value;
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildCurrentVsPreviousMonthChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
+        {
+            var referenceEnd = (filters.EndDate?.Date ?? DateTime.Today.Date);
+            var currentStart = new DateTime(referenceEnd.Year, referenceEnd.Month, 1);
+            var offsetDays = (referenceEnd - currentStart).Days;
+
+            var previousStart = currentStart.AddMonths(-1);
+            var previousMonthEnd = previousStart.AddMonths(1).AddDays(-1);
+            var previousEndCandidate = previousStart.AddDays(offsetDays);
+            var previousEnd = ClampDate(previousEndCandidate, previousStart, previousMonthEnd);
+
+            var current = await QueryPeriodTotalsAsync(connection, currentStart, referenceEnd);
+            var previous = await QueryPeriodTotalsAsync(connection, previousStart, previousEnd);
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Comparativo mes atual x mes anterior",
+                Visualization = "kpi_grid",
+                Data = new List<SalesBudgetChartPointDto>
+                {
+                    new() { Label = "Valor (mes atual)", Amount = current.TotalAmount },
+                    new() { Label = "Qtd orcamentos (mes atual)", Count = current.TotalCount },
+                    new() { Label = "Ticket medio (mes atual)", Amount = current.AvgTicket },
+                    new() { Label = "Valor (mes anterior)", Amount = previous.TotalAmount },
+                    new() { Label = "Qtd orcamentos (mes anterior)", Count = previous.TotalCount },
+                    new() { Label = "Ticket medio (mes anterior)", Amount = previous.AvgTicket },
+                },
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["currentAmount"] = current.TotalAmount,
+                    ["currentCount"] = current.TotalCount,
+                    ["previousAmount"] = previous.TotalAmount,
+                    ["previousCount"] = previous.TotalCount
+                },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Warnings = new List<string>
+                    {
+                        "Comparativo MTD (mes atual ate a data final do filtro) vs periodo equivalente no mes anterior."
+                    }
+                }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildCurrentYearVsPreviousYearChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
+        {
+            var referenceEnd = (filters.EndDate?.Date ?? DateTime.Today.Date);
+            var currentStart = new DateTime(referenceEnd.Year, 1, 1);
+            var offsetDays = (referenceEnd - currentStart).Days;
+
+            var previousStart = currentStart.AddYears(-1);
+            var previousYearEnd = new DateTime(previousStart.Year, 12, 31);
+            var previousEndCandidate = previousStart.AddDays(offsetDays);
+            var previousEnd = ClampDate(previousEndCandidate, previousStart, previousYearEnd);
+
+            var current = await QueryPeriodTotalsAsync(connection, currentStart, referenceEnd);
+            var previous = await QueryPeriodTotalsAsync(connection, previousStart, previousEnd);
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Comparativo ano atual x ano anterior",
+                Visualization = "kpi_grid",
+                Data = new List<SalesBudgetChartPointDto>
+                {
+                    new() { Label = "Valor (ano atual)", Amount = current.TotalAmount },
+                    new() { Label = "Qtd orcamentos (ano atual)", Count = current.TotalCount },
+                    new() { Label = "Ticket medio (ano atual)", Amount = current.AvgTicket },
+                    new() { Label = "Valor (ano anterior)", Amount = previous.TotalAmount },
+                    new() { Label = "Qtd orcamentos (ano anterior)", Count = previous.TotalCount },
+                    new() { Label = "Ticket medio (ano anterior)", Amount = previous.AvgTicket },
+                },
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["currentAmount"] = current.TotalAmount,
+                    ["currentCount"] = current.TotalCount,
+                    ["previousAmount"] = previous.TotalAmount,
+                    ["previousCount"] = previous.TotalCount
+                },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Warnings = new List<string>
+                    {
+                        "Comparativo YTD (ano atual ate a data final do filtro) vs periodo equivalente no ano anterior."
+                    }
+                }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildTopDaysByVolumeChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId, int top = 10)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+
+            var sql = $@"
+                SELECT TOP {top}
+                    CONVERT(VARCHAR(10), CONVERT(date, EMISSAO), 103) AS DiaLabel,
+                    ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
+                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                FROM VW_SWIA_ORCAMENTO
+                {where}
+                GROUP BY CONVERT(date, EMISSAO)
+                ORDER BY TotalOrcamentos DESC, TotalValor DESC";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row => new SalesBudgetChartPointDto
+            {
+                Label = SafeToString(row, "DiaLabel") ?? "-",
+                Amount = SafeToDecimal(row, "TotalValor"),
+                Value = SafeToDecimal(row, "TotalValor"),
+                Count = SafeToDecimal(row, "TotalOrcamentos")
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Top dias com maior volume de orcamentos",
+                Visualization = "bar",
+                Data = points,
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["totalAmount"] = points.Sum(x => x.Amount ?? 0m),
+                    ["totalCount"] = points.Sum(x => x.Count ?? 0m)
+                },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Warnings = new List<string> { "Ordenado por quantidade (desempate por valor)." }
+                }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildTopMonthsByAmountChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId, int top = 10)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+
+            var sql = $@"
+                SELECT TOP {top}
+                    YEAR(EMISSAO) AS Ano,
+                    MONTH(EMISSAO) AS Mes,
+                    CONCAT(RIGHT('00' + CAST(MONTH(EMISSAO) AS VARCHAR(2)), 2), '/', CAST(YEAR(EMISSAO) AS VARCHAR(4))) AS MesAno,
+                    ISNULL(SUM(VALORTOTAL), 0) AS TotalValor
+                FROM VW_SWIA_ORCAMENTO
+                {where}
+                GROUP BY YEAR(EMISSAO), MONTH(EMISSAO)
+                ORDER BY TotalValor DESC";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row => new SalesBudgetChartPointDto
+            {
+                Label = SafeToString(row, "MesAno") ?? "-",
+                Amount = SafeToDecimal(row, "TotalValor"),
+                Value = SafeToDecimal(row, "TotalValor")
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Top meses com maior valor orcado",
+                Visualization = "bar",
+                Data = points,
+                Totals = new Dictionary<string, decimal> { ["totalAmount"] = points.Sum(x => x.Amount ?? 0m) },
+                Meta = new SalesBudgetChartMetaDto()
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildMonthSeasonalityChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+
+            var sql = $@"
+                SELECT
+                    MONTH(EMISSAO) AS MesNumero,
+                    ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
+                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                FROM VW_SWIA_ORCAMENTO
+                {where}
+                GROUP BY MONTH(EMISSAO)
+                ORDER BY MONTH(EMISSAO)";
+
+            var monthMap = new Dictionary<int, string>
+            {
+                [1] = "Jan",
+                [2] = "Fev",
+                [3] = "Mar",
+                [4] = "Abr",
+                [5] = "Mai",
+                [6] = "Jun",
+                [7] = "Jul",
+                [8] = "Ago",
+                [9] = "Set",
+                [10] = "Out",
+                [11] = "Nov",
+                [12] = "Dez"
+            };
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row =>
+            {
+                var monthNumber = Convert.ToInt32(SafeToDecimal(row, "MesNumero"));
+                var label = monthMap.TryGetValue(monthNumber, out string shortLabel) ? shortLabel : monthNumber.ToString();
+                var totalAmount = SafeToDecimal(row, "TotalValor");
+                var totalCount = SafeToDecimal(row, "TotalOrcamentos");
+                return new SalesBudgetChartPointDto
+                {
+                    Label = label,
+                    Value = totalAmount,
+                    Amount = totalAmount,
+                    Count = totalCount
+                };
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Sazonalidade de vendas/orcamentos por mes",
+                Visualization = "heatmap",
+                Data = points,
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["totalAmount"] = points.Sum(x => x.Amount.GetValueOrDefault()),
+                    ["totalCount"] = points.Sum(x => x.Count.GetValueOrDefault())
+                },
+                Meta = new SalesBudgetChartMetaDto()
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildMonthYearHeatmapChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+
+            var sql = $@"
+                SELECT
+                    YEAR(EMISSAO) AS Ano,
+                    MONTH(EMISSAO) AS Mes,
+                    CONCAT(RIGHT('00' + CAST(MONTH(EMISSAO) AS VARCHAR(2)), 2), '/', CAST(YEAR(EMISSAO) AS VARCHAR(4))) AS MesAno,
+                    ISNULL(SUM(VALORTOTAL), 0) AS TotalValor
+                FROM VW_SWIA_ORCAMENTO
+                {where}
+                GROUP BY YEAR(EMISSAO), MONTH(EMISSAO)
+                ORDER BY YEAR(EMISSAO), MONTH(EMISSAO)";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row =>
+            {
+                var total = SafeToDecimal(row, "TotalValor");
+                return new SalesBudgetChartPointDto
+                {
+                    Label = SafeToString(row, "MesAno") ?? "-",
+                    Value = total,
+                    Amount = total
+                };
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Mapa de calor de orcamentos por mes e ano",
+                Visualization = "heatmap",
+                Data = points,
+                Totals = new Dictionary<string, decimal> { ["totalAmount"] = points.Sum(x => x.Amount ?? 0m) },
                 Meta = new SalesBudgetChartMetaDto()
             };
         }
