@@ -266,14 +266,41 @@ namespace IT4You.Infrastructure.Repositories
                 "overview_month_year_heatmap" => await BuildMonthYearHeatmapChartAsync(connection, filters, chartId),
 
                 "funnel_by_status" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Funil por status do orcamento", "bar", "STATUS", "Status", "SUM(VALORTOTAL)", "currency"),
+                "funnel_amount_by_status" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Valor total por status", "bar", "STATUS", "Status", "SUM(VALORTOTAL)", "currency"),
+                "funnel_count_by_status" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Quantidade de orcamentos por status", "bar", "STATUS", "Status", DistinctBudgetCountSql(), "number", null, 15),
+                "funnel_conversion_percent_by_status" => await BuildStatusParticipationChartAsync(connection, filters, chartId),
+                "funnel_open_approved_lost" => await BuildOpenApprovedLostChartAsync(connection, filters, chartId),
+                "funnel_pending_amount" => await BuildOpenPipelineLikeChartAsync(connection, filters, chartId, "Valor parado em orcamentos pendentes"),
                 "funnel_approval_rate" => await BuildConversionKpiChartAsync(connection, filters, chartId, "Taxa de aprovacao de orcamentos"),
+                "funnel_loss_cancel_rate" => await BuildLostCancelRateChartAsync(connection, filters, chartId),
+                "funnel_conversion_evolution" => await BuildConversionEvolutionChartAsync(connection, filters, chartId),
                 "funnel_conversion_by_seller" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Conversao por vendedor", "VENDEDOR", "Vendedor"),
+                "funnel_conversion_by_customer" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Conversao por cliente", "CLIENTE", "Cliente"),
+                "funnel_conversion_by_origin" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Conversao por origem", "ORIGEM", "Origem"),
+                "funnel_conversion_by_geo" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Conversao por UF", "UF", "UF"),
+                "funnel_conversion_by_payment" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Conversao por condicao de pagamento", "CONDPAG", "Condicao"),
                 "funnel_blocking_status_ranking" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Ranking de status que mais travam vendas", "bar", "STATUS", "Status", "SUM(VALORTOTAL)", "currency", OpenStatusCondition()),
 
                 "seller_total_amount" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Valor total orcado por vendedor", "bar", "VENDEDOR", "Vendedor", "SUM(VALORTOTAL)", "currency"),
+                "seller_total_count" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Quantidade de orcamentos por vendedor", "bar", "VENDEDOR", "Vendedor", DistinctBudgetCountSql(), "number"),
+                "seller_avg_ticket" => await BuildAverageTicketByGroupChartAsync(connection, filters, chartId, "Ticket medio por vendedor", "VENDEDOR", "Vendedor"),
                 "seller_conversion" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Conversao por vendedor", "VENDEDOR", "Vendedor"),
+                "seller_avg_discount" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "Desconto medio concedido por vendedor", "VENDEDOR", "Vendedor", "PERCENTUALDESCONTO", "VALORDESCONTO"),
+                "seller_avg_markup" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Markup medio por vendedor", "bar", "VENDEDOR", "Vendedor", "AVG(MARKUP)", "number"),
+                "seller_avg_surcharge" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "Acrescimo medio por vendedor", "VENDEDOR", "Vendedor", "PERCENTUALACRESCIMO", "VALORACRESCIMO"),
+                "seller_avg_freight" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Valor de frete medio por vendedor", "bar", "VENDEDOR", "Vendedor", "AVG(VALORFRETE)", "currency"),
+                "seller_ranking_amount" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Ranking de vendedores por valor total", "bar", "VENDEDOR", "Vendedor", "SUM(VALORTOTAL)", "currency", null, 12),
+                "seller_ranking_count" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Ranking de vendedores por quantidade", "bar", "VENDEDOR", "Vendedor", DistinctBudgetCountSql(), "number", null, 12),
+                "seller_ranking_ticket" => await BuildRankingAvgTicketBySellerChartAsync(connection, filters, chartId),
+                "seller_ranking_markup" => await BuildRankingAvgMarkupBySellerChartAsync(connection, filters, chartId),
+                "seller_most_lost" => await BuildStatusCountAmountByGroupChartAsync(connection, filters, chartId, "Vendedores com mais orcamentos perdidos", "VENDEDOR", "Vendedor", LostStatusCondition(), 12),
+                "seller_most_approved" => await BuildStatusCountAmountByGroupChartAsync(connection, filters, chartId, "Vendedores com mais orcamentos aprovados", "VENDEDOR", "Vendedor", ApprovedStatusCondition(), 12),
+                "seller_monthly_evolution" => await BuildMonthlyEvolutionByGroupChartAsync(connection, filters, chartId, "Evolucao mensal por vendedor", "VENDEDOR", 5),
+                "seller_comparison" => await BuildSellerComparisonChartAsync(connection, filters, chartId, 8),
+                "seller_share_total" => await BuildShareByGroupChartAsync(connection, filters, chartId, "Participacao de cada vendedor no total", "VENDEDOR", "Vendedor", 12),
                 "seller_abc_curve" => await BuildAbcChartAsync(connection, filters, chartId, "Curva ABC de vendedores", "VENDEDOR", "Vendedor"),
                 "seller_top_product" => await BuildTopCrossChartAsync(connection, filters, chartId, "Vendedor x produto mais orcado", "O.VENDEDOR", "Vendedor", "I.ITEM", "Produto"),
+                "seller_top_customer" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Vendedor x cliente mais atendido", "VENDEDOR", "Vendedor", "CLIENTE", "Cliente"),
 
                 "customer_top_amount" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Top clientes por valor orcado", "bar", "CLIENTE", "Cliente", "SUM(VALORTOTAL)", "currency"),
                 "customer_recurring" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Clientes recorrentes", "bar", "CLIENTE", "Cliente", DistinctBudgetCountSql(), "number"),
@@ -1035,6 +1062,232 @@ namespace IT4You.Infrastructure.Repositories
             };
         }
 
+        private async Task<SalesBudgetChartDatasetDto> BuildLostCancelRateChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+            var totalSql = $"SELECT {DistinctBudgetCountSql()} AS Valor FROM VW_SWIA_ORCAMENTO {where}";
+            var lostSql = $"SELECT {DistinctBudgetCountSql()} AS Valor FROM VW_SWIA_ORCAMENTO {AppendCondition(where, LostStatusCondition())}";
+
+            var total = await connection.ExecuteScalarAsync<int>(totalSql, parameters);
+            var lost = await connection.ExecuteScalarAsync<int>(lostSql, parameters);
+            var ratio = total > 0 ? (decimal)lost / total : 0m;
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Taxa de perda/cancelamento de orcamentos",
+                Visualization = "kpi",
+                Data = new List<SalesBudgetChartPointDto>
+                {
+                    new() { Label = "Perdas", Value = ratio, Percentage = ratio }
+                },
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["lost"] = lost,
+                    ["total"] = total,
+                    ["lostRate"] = ratio
+                },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Warnings = new List<string> { "A taxa depende do mapeamento atual de STATUS." }
+                }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildConversionEvolutionChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+
+            var sql = $@"
+                SELECT
+                    YEAR(EMISSAO) AS Ano,
+                    MONTH(EMISSAO) AS Mes,
+                    CONCAT(RIGHT('00' + CAST(MONTH(EMISSAO) AS VARCHAR(2)), 2), '/', CAST(YEAR(EMISSAO) AS VARCHAR(4))) AS MesAno,
+                    {DistinctBudgetCountSql()} AS TotalOrcamentos,
+                    SUM(CASE WHEN {ApprovedStatusCondition()} THEN 1 ELSE 0 END) AS Aprovados
+                FROM VW_SWIA_ORCAMENTO
+                {where}
+                GROUP BY YEAR(EMISSAO), MONTH(EMISSAO)
+                ORDER BY YEAR(EMISSAO), MONTH(EMISSAO)";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row =>
+            {
+                var total = SafeToDecimal(row, "TotalOrcamentos");
+                var approved = SafeToDecimal(row, "Aprovados");
+                var ratio = total > 0 ? approved / total : 0m;
+                return new SalesBudgetChartPointDto
+                {
+                    Label = SafeToString(row, "MesAno") ?? "-",
+                    Date = SafeToString(row, "MesAno"),
+                    Value = ratio,
+                    Percentage = ratio,
+                    Count = total,
+                    Amount = approved
+                };
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Evolucao da conversao ao longo do tempo",
+                Visualization = "line",
+                Data = points,
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["avgConversion"] = points.Count > 0 ? points.Average(x => x.Value ?? 0m) : 0m
+                },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Warnings = new List<string> { "Conversao mensal aproximada com base no STATUS atual." }
+                }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildStatusParticipationChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId, int top = 15)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+
+            var totalSql = $"SELECT {DistinctBudgetCountSql()} AS Valor FROM VW_SWIA_ORCAMENTO {where}";
+            var total = await connection.ExecuteScalarAsync<int>(totalSql, parameters);
+
+            var sql = $@"
+                SELECT TOP {top}
+                    ISNULL(CAST(STATUS AS NVARCHAR(200)), 'Sem status') AS StatusLabel,
+                    {DistinctBudgetCountSql()} AS TotalOrcamentos,
+                    ISNULL(SUM(VALORTOTAL), 0) AS TotalValor
+                FROM VW_SWIA_ORCAMENTO
+                {where}
+                GROUP BY STATUS
+                HAVING {DistinctBudgetCountSql()} > 0
+                ORDER BY TotalOrcamentos DESC, TotalValor DESC";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            decimal cumulative = 0m;
+            var points = rows.Select(row =>
+            {
+                var label = SafeToString(row, "StatusLabel") ?? "Sem status";
+                var count = Convert.ToInt32(SafeToDecimal(row, "TotalOrcamentos"));
+                var amount = SafeToDecimal(row, "TotalValor");
+                var pct = total > 0 ? (decimal)count / total : 0m;
+                cumulative += pct;
+
+                return new SalesBudgetChartPointDto
+                {
+                    Label = $"{label} (cum {cumulative:P0})",
+                    Value = pct,
+                    Percentage = pct,
+                    Count = count,
+                    Amount = amount
+                };
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Percentual de conversao por status",
+                Visualization = "bar",
+                Data = points,
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["totalBudgets"] = total,
+                    ["shownStatuses"] = points.Count
+                },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Warnings = new List<string> { "Leitura inicial: percentual de participacao (por quantidade) em cada STATUS; o acumulado aparece no label." }
+                }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildOpenApprovedLostChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+
+            var sql = $@"
+                SELECT
+                    ISNULL(SUM(CASE WHEN {OpenStatusCondition()} THEN VALORTOTAL ELSE 0 END), 0) AS OpenAmount,
+                    ISNULL(SUM(CASE WHEN {ApprovedStatusCondition()} THEN VALORTOTAL ELSE 0 END), 0) AS ApprovedAmount,
+                    ISNULL(SUM(CASE WHEN {LostStatusCondition()} THEN VALORTOTAL ELSE 0 END), 0) AS LostAmount,
+                    SUM(CASE WHEN {OpenStatusCondition()} THEN 1 ELSE 0 END) AS OpenCount,
+                    SUM(CASE WHEN {ApprovedStatusCondition()} THEN 1 ELSE 0 END) AS ApprovedCount,
+                    SUM(CASE WHEN {LostStatusCondition()} THEN 1 ELSE 0 END) AS LostCount
+                FROM VW_SWIA_ORCAMENTO
+                {where}";
+
+            var row = await connection.QuerySingleAsync(sql, parameters);
+            var openAmount = SafeToDecimal(row, "OpenAmount");
+            var approvedAmount = SafeToDecimal(row, "ApprovedAmount");
+            var lostAmount = SafeToDecimal(row, "LostAmount");
+            var openCount = SafeToDecimal(row, "OpenCount");
+            var approvedCount = SafeToDecimal(row, "ApprovedCount");
+            var lostCount = SafeToDecimal(row, "LostCount");
+
+            var points = new List<SalesBudgetChartPointDto>
+            {
+                new() { Label = "Em aberto", Value = openAmount, Amount = openAmount, Count = openCount },
+                new() { Label = "Aprovados", Value = approvedAmount, Amount = approvedAmount, Count = approvedCount },
+                new() { Label = "Perdidos/Cancelados", Value = lostAmount, Amount = lostAmount, Count = lostCount },
+            };
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Orcamentos em aberto x aprovados x perdidos",
+                Visualization = "bar",
+                Data = points,
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["openAmount"] = openAmount,
+                    ["approvedAmount"] = approvedAmount,
+                    ["lostAmount"] = lostAmount
+                },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Warnings = new List<string> { "Os grupos dependem do mapeamento atual de STATUS." }
+                }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildOpenPipelineLikeChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId, string title)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            conditions.Add(OpenStatusCondition());
+            var where = BuildWhere(conditions);
+            var sql = $@"SELECT ISNULL(SUM(VALORTOTAL), 0) AS Valor FROM VW_SWIA_ORCAMENTO {where}";
+            var value = await connection.ExecuteScalarAsync<decimal>(sql, parameters);
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = title,
+                Visualization = "kpi",
+                Data = new List<SalesBudgetChartPointDto>
+                {
+                    new() { Label = "Valor em aberto", Value = value, Amount = value }
+                },
+                Totals = new Dictionary<string, decimal> { ["openAmount"] = value },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Warnings = new List<string> { "Valor aproximado com base nos status classificados como abertos/pendentes." }
+                }
+            };
+        }
+
         private async Task<SalesBudgetChartDatasetDto> BuildConversionByGroupChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId, string title, string groupColumn, string labelAlias, int top = 10)
         {
             var parameters = new DynamicParameters();
@@ -1084,6 +1337,551 @@ namespace IT4You.Infrastructure.Repositories
                 {
                     Warnings = new List<string> { $"Conversao aproximada por {labelAlias.ToLowerInvariant()} com base no STATUS atual." }
                 }
+            };
+        }
+
+        private static decimal NormalizePercent(decimal value)
+        {
+            if (value < 0m) return value;
+            return value > 1m ? value / 100m : value;
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildAverageTicketByGroupChartAsync(
+            IDbConnection connection,
+            SalesBudgetFilterDto filters,
+            string chartId,
+            string title,
+            string groupColumn,
+            string labelAlias,
+            int top = 10)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+
+            var sql = $@"
+                SELECT TOP {top}
+                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                    ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
+                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                FROM VW_SWIA_ORCAMENTO
+                {where}
+                GROUP BY {groupColumn}
+                HAVING {DistinctBudgetCountSql()} > 0
+                ORDER BY TotalValor DESC";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row =>
+            {
+                var totalAmount = SafeToDecimal(row, "TotalValor");
+                var totalCount = SafeToDecimal(row, "TotalOrcamentos");
+                var avgTicket = totalCount > 0 ? totalAmount / totalCount : 0m;
+                return new SalesBudgetChartPointDto
+                {
+                    Label = SafeToString(row, "Grupo") ?? "Sem informacao",
+                    Value = avgTicket,
+                    Amount = avgTicket,
+                    Count = totalCount
+                };
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = title,
+                Visualization = "bar",
+                Data = points,
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["groups"] = points.Count,
+                    ["avgTicket"] = points.Count > 0 ? points.Average(x => x.Value ?? 0m) : 0m
+                },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Warnings = new List<string> { $"Ticket medio por {labelAlias.ToLowerInvariant()} (valor total / quantidade)." }
+                }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildAveragePercentByGroupChartAsync(
+            IDbConnection connection,
+            SalesBudgetFilterDto filters,
+            string chartId,
+            string title,
+            string groupColumn,
+            string labelAlias,
+            string percentColumn,
+            string amountColumn,
+            int top = 10)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+
+            var sql = $@"
+                SELECT TOP {top}
+                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                    ISNULL(AVG(ISNULL({percentColumn}, 0)), 0) AS AvgPercent,
+                    ISNULL(SUM(ISNULL({amountColumn}, 0)), 0) AS TotalAmount
+                FROM VW_SWIA_ORCAMENTO
+                {where}
+                GROUP BY {groupColumn}
+                ORDER BY AvgPercent DESC, TotalAmount DESC";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row =>
+            {
+                var avgRaw = SafeToDecimal(row, "AvgPercent");
+                var avgNormalized = NormalizePercent(avgRaw);
+                var totalAmount = SafeToDecimal(row, "TotalAmount");
+                return new SalesBudgetChartPointDto
+                {
+                    Label = SafeToString(row, "Grupo") ?? "Sem informacao",
+                    Value = avgNormalized,
+                    Percentage = avgNormalized,
+                    Amount = totalAmount
+                };
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = title,
+                Visualization = "bar",
+                Data = points,
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["groups"] = points.Count
+                },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Warnings = new List<string> { "Percentual normalizado (se a base vier em 0-100, converte para 0-1)." }
+                }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildRankingAvgTicketBySellerChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId, int minBudgets = 5, int top = 12)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            parameters.Add("MinBudgets", minBudgets);
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+
+            var sql = $@"
+                WITH base_data AS (
+                    SELECT
+                        ISNULL(VENDEDOR, 'Sem vendedor') AS Vendedor,
+                        ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
+                        {DistinctBudgetCountSql()} AS TotalOrcamentos
+                    FROM VW_SWIA_ORCAMENTO
+                    {where}
+                    GROUP BY VENDEDOR
+                )
+                SELECT TOP {top}
+                    Vendedor,
+                    TotalValor / NULLIF(TotalOrcamentos, 0) AS TicketMedio,
+                    TotalOrcamentos
+                FROM base_data
+                WHERE TotalOrcamentos >= @MinBudgets
+                ORDER BY TicketMedio DESC, TotalOrcamentos DESC";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row => new SalesBudgetChartPointDto
+            {
+                Label = SafeToString(row, "Vendedor") ?? "Sem vendedor",
+                Value = SafeToDecimal(row, "TicketMedio"),
+                Amount = SafeToDecimal(row, "TicketMedio"),
+                Count = SafeToDecimal(row, "TotalOrcamentos")
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Ranking de vendedores por ticket medio",
+                Visualization = "bar",
+                Data = points,
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["minBudgets"] = minBudgets,
+                    ["items"] = points.Count
+                },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Warnings = new List<string> { $"Aplica minimo de {minBudgets} orcamentos para evitar distorcao." }
+                }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildRankingAvgMarkupBySellerChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId, int minBudgets = 5, int top = 12)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            parameters.Add("MinBudgets", minBudgets);
+            var where = BuildWhere(conditions);
+
+            var sql = $@"
+                SELECT TOP {top}
+                    ISNULL(VENDEDOR, 'Sem vendedor') AS Vendedor,
+                    ISNULL(AVG(ISNULL(MARKUP, 0)), 0) AS AvgMarkup,
+                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                FROM VW_SWIA_ORCAMENTO
+                {where}
+                GROUP BY VENDEDOR
+                HAVING {DistinctBudgetCountSql()} >= @MinBudgets
+                ORDER BY AvgMarkup DESC, TotalOrcamentos DESC";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+
+            var points = rows.Select(row => new SalesBudgetChartPointDto
+            {
+                Label = SafeToString(row, "Vendedor") ?? "Sem vendedor",
+                Value = SafeToDecimal(row, "AvgMarkup"),
+                Count = SafeToDecimal(row, "TotalOrcamentos")
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Ranking de vendedores por margem/markup",
+                Visualization = "bar",
+                Data = points,
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["minBudgets"] = minBudgets,
+                    ["items"] = points.Count
+                },
+                Meta = new SalesBudgetChartMetaDto()
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildStatusCountAmountByGroupChartAsync(
+            IDbConnection connection,
+            SalesBudgetFilterDto filters,
+            string chartId,
+            string title,
+            string groupColumn,
+            string labelAlias,
+            string statusCondition,
+            int top = 12)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string> { statusCondition };
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+
+            var sql = $@"
+                SELECT TOP {top}
+                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                    {DistinctBudgetCountSql()} AS TotalOrcamentos,
+                    ISNULL(SUM(VALORTOTAL), 0) AS TotalValor
+                FROM VW_SWIA_ORCAMENTO
+                {where}
+                GROUP BY {groupColumn}
+                HAVING {DistinctBudgetCountSql()} > 0
+                ORDER BY TotalOrcamentos DESC, TotalValor DESC";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row => new SalesBudgetChartPointDto
+            {
+                Label = SafeToString(row, "Grupo") ?? "Sem informacao",
+                Value = SafeToDecimal(row, "TotalOrcamentos"),
+                Count = SafeToDecimal(row, "TotalOrcamentos"),
+                Amount = SafeToDecimal(row, "TotalValor")
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = title,
+                Visualization = "bar",
+                Data = points,
+                Totals = new Dictionary<string, decimal> { ["total"] = points.Sum(x => x.Value ?? 0m) },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Warnings = new List<string> { $"Ranking por quantidade (desempate por valor) por {labelAlias.ToLowerInvariant()}." }
+                }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildMonthlyEvolutionByGroupChartAsync(
+            IDbConnection connection,
+            SalesBudgetFilterDto filters,
+            string chartId,
+            string title,
+            string groupColumn,
+            int topGroups = 5)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+
+            var topGroupsSql = $@"
+                SELECT TOP {topGroups}
+                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                    ISNULL(SUM(VALORTOTAL), 0) AS TotalValor
+                FROM VW_SWIA_ORCAMENTO
+                {where}
+                GROUP BY {groupColumn}
+                ORDER BY TotalValor DESC";
+
+            var groupRows = (await connection.QueryAsync(topGroupsSql, parameters)).ToList();
+            var groupSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var row in groupRows)
+            {
+                var group = SafeToString(row, "Grupo") ?? "Sem informacao";
+                if (!string.IsNullOrWhiteSpace(group))
+                {
+                    groupSet.Add(group);
+                }
+            }
+
+            var groups = groupSet.ToList();
+
+            if (groups.Count == 0)
+            {
+                return new SalesBudgetChartDatasetDto
+                {
+                    ChartId = chartId,
+                    Title = title,
+                    Visualization = "line",
+                    Data = new List<SalesBudgetChartPointDto>(),
+                    Totals = new Dictionary<string, decimal>(),
+                    Meta = new SalesBudgetChartMetaDto
+                    {
+                        Warnings = new List<string> { "Sem dados para montar a evolucao." }
+                    }
+                };
+            }
+
+            parameters.Add("Groups", groups);
+            var whereWithGroups = AppendCondition(where, $"ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') IN @Groups");
+
+            var sql = $@"
+                SELECT
+                    YEAR(EMISSAO) AS Ano,
+                    MONTH(EMISSAO) AS Mes,
+                    CONCAT(RIGHT('00' + CAST(MONTH(EMISSAO) AS VARCHAR(2)), 2), '/', CAST(YEAR(EMISSAO) AS VARCHAR(4))) AS MesAno,
+                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                    ISNULL(SUM(VALORTOTAL), 0) AS TotalValor
+                FROM VW_SWIA_ORCAMENTO
+                {whereWithGroups}
+                GROUP BY YEAR(EMISSAO), MONTH(EMISSAO), {groupColumn}
+                ORDER BY YEAR(EMISSAO), MONTH(EMISSAO)";
+
+            var rows = (await connection.QueryAsync(sql, parameters)).ToList();
+
+            var monthSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var row in rows)
+            {
+                monthSet.Add(SafeToString(row, "MesAno") ?? "-");
+            }
+
+            var monthBuckets = monthSet.ToList();
+
+            var normalizedRows = rows.Select(row => new
+            {
+                Month = SafeToString(row, "MesAno") ?? "-",
+                Group = SafeToString(row, "Grupo") ?? "Sem informacao",
+                Value = SafeToDecimal(row, "TotalValor")
+            }).ToList();
+
+            var lookup = new Dictionary<string, Dictionary<string, decimal>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in normalizedRows)
+            {
+                if (!lookup.TryGetValue(item.Month, out Dictionary<string, decimal>? monthMap))
+                {
+                    monthMap = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+                    lookup[item.Month] = monthMap;
+                }
+
+                monthMap[item.Group] = item.Value;
+            }
+
+            var points = monthBuckets.Select(month =>
+            {
+                var dict = lookup.TryGetValue(month, out var monthData) ? monthData : new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+                var totalForMonth = groups.Sum(g => dict.TryGetValue(g, out var v) ? v : 0m);
+                return new SalesBudgetChartPointDto
+                {
+                    Label = month,
+                    Date = month,
+                    Value = totalForMonth,
+                    Amount = totalForMonth
+                };
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = title,
+                Visualization = "line",
+                Data = points,
+                Totals = new Dictionary<string, decimal> { ["groups"] = groups.Count },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Warnings = new List<string> { $"Versao inicial: soma do total mensal dos top {groups.Count} {groupColumn.ToLowerInvariant()}." }
+                }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildSellerComparisonChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId, int top = 8)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+
+            var sql = $@"
+                SELECT TOP {top}
+                    ISNULL(CAST(VENDEDOR AS NVARCHAR(200)), 'Sem vendedor') AS Vendedor,
+                    ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
+                    {DistinctBudgetCountSql()} AS TotalOrcamentos,
+                    ISNULL(AVG(ISNULL(MARKUP, 0)), 0) AS AvgMarkup,
+                    ISNULL(AVG(ISNULL(PERCENTUALDESCONTO, 0)), 0) AS AvgDiscount
+                FROM VW_SWIA_ORCAMENTO
+                {where}
+                GROUP BY VENDEDOR
+                ORDER BY TotalValor DESC";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row =>
+            {
+                var totalAmount = SafeToDecimal(row, "TotalValor");
+                var totalCount = SafeToDecimal(row, "TotalOrcamentos");
+                var avgTicket = totalCount > 0 ? totalAmount / totalCount : 0m;
+                var avgDiscount = NormalizePercent(SafeToDecimal(row, "AvgDiscount"));
+                return new SalesBudgetChartPointDto
+                {
+                    Label = SafeToString(row, "Vendedor") ?? "Sem vendedor",
+                    Value = totalAmount,
+                    Amount = totalAmount,
+                    Count = totalCount,
+                    Percentage = avgDiscount,
+                    Date = avgTicket.ToString("0.##")
+                };
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Comparativo entre vendedores",
+                Visualization = "bar",
+                Data = points,
+                Totals = new Dictionary<string, decimal> { ["items"] = points.Count },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Warnings = new List<string> { "Versao inicial: compara valor total (barras). Metricas extras: Count=qtd, Percentage=desconto medio, Date=ticket medio (texto)." }
+                }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildShareByGroupChartAsync(
+            IDbConnection connection,
+            SalesBudgetFilterDto filters,
+            string chartId,
+            string title,
+            string groupColumn,
+            string labelAlias,
+            int top = 12)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+
+            var totalSql = $"SELECT ISNULL(SUM(VALORTOTAL), 0) AS Valor FROM VW_SWIA_ORCAMENTO {where}";
+            var total = await connection.ExecuteScalarAsync<decimal>(totalSql, parameters);
+
+            var sql = $@"
+                SELECT TOP {top}
+                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                    ISNULL(SUM(VALORTOTAL), 0) AS Valor
+                FROM VW_SWIA_ORCAMENTO
+                {where}
+                GROUP BY {groupColumn}
+                ORDER BY Valor DESC";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row =>
+            {
+                var amount = SafeToDecimal(row, "Valor");
+                var pct = total > 0 ? amount / total : 0m;
+                return new SalesBudgetChartPointDto
+                {
+                    Label = SafeToString(row, "Grupo") ?? "Sem informacao",
+                    Value = amount,
+                    Amount = amount,
+                    Percentage = pct
+                };
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = title,
+                Visualization = "pie",
+                Data = points,
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["total"] = total
+                },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Warnings = new List<string> { $"Participacao (aproximada) do {labelAlias.ToLowerInvariant()} no total do periodo." }
+                }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildTopByGroupChartAsync(
+            IDbConnection connection,
+            SalesBudgetFilterDto filters,
+            string chartId,
+            string title,
+            string group1Column,
+            string group1Label,
+            string group2Column,
+            string group2Label,
+            int top = 12)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+
+            var sql = $@"
+                SELECT TOP {top}
+                    CONCAT(
+                        ISNULL(CAST({group1Column} AS NVARCHAR(200)), 'Sem {group1Label.ToLowerInvariant()}'),
+                        ' / ',
+                        ISNULL(CAST({group2Column} AS NVARCHAR(200)), 'Sem {group2Label.ToLowerInvariant()}')
+                    ) AS Grupo,
+                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                FROM VW_SWIA_ORCAMENTO
+                {where}
+                GROUP BY {group1Column}, {group2Column}
+                ORDER BY TotalOrcamentos DESC";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row => new SalesBudgetChartPointDto
+            {
+                Label = SafeToString(row, "Grupo") ?? "Sem informacao",
+                Value = SafeToDecimal(row, "TotalOrcamentos"),
+                Count = SafeToDecimal(row, "TotalOrcamentos")
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = title,
+                Visualization = "bar",
+                Data = points,
+                Totals = new Dictionary<string, decimal> { ["total"] = points.Sum(x => x.Value ?? 0m) },
+                Meta = new SalesBudgetChartMetaDto()
             };
         }
 
