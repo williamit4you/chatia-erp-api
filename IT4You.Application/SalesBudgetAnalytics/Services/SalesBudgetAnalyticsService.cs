@@ -53,7 +53,7 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     Name = "Funil comercial",
                     Description = "Status, conversão, perdas e gargalos do funil de orçamentos.",
                     PlannedCount = 15,
-                    AvailableNowCount = 7,
+                    AvailableNowCount = 15,
                     NeedsNewViewCount = 0,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
@@ -63,14 +63,14 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                         new() { Id = "funnel_conversion_percent_by_status", Title = "Percentual de conversão por status", Availability = "available_now" },
                         new() { Id = "funnel_open_approved_lost", Title = "Orçamentos em aberto x aprovados x perdidos", Availability = "available_now" },
                         new() { Id = "funnel_pending_amount", Title = "Valor parado em orçamentos pendentes", Availability = "available_now" },
-                        new() { Id = "funnel_approval_rate", Title = "Taxa de aprovação de orçamentos", Availability = "needs_mapping" },
-                        new() { Id = "funnel_loss_cancel_rate", Title = "Taxa de perda/cancelamento", Availability = "needs_mapping" },
-                        new() { Id = "funnel_conversion_evolution", Title = "Evolução da conversão ao longo do tempo", Availability = "needs_mapping" },
-                        new() { Id = "funnel_conversion_by_seller", Title = "Conversão por vendedor", Availability = "needs_mapping" },
-                        new() { Id = "funnel_conversion_by_customer", Title = "Conversão por cliente", Availability = "needs_mapping" },
-                        new() { Id = "funnel_conversion_by_origin", Title = "Conversão por origem", Availability = "needs_mapping" },
-                        new() { Id = "funnel_conversion_by_geo", Title = "Conversão por cidade/UF", Availability = "needs_mapping" },
-                        new() { Id = "funnel_conversion_by_payment", Title = "Conversão por condição de pagamento", Availability = "needs_mapping" },
+                        new() { Id = "funnel_approval_rate", Title = "Taxa de aprovação de orçamentos", Availability = "available_now" },
+                        new() { Id = "funnel_loss_cancel_rate", Title = "Taxa de perda/cancelamento", Availability = "available_now" },
+                        new() { Id = "funnel_conversion_evolution", Title = "Evolução da conversão ao longo do tempo", Availability = "available_now" },
+                        new() { Id = "funnel_conversion_by_seller", Title = "Conversão por vendedor", Availability = "available_now" },
+                        new() { Id = "funnel_conversion_by_customer", Title = "Conversão por cliente", Availability = "available_now" },
+                        new() { Id = "funnel_conversion_by_origin", Title = "Conversão por origem", Availability = "available_now" },
+                        new() { Id = "funnel_conversion_by_geo", Title = "Conversão por cidade/UF", Availability = "available_now" },
+                        new() { Id = "funnel_conversion_by_payment", Title = "Conversão por condição de pagamento", Availability = "available_now" },
                         new() { Id = "funnel_blocking_status_ranking", Title = "Ranking de status que mais travam vendas", Availability = "available_now" },
                     }
                 },
@@ -80,14 +80,14 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     Name = "Vendedores",
                     Description = "Performance comercial, ranking, markup, desconto e evolução por vendedor.",
                     PlannedCount = 20,
-                    AvailableNowCount = 17,
+                    AvailableNowCount = 20,
                     NeedsNewViewCount = 0,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
                         new() { Id = "seller_total_amount", Title = "Valor total orçado por vendedor", Availability = "available_now" },
                         new() { Id = "seller_total_count", Title = "Quantidade de orçamentos por vendedor", Availability = "available_now" },
                         new() { Id = "seller_avg_ticket", Title = "Ticket médio por vendedor", Availability = "available_now" },
-                        new() { Id = "seller_conversion", Title = "Conversão por vendedor", Availability = "needs_mapping" },
+                        new() { Id = "seller_conversion", Title = "Conversão por vendedor", Availability = "available_now" },
                         new() { Id = "seller_avg_discount", Title = "Desconto médio concedido por vendedor", Availability = "available_now" },
                         new() { Id = "seller_avg_markup", Title = "Markup médio por vendedor", Availability = "available_now" },
                         new() { Id = "seller_avg_surcharge", Title = "Acréscimo médio por vendedor", Availability = "available_now" },
@@ -96,8 +96,8 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                         new() { Id = "seller_ranking_count", Title = "Ranking de vendedores por quantidade", Availability = "available_now" },
                         new() { Id = "seller_ranking_ticket", Title = "Ranking de vendedores por ticket médio", Availability = "available_now" },
                         new() { Id = "seller_ranking_markup", Title = "Ranking de vendedores por margem/markup", Availability = "available_now" },
-                        new() { Id = "seller_most_lost", Title = "Vendedores com mais orçamentos perdidos", Availability = "needs_mapping" },
-                        new() { Id = "seller_most_approved", Title = "Vendedores com mais orçamentos aprovados", Availability = "needs_mapping" },
+                        new() { Id = "seller_most_lost", Title = "Vendedores com mais orçamentos perdidos", Availability = "available_now" },
+                        new() { Id = "seller_most_approved", Title = "Vendedores com mais orçamentos aprovados", Availability = "available_now" },
                         new() { Id = "seller_monthly_evolution", Title = "Evolução mensal por vendedor", Availability = "available_now" },
                         new() { Id = "seller_comparison", Title = "Comparativo entre vendedores", Availability = "available_now" },
                         new() { Id = "seller_share_total", Title = "Participação de cada vendedor no faturamento", Availability = "available_now" },
@@ -112,7 +112,7 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     Name = "Clientes",
                     Description = "Ticket, recorrência, conversão, origem e distribuição geográfica dos clientes.",
                     PlannedCount = 20,
-                    AvailableNowCount = 18,
+                    AvailableNowCount = 20,
                     NeedsNewViewCount = 0,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
@@ -125,8 +125,8 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                         new() { Id = "customer_highest_discount", Title = "Clientes com maior desconto recebido", Availability = "available_now" },
                         new() { Id = "customer_highest_markup", Title = "Clientes com maior markup", Availability = "available_now" },
                         new() { Id = "customer_highest_open_amount", Title = "Clientes com maior valor em aberto", Availability = "available_now" },
-                        new() { Id = "customer_highest_conversion", Title = "Clientes com maior taxa de conversão", Availability = "needs_mapping" },
-                        new() { Id = "customer_low_conversion", Title = "Clientes com baixa conversão", Availability = "needs_mapping" },
+                        new() { Id = "customer_highest_conversion", Title = "Clientes com maior taxa de conversão", Availability = "available_now" },
+                        new() { Id = "customer_low_conversion", Title = "Clientes com baixa conversão", Availability = "available_now" },
                         new() { Id = "customer_abc_curve", Title = "Curva ABC de clientes", Availability = "available_now" },
                         new() { Id = "customer_top_share", Title = "Participação dos principais clientes no total", Availability = "available_now" },
                         new() { Id = "customer_evolution", Title = "Evolução de orçamentos por cliente", Availability = "available_now" },
@@ -181,7 +181,7 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     Name = "Descontos e margem",
                     Description = "Desconto, acréscimo, markup e orçamentos com possível margem ruim.",
                     PlannedCount = 25,
-                    AvailableNowCount = 24,
+                    AvailableNowCount = 25,
                     NeedsNewViewCount = 0,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
@@ -195,7 +195,7 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                         new() { Id = "margin_highest_discount_ranking", Title = "Ranking de maiores descontos", Availability = "available_now" },
                         new() { Id = "margin_above_avg_discount_budgets", Title = "Orçamentos com desconto acima da média", Availability = "available_now" },
                         new() { Id = "margin_discount_impact_total", Title = "Impacto do desconto no valor total", Availability = "available_now" },
-                        new() { Id = "margin_discount_vs_conversion", Title = "Relação desconto x conversão", Availability = "needs_mapping" },
+                        new() { Id = "margin_discount_vs_conversion", Title = "Relação desconto x conversão", Availability = "available_now" },
                         new() { Id = "margin_discount_vs_seller", Title = "Relação desconto x vendedor", Availability = "available_now" },
                         new() { Id = "margin_total_surcharge", Title = "Valor total de acréscimos", Availability = "available_now" },
                         new() { Id = "margin_avg_surcharge_percent", Title = "Percentual médio de acréscimo", Availability = "available_now" },
@@ -218,14 +218,14 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     Name = "Origem",
                     Description = "Canais de venda, participação, ticket e conversão por origem.",
                     PlannedCount = 15,
-                    AvailableNowCount = 13,
+                    AvailableNowCount = 15,
                     NeedsNewViewCount = 0,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
                         new() { Id = "source_total_amount", Title = "Valor total por origem", Availability = "available_now" },
                         new() { Id = "source_total_count", Title = "Quantidade de orçamentos por origem", Availability = "available_now" },
                         new() { Id = "source_avg_ticket", Title = "Ticket médio por origem", Availability = "available_now" },
-                        new() { Id = "source_conversion", Title = "Conversão por origem", Availability = "needs_mapping" },
+                        new() { Id = "source_conversion", Title = "Conversão por origem", Availability = "available_now" },
                         new() { Id = "source_highest_avg_discount", Title = "Origem com maior desconto médio", Availability = "available_now" },
                         new() { Id = "source_highest_markup", Title = "Origem com maior markup", Availability = "available_now" },
                         new() { Id = "source_evolution", Title = "Evolução de origens por período", Availability = "available_now" },
@@ -235,7 +235,7 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                         new() { Id = "source_by_customer", Title = "Origem x cliente", Availability = "available_now" },
                         new() { Id = "source_by_geo", Title = "Origem x cidade/UF", Availability = "available_now" },
                         new() { Id = "source_best_channels", Title = "Ranking de melhores canais de venda", Availability = "available_now" },
-                        new() { Id = "source_high_volume_low_conversion", Title = "Canais com muito orçamento e pouca conversão", Availability = "needs_mapping" },
+                        new() { Id = "source_high_volume_low_conversion", Title = "Canais com muito orçamento e pouca conversão", Availability = "available_now" },
                         new() { Id = "source_low_volume_high_ticket", Title = "Canais com menos volume, mas maior ticket", Availability = "available_now" },
                     }
                 },
@@ -245,14 +245,14 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     Name = "Geografia",
                     Description = "Distribuição por UF, cidade, região, vendedor e oportunidade geográfica.",
                     PlannedCount = 17,
-                    AvailableNowCount = 16,
+                    AvailableNowCount = 17,
                     NeedsNewViewCount = 0,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
                         new() { Id = "geo_amount_by_uf", Title = "Valor total por UF", Availability = "available_now" },
                         new() { Id = "geo_count_by_uf", Title = "Quantidade de orçamentos por UF", Availability = "available_now" },
                         new() { Id = "geo_avg_ticket_by_uf", Title = "Ticket médio por UF", Availability = "available_now" },
-                        new() { Id = "geo_conversion_by_uf", Title = "Conversão por UF", Availability = "needs_mapping" },
+                        new() { Id = "geo_conversion_by_uf", Title = "Conversão por UF", Availability = "available_now" },
                         new() { Id = "geo_amount_by_city", Title = "Valor total por cidade", Availability = "available_now" },
                         new() { Id = "geo_count_by_city", Title = "Quantidade por cidade", Availability = "available_now" },
                         new() { Id = "geo_top_cities_count", Title = "Ranking de cidades com mais orçamentos", Availability = "available_now" },
@@ -274,14 +274,14 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     Name = "Condição de pagamento",
                     Description = "Uso, ticket, desconto, markup e aprovação por condição de pagamento.",
                     PlannedCount = 12,
-                    AvailableNowCount = 10,
+                    AvailableNowCount = 12,
                     NeedsNewViewCount = 0,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
                         new() { Id = "payment_total_amount", Title = "Valor total por condição de pagamento", Availability = "available_now" },
                         new() { Id = "payment_total_count", Title = "Quantidade por condição de pagamento", Availability = "available_now" },
                         new() { Id = "payment_avg_ticket", Title = "Ticket médio por condição de pagamento", Availability = "available_now" },
-                        new() { Id = "payment_conversion", Title = "Conversão por condição de pagamento", Availability = "needs_mapping" },
+                        new() { Id = "payment_conversion", Title = "Conversão por condição de pagamento", Availability = "available_now" },
                         new() { Id = "payment_avg_discount", Title = "Desconto médio por condição de pagamento", Availability = "available_now" },
                         new() { Id = "payment_avg_markup", Title = "Markup médio por condição de pagamento", Availability = "available_now" },
                         new() { Id = "payment_most_used", Title = "Condições de pagamento mais usadas", Availability = "available_now" },
@@ -289,7 +289,7 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                         new() { Id = "payment_by_customer", Title = "Condição de pagamento x cliente", Availability = "available_now" },
                         new() { Id = "payment_by_product", Title = "Condição de pagamento x produto", Availability = "available_now" },
                         new() { Id = "payment_by_origin", Title = "Condição de pagamento x origem", Availability = "available_now" },
-                        new() { Id = "payment_vs_approval", Title = "Condição de pagamento x aprovação", Availability = "needs_mapping" },
+                        new() { Id = "payment_vs_approval", Title = "Condição de pagamento x aprovação", Availability = "available_now" },
                     }
                 },
                 new()
@@ -298,7 +298,7 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     Name = "Frete",
                     Description = "Valor de frete, tipo, impacto no ticket e relação com conversão.",
                     PlannedCount = 11,
-                    AvailableNowCount = 10,
+                    AvailableNowCount = 12,
                     NeedsNewViewCount = 0,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
@@ -310,7 +310,7 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                         new() { Id = "freight_by_type", Title = "Frete por tipo de frete", Availability = "available_now" },
                         new() { Id = "freight_ratio_total", Title = "Frete em relação ao valor total", Availability = "available_now" },
                         new() { Id = "freight_high_budgets", Title = "Orçamentos com frete alto", Availability = "available_now" },
-                        new() { Id = "freight_vs_conversion", Title = "Relação frete x conversão", Availability = "needs_mapping" },
+                        new() { Id = "freight_vs_conversion", Title = "Relação frete x conversão", Availability = "available_now" },
                         new() { Id = "freight_most_used_type", Title = "Tipo de frete mais usado", Availability = "available_now" },
                         new() { Id = "freight_avg_ticket_by_type", Title = "Ticket médio por tipo de frete", Availability = "available_now" },
                     }
@@ -321,7 +321,7 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     Name = "Diretoria",
                     Description = "Indicadores consolidados, pipeline, alertas e leitura executiva de vendas.",
                     PlannedCount = 20,
-                    AvailableNowCount = 18,
+                    AvailableNowCount = 20,
                     NeedsNewViewCount = 2,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
@@ -427,14 +427,14 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     Name = "KPIs essenciais",
                     Description = "Cards principais para abrir a tela com leitura executiva imediata.",
                     PlannedCount = 25,
-                    AvailableNowCount = 22,
+                    AvailableNowCount = 25,
                     NeedsNewViewCount = 0,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
                         new() { Id = "kpi_total_budget_amount", Title = "Valor total orçado", Availability = "available_now" },
                         new() { Id = "kpi_budget_count", Title = "Quantidade de orçamentos", Availability = "available_now" },
                         new() { Id = "kpi_avg_ticket", Title = "Ticket médio", Availability = "available_now" },
-                        new() { Id = "kpi_conversion_rate", Title = "Taxa de conversão", Availability = "needs_mapping" },
+                        new() { Id = "kpi_conversion_rate", Title = "Taxa de conversão", Availability = "available_now" },
                         new() { Id = "kpi_open_amount", Title = "Valor em aberto", Availability = "available_now" },
                         new() { Id = "kpi_approved_amount", Title = "Valor aprovado", Availability = "available_now" },
                         new() { Id = "kpi_lost_amount", Title = "Valor perdido", Availability = "available_now" },
@@ -454,8 +454,8 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                         new() { Id = "kpi_seller_highest_drop", Title = "Vendedor com maior queda", Availability = "available_now" },
                         new() { Id = "kpi_product_highest_growth", Title = "Produto com maior crescimento", Availability = "available_now" },
                         new() { Id = "kpi_product_highest_drop", Title = "Produto com maior queda", Availability = "available_now" },
-                        new() { Id = "kpi_channel_highest_conversion", Title = "Canal com maior conversão", Availability = "needs_mapping" },
-                        new() { Id = "kpi_channel_lowest_conversion", Title = "Canal com menor conversão", Availability = "needs_mapping" },
+                        new() { Id = "kpi_channel_highest_conversion", Title = "Canal com maior conversão", Availability = "available_now" },
+                        new() { Id = "kpi_channel_lowest_conversion", Title = "Canal com menor conversão", Availability = "available_now" },
                     }
                 },
                 new()
@@ -538,3 +538,4 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
         return _repository.GetChartsAsync(request);
     }
 }
+
