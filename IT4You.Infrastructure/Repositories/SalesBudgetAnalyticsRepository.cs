@@ -519,6 +519,26 @@ namespace IT4You.Infrastructure.Repositories
                 "kpi_product_highest_drop" => await BuildHighestDeltaByItemKpiChartAsync(connection, filters, chartId, "Produto com maior queda", "drop"),
                 "kpi_channel_highest_conversion" => await BuildBestConversionOriginKpiTextChartAsync(connection, filters, chartId, "Canal com maior conversão", "highest"),
                 "kpi_channel_lowest_conversion" => await BuildBestConversionOriginKpiTextChartAsync(connection, filters, chartId, "Canal com menor conversão", "lowest"),
+
+                // Risk
+                "risk_customer_concentration" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Concentração nos Top Clientes", "pie", "CLIENTE", "Cliente", "SUM(VALORTOTAL)", "currency", null, 10),
+                "risk_product_dependence" => await BuildGroupedItemChartAsync(connection, filters, chartId, "Dependência de produtos", "bar", "I.ITEM", "Produto", "SUM(I.VALORTOTAL)", "currency", 10),
+                "risk_seller_concentration" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Concentração em vendedores", "pie", "VENDEDOR", "Vendedor", "SUM(VALORTOTAL)", "currency", null, 10),
+                "risk_geo_concentration" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Concentração de risco por região", "bar", "UF", "UF", "SUM(VALORTOTAL)", "currency", null, 10),
+                "risk_high_discount_volume" => await BuildHighDiscountVolumeChartAsync(connection, filters, chartId),
+
+                // Efficiency
+                "efficiency_win_rate_vs_time" => await BuildWinRateVsTimeChartAsync(connection, filters, chartId),
+                "efficiency_quote_to_close_ratio" => await BuildQuoteToCloseRatioChartAsync(connection, filters, chartId),
+                "efficiency_abandonment_rate" => await BuildAbandonmentRateChartAsync(connection, filters, chartId),
+                "efficiency_avg_items_per_ticket" => await BuildAvgItemsPerTicketChartAsync(connection, filters, chartId),
+
+                // Predictive
+                "predictive_sales_forecast" => await BuildSalesForecastChartAsync(connection, filters, chartId),
+                "predictive_churn_risk" => await BuildChurnRiskChartAsync(connection, filters, chartId),
+                "predictive_seasonal_trend" => await BuildMonthSeasonalityChartAsync(connection, filters, chartId),
+                "predictive_high_probability_deals" => await BuildHighProbabilityDealsChartAsync(connection, filters, chartId),
+
                 _ => BuildPlannedChart(chartId, chartId)
             };
         }
@@ -5529,6 +5549,352 @@ namespace IT4You.Infrastructure.Repositories
                 {
                     Warnings = new List<string> { "Conversao aproximada por origem (depende do mapeamento de STATUS). KPI_text mostra apenas o label." }
                 }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildHighDiscountVolumeChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+
+            var sql = $@"
+                SELECT 
+                    CASE 
+                        WHEN PERCENTUALDESCONTO >= 20 THEN 'Desconto Extremo (>= 20%)'
+                        WHEN PERCENTUALDESCONTO >= 10 THEN 'Alto Desconto (10-19%)'
+                        WHEN PERCENTUALDESCONTO > 0 THEN 'Desconto Padrão (1-9%)'
+                        ELSE 'Sem Desconto'
+                    END AS Faixa,
+                    ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
+                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                FROM VW_SWIA_ORCAMENTO
+                {where}
+                GROUP BY 
+                    CASE 
+                        WHEN PERCENTUALDESCONTO >= 20 THEN 'Desconto Extremo (>= 20%)'
+                        WHEN PERCENTUALDESCONTO >= 10 THEN 'Alto Desconto (10-19%)'
+                        WHEN PERCENTUALDESCONTO > 0 THEN 'Desconto Padrão (1-9%)'
+                        ELSE 'Sem Desconto'
+                    END
+                ORDER BY SUM(VALORTOTAL) DESC";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row => new SalesBudgetChartPointDto
+            {
+                Label = SafeToString(row, "Faixa") ?? "Desconhecido",
+                Amount = SafeToDecimal(row, "TotalValor"),
+                Count = SafeToDecimal(row, "TotalOrcamentos"),
+                Value = SafeToDecimal(row, "TotalValor")
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Volume dependente de descontos",
+                Visualization = "bar",
+                Data = points,
+                Totals = new Dictionary<string, decimal> { ["totalAmount"] = points.Sum(p => p.Amount ?? 0m) },
+                Meta = new SalesBudgetChartMetaDto()
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildWinRateVsTimeChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+
+            var approvedCond = ApprovedStatusCondition();
+            var sql = $@"
+                SELECT 
+                    CASE 
+                        WHEN DATEDIFF(day, EMISSAO, GETDATE()) <= 7 THEN 'A. 0 a 7 dias'
+                        WHEN DATEDIFF(day, EMISSAO, GETDATE()) <= 15 THEN 'B. 8 a 15 dias'
+                        WHEN DATEDIFF(day, EMISSAO, GETDATE()) <= 30 THEN 'C. 16 a 30 dias'
+                        ELSE 'D. Mais de 30 dias'
+                    END AS FaixaIdade,
+                    COUNT(*) AS TotalCount,
+                    SUM(CASE WHEN {approvedCond} THEN 1 ELSE 0 END) AS ApprovedCount
+                FROM VW_SWIA_ORCAMENTO
+                {where}
+                GROUP BY 
+                    CASE 
+                        WHEN DATEDIFF(day, EMISSAO, GETDATE()) <= 7 THEN 'A. 0 a 7 dias'
+                        WHEN DATEDIFF(day, EMISSAO, GETDATE()) <= 15 THEN 'B. 8 a 15 dias'
+                        WHEN DATEDIFF(day, EMISSAO, GETDATE()) <= 30 THEN 'C. 16 a 30 dias'
+                        ELSE 'D. Mais de 30 dias'
+                    END
+                ORDER BY FaixaIdade";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row => {
+                decimal total = SafeToDecimal(row, "TotalCount");
+                decimal approved = SafeToDecimal(row, "ApprovedCount");
+                decimal rate = total > 0 ? (approved / total) * 100m : 0m;
+                var label = SafeToString(row, "FaixaIdade")?.Substring(3) ?? "Desconhecido";
+                return new SalesBudgetChartPointDto
+                {
+                    Label = label,
+                    Value = rate,
+                    Percentage = rate,
+                    Count = total
+                };
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Taxa de ganho vs Idade do orçamento",
+                Visualization = "bar",
+                Data = points,
+                Totals = new Dictionary<string, decimal>(),
+                Meta = new SalesBudgetChartMetaDto()
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildQuoteToCloseRatioChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+            
+            var approvedCond = ApprovedStatusCondition();
+            var sql = $@"
+                SELECT 
+                    ISNULL(SUM(VALORTOTAL), 0) AS TotalAmount,
+                    ISNULL(SUM(CASE WHEN {approvedCond} THEN VALORTOTAL ELSE 0 END), 0) AS ApprovedAmount
+                FROM VW_SWIA_ORCAMENTO
+                {where}";
+
+            var row = await connection.QueryFirstOrDefaultAsync(sql, parameters);
+            decimal total = SafeToDecimal(row, "TotalAmount");
+            decimal approved = SafeToDecimal(row, "ApprovedAmount");
+            decimal ratio = total > 0 ? (approved / total) * 100m : 0m;
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Volume orçado vs fechado",
+                Visualization = "kpi",
+                Data = new List<SalesBudgetChartPointDto>
+                {
+                    new() { Label = "Conversão de Volume", Value = ratio, Percentage = ratio }
+                },
+                Totals = new Dictionary<string, decimal> { ["total"] = total, ["approved"] = approved },
+                Meta = new SalesBudgetChartMetaDto()
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildAbandonmentRateChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+            
+            var openCond = OpenStatusCondition();
+            // Abandono = Abertos a mais de 30 dias sobre o total de Abertos
+            var sql = $@"
+                SELECT 
+                    SUM(CASE WHEN {openCond} THEN 1 ELSE 0 END) AS TotalOpen,
+                    SUM(CASE WHEN {openCond} AND DATEDIFF(day, EMISSAO, GETDATE()) > 30 THEN 1 ELSE 0 END) AS AbandonedOpen
+                FROM VW_SWIA_ORCAMENTO
+                {where}";
+
+            var row = await connection.QueryFirstOrDefaultAsync(sql, parameters);
+            decimal totalOpen = SafeToDecimal(row, "TotalOpen");
+            decimal abandonedOpen = SafeToDecimal(row, "AbandonedOpen");
+            decimal rate = totalOpen > 0 ? (abandonedOpen / totalOpen) * 100m : 0m;
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Taxa de Abandono",
+                Visualization = "kpi",
+                Data = new List<SalesBudgetChartPointDto>
+                {
+                    new() { Label = "Orçamentos Abandonados", Value = rate, Percentage = rate }
+                },
+                Totals = new Dictionary<string, decimal> { ["abandonedCount"] = abandonedOpen, ["openCount"] = totalOpen },
+                Meta = new SalesBudgetChartMetaDto { Warnings = new List<string> { "Considera abandonado: Status Aberto e Emissão > 30 dias atrás" } }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildAvgItemsPerTicketChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+            
+            var sql = $@"
+                SELECT 
+                    COUNT(I.SEQUENCIAITEM) AS TotalItems,
+                    {DistinctBudgetCountSql("O")} AS TotalBudgets
+                FROM VW_SWIA_ORCAMENTO_ITEM I
+                INNER JOIN VW_SWIA_ORCAMENTO O ON O.CODEMPRESA = I.CODEMPRESA AND O.ORCAMENTO = I.ORCAMENTO
+                {where.Replace("EMISSAO", "O.EMISSAO")}";
+
+            var row = await connection.QueryFirstOrDefaultAsync(sql, parameters);
+            decimal items = SafeToDecimal(row, "TotalItems");
+            decimal budgets = SafeToDecimal(row, "TotalBudgets");
+            decimal avg = budgets > 0 ? items / budgets : 0m;
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Eficiência de Mix",
+                Visualization = "kpi",
+                Data = new List<SalesBudgetChartPointDto>
+                {
+                    new() { Label = "Itens por orçamento", Value = avg, Count = avg }
+                },
+                Totals = new Dictionary<string, decimal>(),
+                Meta = new SalesBudgetChartMetaDto()
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildSalesForecastChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+            
+            var approvedCond = ApprovedStatusCondition();
+            var openCond = OpenStatusCondition();
+            
+            var sql = $@"
+                SELECT 
+                    ISNULL(SUM(VALORTOTAL), 0) AS TotalAmount,
+                    ISNULL(SUM(CASE WHEN {approvedCond} THEN VALORTOTAL ELSE 0 END), 0) AS ApprovedAmount,
+                    ISNULL(SUM(CASE WHEN {openCond} THEN VALORTOTAL ELSE 0 END), 0) AS OpenAmount
+                FROM VW_SWIA_ORCAMENTO
+                {where}";
+
+            var row = await connection.QueryFirstOrDefaultAsync(sql, parameters);
+            decimal totalAmount = SafeToDecimal(row, "TotalAmount");
+            decimal approvedAmount = SafeToDecimal(row, "ApprovedAmount");
+            decimal openAmount = SafeToDecimal(row, "OpenAmount");
+            
+            decimal historicalRate = totalAmount > 0 ? (approvedAmount / totalAmount) : 0m;
+            decimal forecast = openAmount * historicalRate;
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Previsão de Fechamento",
+                Visualization = "kpi",
+                Data = new List<SalesBudgetChartPointDto>
+                {
+                    new() { Label = "Forecast Atual", Value = forecast, Amount = forecast }
+                },
+                Totals = new Dictionary<string, decimal> { ["openAmount"] = openAmount, ["historicalRate"] = historicalRate * 100m },
+                Meta = new SalesBudgetChartMetaDto { Warnings = new List<string> { "Calculado multiplicando o Valor Aberto atual pela Taxa Histórica de Conversão do período" } }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildChurnRiskChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+            
+            // Churn Risk: Customers with >= 3 budgets, but their last budget is more than 30 days older than their historical average interval
+            var sql = $@"
+                WITH CustomerStats AS (
+                    SELECT 
+                        CLIENTE,
+                        COUNT(*) AS BudgetCount,
+                        MIN(EMISSAO) AS FirstEmission,
+                        MAX(EMISSAO) AS LastEmission
+                    FROM VW_SWIA_ORCAMENTO
+                    {where}
+                    GROUP BY CLIENTE
+                    HAVING COUNT(*) >= 3
+                ),
+                RiskAnalysis AS (
+                    SELECT 
+                        CLIENTE,
+                        BudgetCount,
+                        DATEDIFF(day, FirstEmission, LastEmission) / (BudgetCount - 1) AS AvgDaysBetween,
+                        DATEDIFF(day, LastEmission, GETDATE()) AS DaysSinceLast
+                    FROM CustomerStats
+                )
+                SELECT TOP 10
+                    CLIENTE AS Label,
+                    DaysSinceLast AS Value,
+                    AvgDaysBetween AS Count
+                FROM RiskAnalysis
+                WHERE DaysSinceLast > (AvgDaysBetween * 2) AND DaysSinceLast > 30
+                ORDER BY DaysSinceLast DESC";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row => new SalesBudgetChartPointDto
+            {
+                Label = SafeToString(row, "Label") ?? "Sem Cliente",
+                Value = SafeToDecimal(row, "Value"),
+                Count = SafeToDecimal(row, "Count"),
+                Percentage = 0 // Using this for something else if needed
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Risco de Churn (Inatividade)",
+                Visualization = "table",
+                Data = points,
+                Totals = new Dictionary<string, decimal>(),
+                Meta = new SalesBudgetChartMetaDto { Warnings = new List<string> { "Clientes com intervalo sem compras maior que o dobro do seu intervalo médio histórico." } }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildHighProbabilityDealsChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions);
+            var where = BuildWhere(conditions);
+            
+            var openCond = OpenStatusCondition();
+            // Alta probabilidade: Status aberto, emissão nos ultimos 10 dias, de clientes que já compraram antes
+            var sql = $@"
+                WITH Buyers AS (
+                    SELECT DISTINCT CLIENTE 
+                    FROM VW_SWIA_ORCAMENTO 
+                    WHERE {ApprovedStatusCondition()}
+                )
+                SELECT TOP 10
+                    O.CLIENTE AS Cliente,
+                    O.ORCAMENTO AS Orcamento,
+                    O.VALORTOTAL AS Valor
+                FROM VW_SWIA_ORCAMENTO O
+                INNER JOIN Buyers B ON O.CLIENTE = B.CLIENTE
+                {where.Replace("EMISSAO", "O.EMISSAO")} AND {openCond.Replace("STATUS", "O.STATUS")}
+                AND DATEDIFF(day, O.EMISSAO, GETDATE()) <= 10
+                ORDER BY O.VALORTOTAL DESC";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row => new SalesBudgetChartPointDto
+            {
+                Label = $"{SafeToString(row, "Cliente")} (Orc: {SafeToString(row, "Orcamento")})",
+                Value = SafeToDecimal(row, "Valor"),
+                Amount = SafeToDecimal(row, "Valor")
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Orçamentos com alta probabilidade",
+                Visualization = "table",
+                Data = points,
+                Totals = new Dictionary<string, decimal>(),
+                Meta = new SalesBudgetChartMetaDto { Warnings = new List<string> { "Orçamentos recentes em aberto de clientes que já possuem histórico de aprovação." } }
             };
         }
     }

@@ -457,6 +457,72 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                         new() { Id = "kpi_channel_highest_conversion", Title = "Canal com maior conversão", Availability = "needs_mapping" },
                         new() { Id = "kpi_channel_lowest_conversion", Title = "Canal com menor conversão", Availability = "needs_mapping" },
                     }
+                },
+                new()
+                {
+                    Id = "velocity",
+                    Name = "Velocidade de vendas",
+                    Description = "Ciclo médio de vendas, gargalos de status e aceleração de conversão.",
+                    PlannedCount = 5,
+                    AvailableNowCount = 0,
+                    NeedsNewViewCount = 5,
+                    Highlights = new List<SalesBudgetChartPreviewDto>
+                    {
+                        new() { Id = "velocity_avg_cycle_time", Title = "Tempo médio do ciclo de vendas", Availability = "needs_new_view" },
+                        new() { Id = "velocity_by_seller", Title = "Velocidade de conversão por vendedor", Availability = "needs_new_view" },
+                        new() { Id = "velocity_by_product", Title = "Velocidade por categoria de produto", Availability = "needs_new_view" },
+                        new() { Id = "velocity_conversion_acceleration", Title = "Aceleração de conversão", Availability = "needs_new_view" },
+                        new() { Id = "velocity_status_bottleneck_time", Title = "Tempo médio de permanência em status", Availability = "needs_new_view" },
+                    }
+                },
+                new()
+                {
+                    Id = "risk",
+                    Name = "Concentração de Risco",
+                    Description = "Dependência de top clientes, produtos, vendedores e dependência de desconto.",
+                    PlannedCount = 5,
+                    AvailableNowCount = 5,
+                    NeedsNewViewCount = 0,
+                    Highlights = new List<SalesBudgetChartPreviewDto>
+                    {
+                        new() { Id = "risk_customer_concentration", Title = "Concentração nos Top Clientes", Availability = "available_now" },
+                        new() { Id = "risk_product_dependence", Title = "Dependência de produtos", Availability = "available_now" },
+                        new() { Id = "risk_seller_concentration", Title = "Concentração em vendedores", Availability = "available_now" },
+                        new() { Id = "risk_geo_concentration", Title = "Concentração de risco por região", Availability = "available_now" },
+                        new() { Id = "risk_high_discount_volume", Title = "Vendas dependentes de altos descontos", Availability = "available_now" },
+                    }
+                },
+                new()
+                {
+                    Id = "efficiency",
+                    Name = "Eficiência Operacional",
+                    Description = "Taxa de ganho vs tempo, abandono e volume orçado vs fechado.",
+                    PlannedCount = 4,
+                    AvailableNowCount = 4,
+                    NeedsNewViewCount = 0,
+                    Highlights = new List<SalesBudgetChartPreviewDto>
+                    {
+                        new() { Id = "efficiency_win_rate_vs_time", Title = "Taxa de ganho vs Idade do orçamento", Availability = "available_now" },
+                        new() { Id = "efficiency_quote_to_close_ratio", Title = "Volume orçado vs Volume fechado", Availability = "available_now" },
+                        new() { Id = "efficiency_abandonment_rate", Title = "Taxa de abandono", Availability = "available_now" },
+                        new() { Id = "efficiency_avg_items_per_ticket", Title = "Eficiência de Mix", Availability = "available_now" },
+                    }
+                },
+                new()
+                {
+                    Id = "predictive",
+                    Name = "Análise Preditiva Simples",
+                    Description = "Previsão de fechamento baseada em funil, sazonalidade e risco de inatividade.",
+                    PlannedCount = 4,
+                    AvailableNowCount = 4,
+                    NeedsNewViewCount = 0,
+                    Highlights = new List<SalesBudgetChartPreviewDto>
+                    {
+                        new() { Id = "predictive_sales_forecast", Title = "Previsão de fechamento (Funil Atual)", Availability = "available_now" },
+                        new() { Id = "predictive_churn_risk", Title = "Risco de Churn (Inatividade)", Availability = "available_now" },
+                        new() { Id = "predictive_seasonal_trend", Title = "Tendência Sazonal", Availability = "available_now" },
+                        new() { Id = "predictive_high_probability_deals", Title = "Orçamentos com alta probabilidade", Availability = "available_now" },
+                    }
                 }
             }
         });
