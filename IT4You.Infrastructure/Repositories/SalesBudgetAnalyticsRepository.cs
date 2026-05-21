@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 using System.Data.Common;
 using Dapper;
 using IT4You.Application.FinanceAnalytics.Interfaces;
@@ -291,7 +292,9 @@ namespace IT4You.Infrastructure.Repositories
                 foreach (var chartId in chartIds)
                 {
                     var capturedSql = new List<string>();
-                    var traced = new SqlTraceConnection(connection, capturedSql);
+                    var traced = connection as DbConnection is DbConnection dbConnection
+                        ? new SqlTraceConnection(dbConnection, capturedSql)
+                        : null;
 
                     var rules = new List<string>();
                     if (filters.StartDate.HasValue || filters.EndDate.HasValue)
@@ -301,10 +304,15 @@ namespace IT4You.Infrastructure.Repositories
                         rules.Add($"Periodo: {startLabel} ate {endLabel} (coluna EMISSAO).");
                     }
 
+                    if (traced == null)
+                    {
+                        rules.Add("Captura automatica de SQL indisponivel: o provider atual nao expoe DbConnection.");
+                    }
+
                     try
                     {
                         // Reuse the same builder used by the chart endpoint so the SELECTs match reality.
-                        await BuildChartAsync(traced, filters, chartId);
+                        await BuildChartAsync(traced ?? connection, filters, chartId);
                     }
                     catch (Exception ex)
                     {
@@ -332,39 +340,53 @@ namespace IT4You.Infrastructure.Repositories
             }
         }
 
-        private sealed class SqlTraceConnection : IDbConnection
+        private sealed class SqlTraceConnection : DbConnection
         {
-            private readonly IDbConnection _inner;
+            private readonly DbConnection _inner;
             private readonly List<string> _captured;
 
-            public SqlTraceConnection(IDbConnection inner, List<string> captured)
+            public SqlTraceConnection(DbConnection inner, List<string> captured)
             {
                 _inner = inner;
                 _captured = captured;
             }
 
-            public string ConnectionString { get => _inner.ConnectionString; set => _inner.ConnectionString = value; }
-            public int ConnectionTimeout => _inner.ConnectionTimeout;
-            public string Database => _inner.Database;
-            public ConnectionState State => _inner.State;
-            public IDbTransaction BeginTransaction() => _inner.BeginTransaction();
-            public IDbTransaction BeginTransaction(IsolationLevel il) => _inner.BeginTransaction(il);
-            public void ChangeDatabase(string databaseName) => _inner.ChangeDatabase(databaseName);
-            public void Close() => _inner.Close();
-            public IDbCommand CreateCommand() => new SqlTraceCommand(_inner.CreateCommand(), _captured);
-            public void Open() => _inner.Open();
-            public void Dispose() { /* do not dispose inner */ }
+            public DbConnection InnerConnection => _inner;
+
+            public override string ConnectionString { get => _inner.ConnectionString; set => _inner.ConnectionString = value ?? string.Empty; }
+            public override int ConnectionTimeout => _inner.ConnectionTimeout;
+            public override string Database => _inner.Database;
+            public override string DataSource => _inner.DataSource;
+            public override string ServerVersion => _inner.ServerVersion;
+            public override ConnectionState State => _inner.State;
+            public override void ChangeDatabase(string databaseName) => _inner.ChangeDatabase(databaseName);
+            public override void Close() => _inner.Close();
+            public override void Open() => _inner.Open();
+            public override Task OpenAsync(CancellationToken cancellationToken) => _inner.OpenAsync(cancellationToken);
+
+            protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
+                => _inner.BeginTransaction(isolationLevel);
+
+            protected override DbCommand CreateDbCommand()
+                => new SqlTraceCommand(_inner.CreateCommand(), _captured, this);
+
+            protected override void Dispose(bool disposing)
+            {
+                // Do not dispose the shared inner connection here.
+            }
         }
 
-        private sealed class SqlTraceCommand : IDbCommand
+        private sealed class SqlTraceCommand : DbCommand
         {
-            private readonly IDbCommand _inner;
+            private readonly DbCommand _inner;
             private readonly List<string> _captured;
+            private readonly SqlTraceConnection _owner;
 
-            public SqlTraceCommand(IDbCommand inner, List<string> captured)
+            public SqlTraceCommand(DbCommand inner, List<string> captured, SqlTraceConnection owner)
             {
                 _inner = inner;
                 _captured = captured;
+                _owner = owner;
             }
 
             private void Capture()
@@ -374,21 +396,61 @@ namespace IT4You.Infrastructure.Repositories
                     _captured.Add(sql);
             }
 
-            public string CommandText { get => _inner.CommandText; set => _inner.CommandText = value; }
-            public int CommandTimeout { get => _inner.CommandTimeout; set => _inner.CommandTimeout = value; }
-            public CommandType CommandType { get => _inner.CommandType; set => _inner.CommandType = value; }
-            public IDbConnection Connection { get => _inner.Connection; set => _inner.Connection = value; }
-            public IDataParameterCollection Parameters => _inner.Parameters;
-            public IDbTransaction Transaction { get => _inner.Transaction; set => _inner.Transaction = value; }
-            public UpdateRowSource UpdatedRowSource { get => _inner.UpdatedRowSource; set => _inner.UpdatedRowSource = value; }
-            public void Cancel() => _inner.Cancel();
-            public IDbDataParameter CreateParameter() => _inner.CreateParameter();
-            public void Dispose() => _inner.Dispose();
-            public int ExecuteNonQuery() { Capture(); return _inner.ExecuteNonQuery(); }
-            public IDataReader ExecuteReader() { Capture(); return _inner.ExecuteReader(); }
-            public IDataReader ExecuteReader(CommandBehavior behavior) { Capture(); return _inner.ExecuteReader(behavior); }
-            public object ExecuteScalar() { Capture(); return _inner.ExecuteScalar(); }
-            public void Prepare() => _inner.Prepare();
+            public override string CommandText { get => _inner.CommandText; set => _inner.CommandText = value ?? string.Empty; }
+            public override int CommandTimeout { get => _inner.CommandTimeout; set => _inner.CommandTimeout = value; }
+            public override CommandType CommandType { get => _inner.CommandType; set => _inner.CommandType = value; }
+            public override bool DesignTimeVisible { get => _inner.DesignTimeVisible; set => _inner.DesignTimeVisible = value; }
+            public override UpdateRowSource UpdatedRowSource { get => _inner.UpdatedRowSource; set => _inner.UpdatedRowSource = value; }
+            protected override DbConnection? DbConnection
+            {
+                get => _owner;
+                set => _inner.Connection = value is SqlTraceConnection traced ? traced.InnerConnection : value;
+            }
+            protected override DbParameterCollection DbParameterCollection => _inner.Parameters;
+            protected override DbTransaction? DbTransaction
+            {
+                get => _inner.Transaction as DbTransaction;
+                set => _inner.Transaction = value;
+            }
+
+            public override void Cancel() => _inner.Cancel();
+            public override int ExecuteNonQuery() { Capture(); return _inner.ExecuteNonQuery(); }
+            public override async Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
+            {
+                Capture();
+                return await _inner.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            public override object? ExecuteScalar() { Capture(); return _inner.ExecuteScalar(); }
+            public override async Task<object?> ExecuteScalarAsync(CancellationToken cancellationToken)
+            {
+                Capture();
+                return await _inner.ExecuteScalarAsync(cancellationToken);
+            }
+
+            public override void Prepare() => _inner.Prepare();
+            protected override DbParameter CreateDbParameter() => _inner.CreateParameter();
+            protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
+            {
+                Capture();
+                return _inner.ExecuteReader(behavior);
+            }
+
+            protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)
+            {
+                Capture();
+                return await _inner.ExecuteReaderAsync(behavior, cancellationToken);
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
+                {
+                    _inner.Dispose();
+                }
+
+                base.Dispose(disposing);
+            }
         }
 
         private async Task<SalesBudgetChartDatasetDto> BuildChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
