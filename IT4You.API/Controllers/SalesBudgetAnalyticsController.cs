@@ -3,6 +3,7 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using IT4You.Application.SalesBudgetAnalytics.Interfaces;
+using IT4You.Application.SalesBudgetAnalytics.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -66,6 +67,41 @@ namespace IT4You.API.Controllers
 
             var data = await _salesBudgetAnalyticsService.GetChartsAsync(request);
             return Ok(data);
+        }
+
+        [HttpPost("chart-query-details")]
+        public async Task<IActionResult> GetChartQueryDetails([FromBody] SalesBudgetChartQueryDetailsRequestDto request)
+        {
+            if (!HasSalesBudgetDashboardAccess())
+                return Forbid();
+
+            var canSeeSql = User.IsInRole("TENANT_ADMIN") || User.IsInRole("SUPER_ADMIN") || HasAnyRole("TENANT_ADMIN", "SUPER_ADMIN");
+
+            var chartIds = request?.ChartIds?.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList() ?? new();
+            if (chartIds.Count == 0)
+                return Ok(new SalesBudgetChartQueryDetailsResponseDto());
+
+            var items = await _salesBudgetAnalyticsService.GetChartQueryDetailsAsync(new SalesBudgetChartQueryDetailsRequestDto
+            {
+                ChartIds = chartIds,
+                StartDate = request?.StartDate,
+                EndDate = request?.EndDate,
+            });
+
+            if (!canSeeSql)
+            {
+                foreach (var item in items)
+                {
+                    var hadSql = item.SqlQueries?.Count > 0;
+                    item.SqlQueries = new();
+                    if (hadSql)
+                    {
+                        item.Rules.Add("SQL oculto: disponivel apenas para TENANT_ADMIN e SUPER_ADMIN.");
+                    }
+                }
+            }
+
+            return Ok(new SalesBudgetChartQueryDetailsResponseDto { Items = items });
         }
     }
 }

@@ -8,4 +8,5 @@ public interface ISalesBudgetAnalyticsService
     Task<SalesBudgetCatalogResponseDto> GetCatalogAsync();
     Task<SalesBudgetKpiResponseDto> GetKpisAsync(SalesBudgetKpiRequestDto request);
     Task<SalesBudgetChartBatchResponseDto> GetChartsAsync(SalesBudgetChartBatchRequestDto request);
+    Task<List<SalesBudgetChartQueryDetailsItemDto>> GetChartQueryDetailsAsync(SalesBudgetChartQueryDetailsRequestDto request);
 }

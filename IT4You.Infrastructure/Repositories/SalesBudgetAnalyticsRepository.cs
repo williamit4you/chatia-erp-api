@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Data.Common;
 using Dapper;
 using IT4You.Application.FinanceAnalytics.Interfaces;
 using IT4You.Application.SalesBudgetAnalytics.DTOs;
@@ -261,6 +262,133 @@ namespace IT4You.Infrastructure.Repositories
             }
 
             return response;
+        }
+
+        public async Task<List<SalesBudgetChartQueryDetailsItemDto>> GetChartQueryDetailsAsync(
+            SalesBudgetChartQueryDetailsRequestDto request
+        )
+        {
+            var connection = await CreateConnectionAsync();
+            var chartIds = request?.ChartIds?
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => id.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList() ?? new();
+
+            var filters = new SalesBudgetFilterDto
+            {
+                StartDate = request?.StartDate,
+                EndDate = request?.EndDate,
+            };
+
+            try
+            {
+                if (connection.State != ConnectionState.Open)
+                    connection.Open();
+
+                var items = new List<SalesBudgetChartQueryDetailsItemDto>();
+
+                foreach (var chartId in chartIds)
+                {
+                    var capturedSql = new List<string>();
+                    var traced = new SqlTraceConnection(connection, capturedSql);
+
+                    var rules = new List<string>();
+                    if (filters.StartDate.HasValue || filters.EndDate.HasValue)
+                    {
+                        var startLabel = filters.StartDate?.ToString("yyyy-MM-dd") ?? "-";
+                        var endLabel = filters.EndDate?.ToString("yyyy-MM-dd") ?? "-";
+                        rules.Add($"Periodo: {startLabel} ate {endLabel} (coluna EMISSAO).");
+                    }
+
+                    try
+                    {
+                        // Reuse the same builder used by the chart endpoint so the SELECTs match reality.
+                        await BuildChartAsync(traced, filters, chartId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Falha ao capturar SQL do grafico '{ChartId}': {Message}", chartId, ex.Message);
+                        rules.Add($"Falha ao capturar SQL automaticamente: {ex.Message}");
+                    }
+
+                    items.Add(new SalesBudgetChartQueryDetailsItemDto
+                    {
+                        ChartId = chartId,
+                        SqlQueries = capturedSql
+                            .Where(sql => !string.IsNullOrWhiteSpace(sql))
+                            .Select(sql => sql.Trim())
+                            .Distinct()
+                            .ToList(),
+                        Rules = rules,
+                    });
+                }
+
+                return items;
+            }
+            finally
+            {
+                connection.Dispose();
+            }
+        }
+
+        private sealed class SqlTraceConnection : IDbConnection
+        {
+            private readonly IDbConnection _inner;
+            private readonly List<string> _captured;
+
+            public SqlTraceConnection(IDbConnection inner, List<string> captured)
+            {
+                _inner = inner;
+                _captured = captured;
+            }
+
+            public string ConnectionString { get => _inner.ConnectionString; set => _inner.ConnectionString = value; }
+            public int ConnectionTimeout => _inner.ConnectionTimeout;
+            public string Database => _inner.Database;
+            public ConnectionState State => _inner.State;
+            public IDbTransaction BeginTransaction() => _inner.BeginTransaction();
+            public IDbTransaction BeginTransaction(IsolationLevel il) => _inner.BeginTransaction(il);
+            public void ChangeDatabase(string databaseName) => _inner.ChangeDatabase(databaseName);
+            public void Close() => _inner.Close();
+            public IDbCommand CreateCommand() => new SqlTraceCommand(_inner.CreateCommand(), _captured);
+            public void Open() => _inner.Open();
+            public void Dispose() { /* do not dispose inner */ }
+        }
+
+        private sealed class SqlTraceCommand : IDbCommand
+        {
+            private readonly IDbCommand _inner;
+            private readonly List<string> _captured;
+
+            public SqlTraceCommand(IDbCommand inner, List<string> captured)
+            {
+                _inner = inner;
+                _captured = captured;
+            }
+
+            private void Capture()
+            {
+                var sql = _inner.CommandText;
+                if (!string.IsNullOrWhiteSpace(sql))
+                    _captured.Add(sql);
+            }
+
+            public string CommandText { get => _inner.CommandText; set => _inner.CommandText = value; }
+            public int CommandTimeout { get => _inner.CommandTimeout; set => _inner.CommandTimeout = value; }
+            public CommandType CommandType { get => _inner.CommandType; set => _inner.CommandType = value; }
+            public IDbConnection Connection { get => _inner.Connection; set => _inner.Connection = value; }
+            public IDataParameterCollection Parameters => _inner.Parameters;
+            public IDbTransaction Transaction { get => _inner.Transaction; set => _inner.Transaction = value; }
+            public UpdateRowSource UpdatedRowSource { get => _inner.UpdatedRowSource; set => _inner.UpdatedRowSource = value; }
+            public void Cancel() => _inner.Cancel();
+            public IDbDataParameter CreateParameter() => _inner.CreateParameter();
+            public void Dispose() => _inner.Dispose();
+            public int ExecuteNonQuery() { Capture(); return _inner.ExecuteNonQuery(); }
+            public IDataReader ExecuteReader() { Capture(); return _inner.ExecuteReader(); }
+            public IDataReader ExecuteReader(CommandBehavior behavior) { Capture(); return _inner.ExecuteReader(behavior); }
+            public object ExecuteScalar() { Capture(); return _inner.ExecuteScalar(); }
+            public void Prepare() => _inner.Prepare();
         }
 
         private async Task<SalesBudgetChartDatasetDto> BuildChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)

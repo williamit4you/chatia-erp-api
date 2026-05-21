@@ -537,5 +537,12 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
     {
         return _repository.GetChartsAsync(request);
     }
+
+    public Task<List<SalesBudgetChartQueryDetailsItemDto>> GetChartQueryDetailsAsync(
+        SalesBudgetChartQueryDetailsRequestDto request
+    )
+    {
+        return _repository.GetChartQueryDetailsAsync(request);
+    }
 }
 
