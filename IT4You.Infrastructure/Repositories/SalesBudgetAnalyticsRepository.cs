@@ -3057,18 +3057,23 @@ namespace IT4You.Infrastructure.Repositories
                 ORDER BY Valor DESC";
 
             var rows = (await connection.QueryAsync(sql, parameters)).ToList();
-            var total = rows.Sum(row => SafeToDecimal(row, "Valor"));
-            var cumulative = 0m;
-            var points = rows.Select(row =>
+            var values = rows.Select(row => new
             {
-                var value = SafeToDecimal(row, "Valor");
-                cumulative += value;
+                Label = SafeToString(row, "Grupo") ?? "Sem informacao",
+                Value = SafeToDecimal(row, "Valor")
+            }).ToList();
+
+            var total = values.Sum(item => item.Value);
+            var cumulative = 0m;
+            var points = values.Select(item =>
+            {
+                cumulative += item.Value;
                 var cumulativePct = total > 0 ? cumulative / total : 0m;
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Grupo") ?? "Sem informacao",
-                    Value = value,
-                    Amount = value,
+                    Label = item.Label,
+                    Value = item.Value,
+                    Amount = item.Value,
                     Percentage = cumulativePct
                 };
             }).ToList();
@@ -5994,6 +5999,7 @@ namespace IT4You.Infrastructure.Repositories
             var conditions = new List<string>();
             AddDateFilters(parameters, filters, conditions);
             var where = BuildWhere(conditions);
+            parameters.Add("ReferenceDate", filters?.EndDate?.Date ?? DateTime.Today);
             
             // Churn Risk: Customers with >= 3 budgets, but their last budget is more than 30 days older than their historical average interval
             var sql = $@"
@@ -6012,8 +6018,8 @@ namespace IT4You.Infrastructure.Repositories
                     SELECT 
                         CLIENTE,
                         BudgetCount,
-                        DATEDIFF(day, FirstEmission, LastEmission) / (BudgetCount - 1) AS AvgDaysBetween,
-                        DATEDIFF(day, LastEmission, GETDATE()) AS DaysSinceLast
+                        CAST(DATEDIFF(day, FirstEmission, LastEmission) AS DECIMAL(18,6)) / NULLIF(CAST(BudgetCount - 1 AS DECIMAL(18,6)), 0) AS AvgDaysBetween,
+                        DATEDIFF(day, LastEmission, @ReferenceDate) AS DaysSinceLast
                     FROM CustomerStats
                 )
                 SELECT TOP 10
@@ -6021,7 +6027,9 @@ namespace IT4You.Infrastructure.Repositories
                     DaysSinceLast AS Value,
                     AvgDaysBetween AS Count
                 FROM RiskAnalysis
-                WHERE DaysSinceLast > (AvgDaysBetween * 2) AND DaysSinceLast > 30
+                WHERE AvgDaysBetween IS NOT NULL
+                  AND DaysSinceLast > (AvgDaysBetween * 2)
+                  AND DaysSinceLast > 30
                 ORDER BY DaysSinceLast DESC";
 
             var rows = await connection.QueryAsync(sql, parameters);
