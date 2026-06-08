@@ -95,7 +95,7 @@ namespace IT4You.Infrastructure.Repositories
         private static string AppendCondition(string where, string condition)
             => string.IsNullOrWhiteSpace(where) ? $" WHERE {condition}" : $"{where} AND {condition}";
 
-        private static decimal SafeToDecimal(dynamic row, string key)
+        private static decimal SafeToDecimal(object row, string key)
         {
             try
             {
@@ -113,7 +113,7 @@ namespace IT4You.Infrastructure.Repositories
             }
         }
 
-        private static string? SafeToString(dynamic row, string key)
+        private static string? SafeToString(object row, string key)
         {
             try
             {
@@ -3056,14 +3056,16 @@ namespace IT4You.Infrastructure.Repositories
                 GROUP BY {groupColumn}
                 ORDER BY Valor DESC";
 
-            var rows = (await connection.QueryAsync(sql, parameters)).ToList();
-            var values = rows.Select(row => new
+            var rows = (await connection.QueryAsync(sql, parameters)).Cast<object>().ToList();
+            var values = rows.Select(row =>
             {
-                Label = SafeToString(row, "Grupo") ?? "Sem informacao",
-                Value = SafeToDecimal(row, "Valor")
+                string label = SafeToString(row, "Grupo") ?? "Sem informacao";
+                decimal value = SafeToDecimal(row, "Valor");
+
+                return (Label: label, Value: value);
             }).ToList();
 
-            var total = values.Sum(item => item.Value);
+            decimal total = values.Sum(item => item.Value);
             var cumulative = 0m;
             var points = values.Select(item =>
             {
