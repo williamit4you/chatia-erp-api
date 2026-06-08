@@ -699,6 +699,17 @@ namespace IT4You.Infrastructure.Repositories
                 "exec_goal_vs_actual" => BuildPlannedChart(chartId, "Meta x realizado"),
                 "exec_sales_forecast" => BuildPlannedChart(chartId, "Forecast de vendas"),
 
+                "future_budget_vs_sold" => await BuildBudgetVsSoldChartAsync(connection, filters, chartId),
+                "future_budget_converted_to_order" => await BuildBudgetConvertedToOrderChartAsync(connection, filters, chartId),
+                "future_avg_conversion_time" => await BuildAverageJourneyDaysKpiChartAsync(connection, filters, chartId, "Tempo medio de conversao", "DIAS_ATE_PRIMEIRO_PEDIDO"),
+                "future_issue_to_approval_time" => BuildPlannedChart(chartId, "Tempo medio entre emissao e aprovacao"),
+
+                "velocity_avg_cycle_time" => await BuildAverageJourneyDaysKpiChartAsync(connection, filters, chartId, "Tempo medio do ciclo de vendas", "DIAS_ATE_PRIMEIRO_PEDIDO"),
+                "velocity_by_seller" => await BuildVelocityBySellerChartAsync(connection, filters, chartId),
+                "velocity_by_product" => await BuildVelocityByProductChartAsync(connection, filters, chartId),
+                "velocity_conversion_acceleration" => await BuildVelocityConversionAccelerationChartAsync(connection, filters, chartId),
+                "velocity_status_bottleneck_time" => BuildPlannedChart(chartId, "Tempo medio de permanencia em status"),
+
                 "insight_pending_followup_budgets" => await BuildPendingFollowupChartAsync(connection, filters, chartId),
                 "insight_high_value_no_return" => await BuildHighValueNoReturnChartAsync(connection, filters, chartId),
                 "insight_seller_vs_team_avg" => await BuildSellerVsTeamChartAsync(connection, filters, chartId),
@@ -850,6 +861,342 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Totals = new Dictionary<string, decimal> { ["avgTicket"] = avgTicket },
                 Meta = new SalesBudgetChartMetaDto()
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildBudgetVsSoldChartAsync(
+            IDbConnection connection,
+            SalesBudgetFilterDto filters,
+            string chartId)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions, "EMISSAO_ORCAMENTO");
+            var where = BuildWhere(conditions);
+
+            var sql = $@"
+                SELECT
+                    ISNULL(SUM(VALOR_ORCADO), 0) AS TotalOrcado,
+                    ISNULL(SUM(VALOR_PEDIDO), 0) AS TotalPedido,
+                    ISNULL(SUM(VALOR_FATURADO), 0) AS TotalFaturado
+                FROM VW_SWIA_ORCAMENTO_JORNADA
+                {where}";
+
+            var row = await connection.QuerySingleAsync(sql, parameters);
+            var totalOrcado = SafeToDecimal(row, "TotalOrcado");
+            var totalPedido = SafeToDecimal(row, "TotalPedido");
+            var totalFaturado = SafeToDecimal(row, "TotalFaturado");
+
+            var points = new List<SalesBudgetChartPointDto>
+            {
+                new() { Label = "Orcado", Value = totalOrcado, Amount = totalOrcado },
+                new() { Label = "Pedido", Value = totalPedido, Amount = totalPedido },
+                new() { Label = "Faturado", Value = totalFaturado, Amount = totalFaturado },
+            };
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Orcado x vendido/faturado",
+                Visualization = "bar",
+                Data = points,
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["budgetAmount"] = totalOrcado,
+                    ["orderAmount"] = totalPedido,
+                    ["invoicedAmount"] = totalFaturado,
+                },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Source = "journey",
+                    DateField = "EMISSAO_ORCAMENTO",
+                    Warnings = new List<string>
+                    {
+                        "Usa a view VW_SWIA_ORCAMENTO_JORNADA para comparar valores orcados, pedidos e faturados no periodo."
+                    }
+                }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildBudgetConvertedToOrderChartAsync(
+            IDbConnection connection,
+            SalesBudgetFilterDto filters,
+            string chartId)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions, "EMISSAO_ORCAMENTO");
+            var where = BuildWhere(conditions);
+
+            var sql = $@"
+                SELECT
+                    COUNT(*) AS TotalOrcamentos,
+                    ISNULL(SUM(CASE WHEN CONVERTEU_EM_PEDIDO = 1 THEN 1 ELSE 0 END), 0) AS OrcamentosConvertidos
+                FROM VW_SWIA_ORCAMENTO_JORNADA
+                {where}";
+
+            var row = await connection.QuerySingleAsync(sql, parameters);
+            var totalOrcamentos = SafeToDecimal(row, "TotalOrcamentos");
+            var convertidos = SafeToDecimal(row, "OrcamentosConvertidos");
+            var taxa = totalOrcamentos > 0 ? convertidos / totalOrcamentos : 0m;
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Orcamento convertido em pedido",
+                Visualization = "kpi",
+                Data = new List<SalesBudgetChartPointDto>
+                {
+                    new() { Label = "Conversao em pedido", Value = taxa, Percentage = taxa, Count = convertidos }
+                },
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["convertedCount"] = convertidos,
+                    ["totalCount"] = totalOrcamentos,
+                    ["conversionRate"] = taxa,
+                },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Source = "journey",
+                    DateField = "EMISSAO_ORCAMENTO",
+                    Warnings = new List<string>
+                    {
+                        "Considera convertido quando CONVERTEU_EM_PEDIDO = 1 na view de jornada."
+                    }
+                }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildAverageJourneyDaysKpiChartAsync(
+            IDbConnection connection,
+            SalesBudgetFilterDto filters,
+            string chartId,
+            string title,
+            string daysColumn)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions, "EMISSAO_ORCAMENTO");
+            conditions.Add($"{daysColumn} IS NOT NULL");
+            var where = BuildWhere(conditions);
+
+            var sql = $@"
+                SELECT
+                    ISNULL(AVG(CAST({daysColumn} AS decimal(18, 4))), 0) AS Valor,
+                    COUNT(*) AS TotalConvertidos
+                FROM VW_SWIA_ORCAMENTO_JORNADA
+                {where}";
+
+            var row = await connection.QuerySingleAsync(sql, parameters);
+            var value = SafeToDecimal(row, "Valor");
+            var totalConvertidos = SafeToDecimal(row, "TotalConvertidos");
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = title,
+                Visualization = "kpi",
+                Data = new List<SalesBudgetChartPointDto>
+                {
+                    new() { Label = "Dias medios", Value = value, Count = totalConvertidos }
+                },
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["avgDays"] = value,
+                    ["convertedCount"] = totalConvertidos,
+                },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Source = "journey",
+                    DateField = "EMISSAO_ORCAMENTO",
+                    Warnings = new List<string>
+                    {
+                        $"Calculado com base em {daysColumn} da view VW_SWIA_ORCAMENTO_JORNADA."
+                    }
+                }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildVelocityBySellerChartAsync(
+            IDbConnection connection,
+            SalesBudgetFilterDto filters,
+            string chartId,
+            int top = 12,
+            int minConverted = 2)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions, "EMISSAO_ORCAMENTO");
+            conditions.Add("DIAS_ATE_PRIMEIRO_PEDIDO IS NOT NULL");
+            var where = BuildWhere(conditions);
+            parameters.Add("Top", top);
+            parameters.Add("MinConverted", minConverted);
+
+            var sql = $@"
+                SELECT TOP (@Top)
+                    ISNULL(NULLIF(VENDEDOR, ''), 'Sem vendedor') AS Label,
+                    CAST(AVG(CAST(DIAS_ATE_PRIMEIRO_PEDIDO AS decimal(18, 4))) AS decimal(18, 2)) AS AvgDays,
+                    COUNT(*) AS ConvertedCount
+                FROM VW_SWIA_ORCAMENTO_JORNADA
+                {where}
+                GROUP BY ISNULL(NULLIF(VENDEDOR, ''), 'Sem vendedor')
+                HAVING COUNT(*) >= @MinConverted
+                ORDER BY AvgDays ASC, ConvertedCount DESC, Label ASC";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row => new SalesBudgetChartPointDto
+            {
+                Label = SafeToString(row, "Label") ?? "Sem vendedor",
+                Value = SafeToDecimal(row, "AvgDays"),
+                Count = SafeToDecimal(row, "ConvertedCount"),
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Velocidade de conversao por vendedor",
+                Visualization = "bar",
+                Data = points,
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["sellers"] = points.Count,
+                    ["avgDays"] = points.Count > 0 ? points.Average(p => p.Value ?? 0m) : 0m,
+                },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Source = "journey",
+                    DateField = "EMISSAO_ORCAMENTO",
+                    Warnings = new List<string>
+                    {
+                        "Menor valor = conversao mais rapida.",
+                        $"Considera apenas vendedores com pelo menos {minConverted} orcamentos convertidos."
+                    }
+                }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildVelocityByProductChartAsync(
+            IDbConnection connection,
+            SalesBudgetFilterDto filters,
+            string chartId,
+            int top = 12,
+            int minConverted = 2)
+        {
+            var parameters = new DynamicParameters();
+            var conditions = new List<string>();
+            AddDateFilters(parameters, filters, conditions, "EMISSAO_ORCAMENTO");
+            conditions.Add("DIAS_ATE_PRIMEIRO_PEDIDO IS NOT NULL");
+            var where = BuildWhere(conditions);
+            parameters.Add("Top", top);
+            parameters.Add("MinConverted", minConverted);
+
+            var sql = $@"
+                SELECT TOP (@Top)
+                    ISNULL(NULLIF(ITEM, ''), ISNULL(NULLIF(CODIGOITEM, ''), 'Sem produto')) AS Label,
+                    CAST(AVG(CAST(DIAS_ATE_PRIMEIRO_PEDIDO AS decimal(18, 4))) AS decimal(18, 2)) AS AvgDays,
+                    COUNT(*) AS ConvertedCount
+                FROM VW_SWIA_ORCAMENTO_JORNADA_PRODUTO
+                {where}
+                GROUP BY ISNULL(NULLIF(ITEM, ''), ISNULL(NULLIF(CODIGOITEM, ''), 'Sem produto'))
+                HAVING COUNT(*) >= @MinConverted
+                ORDER BY AvgDays ASC, ConvertedCount DESC, Label ASC";
+
+            var rows = await connection.QueryAsync(sql, parameters);
+            var points = rows.Select(row => new SalesBudgetChartPointDto
+            {
+                Label = SafeToString(row, "Label") ?? "Sem produto",
+                Value = SafeToDecimal(row, "AvgDays"),
+                Count = SafeToDecimal(row, "ConvertedCount"),
+            }).ToList();
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Velocidade por produto",
+                Visualization = "bar",
+                Data = points,
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["products"] = points.Count,
+                    ["avgDays"] = points.Count > 0 ? points.Average(p => p.Value ?? 0m) : 0m,
+                },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Source = "journey_product",
+                    DateField = "EMISSAO_ORCAMENTO",
+                    Warnings = new List<string>
+                    {
+                        "Menor valor = conversao mais rapida.",
+                        $"Considera apenas produtos com pelo menos {minConverted} orcamentos convertidos.",
+                        "A view atual mede velocidade por produto, nao por categoria agregada."
+                    }
+                }
+            };
+        }
+
+        private async Task<SalesBudgetChartDatasetDto> BuildVelocityConversionAccelerationChartAsync(
+            IDbConnection connection,
+            SalesBudgetFilterDto filters,
+            string chartId)
+        {
+            var endDate = filters?.EndDate?.Date ?? DateTime.UtcNow.Date;
+            var startDate = filters?.StartDate?.Date ?? endDate.AddDays(-29);
+            if (startDate > endDate)
+            {
+                (startDate, endDate) = (endDate, startDate);
+            }
+
+            var rangeDays = Math.Max(1, (endDate - startDate).Days + 1);
+            var previousStart = startDate.AddDays(-rangeDays);
+            var previousEnd = startDate.AddDays(-1);
+
+            var parameters = new DynamicParameters();
+            parameters.Add("StartDate", startDate);
+            parameters.Add("EndDate", endDate);
+            parameters.Add("PreviousStart", previousStart);
+            parameters.Add("PreviousEnd", previousEnd);
+
+            var sql = @"
+                SELECT
+                    CAST(ISNULL(AVG(CASE WHEN EMISSAO_ORCAMENTO >= @StartDate AND EMISSAO_ORCAMENTO <= @EndDate THEN CAST(DIAS_ATE_PRIMEIRO_PEDIDO AS decimal(18, 4)) END), 0) AS decimal(18, 2)) AS AvgAtual,
+                    CAST(ISNULL(AVG(CASE WHEN EMISSAO_ORCAMENTO >= @PreviousStart AND EMISSAO_ORCAMENTO <= @PreviousEnd THEN CAST(DIAS_ATE_PRIMEIRO_PEDIDO AS decimal(18, 4)) END), 0) AS decimal(18, 2)) AS AvgAnterior
+                FROM VW_SWIA_ORCAMENTO_JORNADA
+                WHERE DIAS_ATE_PRIMEIRO_PEDIDO IS NOT NULL
+                  AND EMISSAO_ORCAMENTO >= @PreviousStart
+                  AND EMISSAO_ORCAMENTO <= @EndDate";
+
+            var row = await connection.QuerySingleAsync(sql, parameters);
+            var avgAtual = SafeToDecimal(row, "AvgAtual");
+            var avgAnterior = SafeToDecimal(row, "AvgAnterior");
+            var deltaDias = avgAnterior - avgAtual;
+            var improvementRatio = avgAnterior > 0 ? deltaDias / avgAnterior : 0m;
+
+            return new SalesBudgetChartDatasetDto
+            {
+                ChartId = chartId,
+                Title = "Aceleracao de conversao",
+                Visualization = "kpi",
+                Data = new List<SalesBudgetChartPointDto>
+                {
+                    new() { Label = "Aceleracao", Value = improvementRatio, Percentage = improvementRatio, Amount = deltaDias }
+                },
+                Totals = new Dictionary<string, decimal>
+                {
+                    ["currentAvgDays"] = avgAtual,
+                    ["previousAvgDays"] = avgAnterior,
+                    ["deltaDays"] = deltaDias,
+                    ["improvementRatio"] = improvementRatio,
+                },
+                Meta = new SalesBudgetChartMetaDto
+                {
+                    Source = "journey",
+                    DateField = "EMISSAO_ORCAMENTO",
+                    Warnings = new List<string>
+                    {
+                        "Positivo = ciclo atual mais rapido que o periodo anterior equivalente.",
+                        "A comparacao usa DIAS_ATE_PRIMEIRO_PEDIDO."
+                    }
+                }
             };
         }
 
