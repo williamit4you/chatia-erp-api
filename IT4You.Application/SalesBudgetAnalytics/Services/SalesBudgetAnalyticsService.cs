@@ -385,14 +385,14 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                     Name = "Novas informações",
                     Description = "Gráficos dependentes de pedido, faturamento, estoque, custo, metas e marketing.",
                     PlannedCount = 30,
-                    AvailableNowCount = 3,
-                    NeedsNewViewCount = 27,
+                    AvailableNowCount = 4,
+                    NeedsNewViewCount = 26,
                     Highlights = new List<SalesBudgetChartPreviewDto>
                     {
                         new() { Id = "future_budget_vs_sold", Title = "Orçado x vendido/faturado", Availability = "available_now" },
                         new() { Id = "future_budget_converted_to_order", Title = "Orçamento convertido em pedido", Availability = "available_now" },
                         new() { Id = "future_avg_conversion_time", Title = "Tempo médio de conversão", Availability = "available_now" },
-                        new() { Id = "future_issue_to_approval_time", Title = "Tempo médio entre emissão e aprovação", Availability = "needs_new_view" },
+                        new() { Id = "future_issue_to_approval_time", Title = "Tempo médio entre emissão e aprovação (pedido gerado)", Availability = "available_now" },
                         new() { Id = "future_loss_reason", Title = "Motivo de perda do orçamento", Availability = "needs_new_view" },
                         new() { Id = "future_cancel_reason", Title = "Motivo de cancelamento", Availability = "needs_new_view" },
                         new() { Id = "future_goal_by_seller", Title = "Meta por vendedor", Availability = "needs_new_view" },

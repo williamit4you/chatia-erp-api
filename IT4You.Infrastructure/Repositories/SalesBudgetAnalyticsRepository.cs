@@ -702,7 +702,7 @@ namespace IT4You.Infrastructure.Repositories
                 "future_budget_vs_sold" => await BuildBudgetVsSoldChartAsync(connection, filters, chartId),
                 "future_budget_converted_to_order" => await BuildBudgetConvertedToOrderChartAsync(connection, filters, chartId),
                 "future_avg_conversion_time" => await BuildAverageJourneyDaysKpiChartAsync(connection, filters, chartId, "Tempo medio de conversao", "DIAS_ATE_PRIMEIRO_PEDIDO"),
-                "future_issue_to_approval_time" => BuildPlannedChart(chartId, "Tempo medio entre emissao e aprovacao"),
+                "future_issue_to_approval_time" => await BuildAverageJourneyDaysKpiChartAsync(connection, filters, chartId, "Tempo medio entre emissao e aprovacao (pedido gerado)", "DIAS_ATE_PRIMEIRO_PEDIDO"),
 
                 "velocity_avg_cycle_time" => await BuildAverageJourneyDaysKpiChartAsync(connection, filters, chartId, "Tempo medio do ciclo de vendas", "DIAS_ATE_PRIMEIRO_PEDIDO"),
                 "velocity_by_seller" => await BuildVelocityBySellerChartAsync(connection, filters, chartId),
