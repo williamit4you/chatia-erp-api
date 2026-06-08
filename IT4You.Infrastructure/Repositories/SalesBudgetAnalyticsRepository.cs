@@ -68,28 +68,64 @@ namespace IT4You.Infrastructure.Repositories
             return $"COUNT(DISTINCT CAST({prefix}{customerColumn} AS NVARCHAR(200)))";
         }
 
-        private static string ApprovedStatusCondition(string alias = "")
+        private static string StatusValueExpression(string alias = "")
         {
             var prefix = string.IsNullOrWhiteSpace(alias) ? string.Empty : $"{alias}.";
-            return $"(UPPER(ISNULL({prefix}STATUS, '')) LIKE '%APROV%' OR UPPER(ISNULL({prefix}STATUS, '')) LIKE '%FECH%' OR UPPER(ISNULL({prefix}STATUS, '')) LIKE '%CONVERT%')";
+            return $"UPPER(LTRIM(RTRIM(ISNULL(CAST({prefix}STATUS AS NVARCHAR(200)), ''))))";
+        }
+
+        private static string CanonicalStatusLabelExpression(string alias = "")
+        {
+            var prefix = string.IsNullOrWhiteSpace(alias) ? string.Empty : $"{alias}.";
+            var status = StatusValueExpression(alias);
+            return $@"CASE
+                WHEN {status} = 'ABERTO' THEN 'Aberto'
+                WHEN {status} = 'FECHADO' THEN 'Fechado'
+                WHEN {status} = 'PARCIAL' THEN 'Parcial'
+                WHEN {status} = 'PEDIDO' THEN 'Pedido'
+                WHEN {status} = 'PERDEU' THEN 'Perdeu'
+                WHEN {status} = 'PROJETO' THEN 'Projeto'
+                WHEN {status} = '' THEN 'Sem status'
+                ELSE LTRIM(RTRIM(ISNULL(CAST({prefix}STATUS AS NVARCHAR(200)), 'Sem status')))
+            END";
+        }
+
+        private static string StatusOrderExpression(string alias = "")
+        {
+            var status = StatusValueExpression(alias);
+            return $@"CASE
+                WHEN {status} = 'PROJETO' THEN 1
+                WHEN {status} = 'ABERTO' THEN 2
+                WHEN {status} = 'PARCIAL' THEN 3
+                WHEN {status} = 'FECHADO' THEN 4
+                WHEN {status} = 'PEDIDO' THEN 5
+                WHEN {status} = 'PERDEU' THEN 6
+                WHEN {status} = '' THEN 98
+                ELSE 99
+            END";
+        }
+
+        private static string ApprovedStatusCondition(string alias = "")
+        {
+            var status = StatusValueExpression(alias);
+            return $"({status} IN ('FECHADO', 'PEDIDO'))";
         }
 
         private static string OpenStatusCondition(string alias = "")
         {
-            var prefix = string.IsNullOrWhiteSpace(alias) ? string.Empty : $"{alias}.";
-            return $"(UPPER(ISNULL({prefix}STATUS, '')) LIKE '%ABERT%' OR UPPER(ISNULL({prefix}STATUS, '')) LIKE '%PEND%' OR UPPER(ISNULL({prefix}STATUS, '')) LIKE '%NEGOCI%')";
+            var status = StatusValueExpression(alias);
+            return $"({status} IN ('PROJETO', 'ABERTO', 'PARCIAL'))";
         }
 
         private static string NegotiationStatusCondition(string alias = "")
         {
-            var prefix = string.IsNullOrWhiteSpace(alias) ? string.Empty : $"{alias}.";
-            return $"(UPPER(ISNULL({prefix}STATUS, '')) LIKE '%NEGOCI%')";
+            return OpenStatusCondition(alias);
         }
 
         private static string LostStatusCondition(string alias = "")
         {
-            var prefix = string.IsNullOrWhiteSpace(alias) ? string.Empty : $"{alias}.";
-            return $"(UPPER(ISNULL({prefix}STATUS, '')) LIKE '%PERD%' OR UPPER(ISNULL({prefix}STATUS, '')) LIKE '%CANCEL%' OR UPPER(ISNULL({prefix}STATUS, '')) LIKE '%REPROV%')";
+            var status = StatusValueExpression(alias);
+            return $"({status} = 'PERDEU')";
         }
 
         private static string AppendCondition(string where, string condition)
@@ -1332,14 +1368,25 @@ namespace IT4You.Infrastructure.Repositories
             }
 
             var where = BuildWhere(conditions);
+            var isStatusGrouping = string.Equals(groupColumn, "STATUS", StringComparison.OrdinalIgnoreCase);
+            var groupExpression = isStatusGrouping
+                ? CanonicalStatusLabelExpression()
+                : $"ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao')";
+            var sortSelect = isStatusGrouping
+                ? $", MIN({StatusOrderExpression()}) AS SortOrder"
+                : string.Empty;
+            var orderBy = isStatusGrouping
+                ? "SortOrder ASC, Valor DESC"
+                : "Valor DESC";
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                    {groupExpression} AS Grupo,
                     {metricSql} AS Valor
+                    {sortSelect}
                 FROM VW_SWIA_ORCAMENTO
                 {where}
-                GROUP BY {groupColumn}
-                ORDER BY Valor DESC";
+                GROUP BY {groupExpression}
+                ORDER BY {orderBy}";
 
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row =>
@@ -1551,17 +1598,20 @@ namespace IT4You.Infrastructure.Repositories
 
             var totalSql = $"SELECT {DistinctBudgetCountSql()} AS Valor FROM VW_SWIA_ORCAMENTO {where}";
             var total = await connection.ExecuteScalarAsync<int>(totalSql, parameters);
+            var statusLabelExpression = CanonicalStatusLabelExpression();
+            var statusOrderExpression = StatusOrderExpression();
 
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST(STATUS AS NVARCHAR(200)), 'Sem status') AS StatusLabel,
+                    {statusLabelExpression} AS StatusLabel,
                     {DistinctBudgetCountSql()} AS TotalOrcamentos,
-                    ISNULL(SUM(VALORTOTAL), 0) AS TotalValor
+                    ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
+                    MIN({statusOrderExpression}) AS SortOrder
                 FROM VW_SWIA_ORCAMENTO
                 {where}
-                GROUP BY STATUS
+                GROUP BY {statusLabelExpression}
                 HAVING {DistinctBudgetCountSql()} > 0
-                ORDER BY TotalOrcamentos DESC, TotalValor DESC";
+                ORDER BY SortOrder, TotalOrcamentos DESC, TotalValor DESC";
 
             var rows = await connection.QueryAsync(sql, parameters);
             decimal cumulative = 0m;
@@ -1569,7 +1619,6 @@ namespace IT4You.Infrastructure.Repositories
             {
                 var label = SafeToString(row, "StatusLabel") ?? "Sem status";
                 var count = Convert.ToInt32(SafeToDecimal(row, "TotalOrcamentos"));
-                var amount = SafeToDecimal(row, "TotalValor");
                 var pct = total > 0 ? (decimal)count / total : 0m;
                 cumulative += pct;
 
@@ -1628,9 +1677,9 @@ namespace IT4You.Infrastructure.Repositories
 
             var points = new List<SalesBudgetChartPointDto>
             {
-                new() { Label = "Em aberto", Value = openAmount, Amount = openAmount, Count = openCount },
-                new() { Label = "Aprovados", Value = approvedAmount, Amount = approvedAmount, Count = approvedCount },
-                new() { Label = "Perdidos/Cancelados", Value = lostAmount, Amount = lostAmount, Count = lostCount },
+                new() { Label = "Projeto/Aberto/Parcial", Value = openAmount, Amount = openAmount, Count = openCount },
+                new() { Label = "Fechado/Pedido", Value = approvedAmount, Amount = approvedAmount, Count = approvedCount },
+                new() { Label = "Perdeu", Value = lostAmount, Amount = lostAmount, Count = lostCount },
             };
 
             return new SalesBudgetChartDatasetDto
@@ -1647,7 +1696,7 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Os grupos dependem do mapeamento atual de STATUS." }
+                    Warnings = new List<string> { "Resumo consolidado em tres grupos: Projeto/Aberto/Parcial, Fechado/Pedido e Perdeu." }
                 }
             };
         }
@@ -1674,7 +1723,7 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["openAmount"] = value },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Valor aproximado com base nos status classificados como abertos/pendentes." }
+                    Warnings = new List<string> { "Considera os status Projeto, Aberto e Parcial como pipeline em aberto." }
                 }
             };
         }
