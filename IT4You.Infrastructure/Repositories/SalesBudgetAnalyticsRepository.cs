@@ -1586,8 +1586,8 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Sazonalidade de vendas/orÃ§amentos por mÃªs",
-                Visualization = "heatmap",
+                Title = "Sazonalidade de vendas/orçamentos por mês",
+                Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
                 {
