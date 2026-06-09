@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -214,13 +214,13 @@ namespace IT4You.Infrastructure.Repositories
 
 	            var items = new List<SalesBudgetKpiItemDto>
 	            {
-	                new() { KpiId = "kpi_total_budget_amount", Label = "Valor total orçado", Value = totalAmount, Format = "currency" },
-	                new() { KpiId = "kpi_budget_count", Label = "Quantidade de orçamentos", Value = totalCount, Format = "number" },
-	                new() { KpiId = "kpi_avg_ticket", Label = "Ticket médio", Value = avgTicket, Format = "currency" },
+	                new() { KpiId = "kpi_total_budget_amount", Label = "Valor total orÃ§ado", Value = totalAmount, Format = "currency" },
+	                new() { KpiId = "kpi_budget_count", Label = "Quantidade de orÃ§amentos", Value = totalCount, Format = "number" },
+	                new() { KpiId = "kpi_avg_ticket", Label = "Ticket mÃ©dio", Value = avgTicket, Format = "currency" },
 	                new() { KpiId = "kpi_open_amount", Label = "Valor em aberto", Value = openAmount, Format = "currency" },
 	                new() { KpiId = "kpi_approved_amount", Label = "Valor aprovado", Value = approvedAmount, Format = "currency" },
 	                new() { KpiId = "kpi_lost_amount", Label = "Valor perdido", Value = lostAmount, Format = "currency" },
-	                new() { KpiId = "kpi_conversion_rate", Label = "Taxa de conversão", Value = conversionRate, Format = "percentage", Warning = "Depende do mapeamento atual de STATUS." },
+	                new() { KpiId = "kpi_conversion_rate", Label = "Taxa de conversÃ£o", Value = conversionRate, Format = "percentage", Warning = "Depende do mapeamento atual de STATUS." },
 	                new() { KpiId = "kpi_best_seller", Label = "Melhor vendedor", TextValue = bestSeller ?? "Sem dados", Format = "text" },
 	                new() { KpiId = "kpi_best_customer", Label = "Melhor cliente", TextValue = bestCustomer ?? "Sem dados", Format = "text" },
 	                new() { KpiId = "kpi_best_product", Label = "Melhor produto", TextValue = bestProduct ?? "Sem dados", Format = "text" },
@@ -260,7 +260,7 @@ namespace IT4You.Infrastructure.Repositories
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Falha ao construir grafico '{ChartId}': {Message}", chartId, ex.Message);
+                        _logger.LogWarning(ex, "Falha ao construir gráfico '{ChartId}': {Message}", chartId, ex.Message);
                         response.Items.Add(new SalesBudgetChartDatasetDto
                         {
                             ChartId = chartId,
@@ -271,7 +271,7 @@ namespace IT4You.Infrastructure.Repositories
                             Meta = new SalesBudgetChartMetaDto
                             {
                                 Source = "error",
-                                Warnings = new List<string> { $"Erro ao gerar este grafico: {ex.Message}" }
+                                Warnings = new List<string> { $"Erro ao gerar este gráfico: {ex.Message}" }
                             }
                         });
 
@@ -287,7 +287,7 @@ namespace IT4You.Infrastructure.Repositories
                             }
                             catch (Exception reconnectEx)
                             {
-                                _logger.LogError(reconnectEx, "Falha ao reconectar apos erro no grafico '{ChartId}'.", chartId);
+                                _logger.LogError(reconnectEx, "Falha ao reconectar apos erro no gráfico '{ChartId}'.", chartId);
                             }
                         }
                     }
@@ -337,12 +337,12 @@ namespace IT4You.Infrastructure.Repositories
                     {
                         var startLabel = filters.StartDate?.ToString("yyyy-MM-dd") ?? "-";
                         var endLabel = filters.EndDate?.ToString("yyyy-MM-dd") ?? "-";
-                        rules.Add($"Periodo: {startLabel} ate {endLabel} (coluna EMISSAO).");
+                        rules.Add($"Período: {startLabel} ate {endLabel} (coluna EMISSAO).");
                     }
 
                     if (traced == null)
                     {
-                        rules.Add("Captura automatica de SQL indisponivel: o provider atual nao expoe DbConnection.");
+                        rules.Add("Captura automatica de SQL indisponivel: o provider atual não expoe DbConnection.");
                     }
 
                     try
@@ -352,7 +352,7 @@ namespace IT4You.Infrastructure.Repositories
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Falha ao capturar SQL do grafico '{ChartId}': {Message}", chartId, ex.Message);
+                        _logger.LogWarning(ex, "Falha ao capturar SQL do gráfico '{ChartId}': {Message}", chartId, ex.Message);
                         rules.Add($"Falha ao capturar SQL automaticamente: {ex.Message}");
                     }
 
@@ -493,8 +493,8 @@ namespace IT4You.Infrastructure.Repositories
         {
             return chartId switch
             {
-                "overview_total_amount_period" => await BuildSingleValueChartAsync(connection, filters, chartId, "Valor total de orçamentos por período", "kpi", "SELECT ISNULL(SUM(VALORTOTAL), 0) AS Valor FROM VW_SWIA_ORCAMENTO {0}", "Valor total", "currency"),
-                "overview_total_count_period" => await BuildSingleValueChartAsync(connection, filters, chartId, "Quantidade de orçamentos por período", "kpi", $"SELECT {DistinctBudgetCountSql()} AS Valor FROM VW_SWIA_ORCAMENTO {{0}}", "Quantidade", "number"),
+                "overview_total_amount_period" => await BuildSingleValueChartAsync(connection, filters, chartId, "Valor total de orÃ§amentos por perÃ­odo", "kpi", "SELECT ISNULL(SUM(VALORTOTAL), 0) AS Valor FROM VW_SWIA_ORCAMENTO {0}", "Valor total", "currency"),
+                "overview_total_count_period" => await BuildSingleValueChartAsync(connection, filters, chartId, "Quantidade de orÃ§amentos por perÃ­odo", "kpi", $"SELECT {DistinctBudgetCountSql()} AS Valor FROM VW_SWIA_ORCAMENTO {{0}}", "Quantidade", "number"),
                 "overview_avg_ticket" => await BuildAverageTicketChartAsync(connection, filters),
                 "overview_monthly_evolution" => await BuildMonthlyEvolutionChartAsync(connection, filters),
                 "overview_weekly_evolution" => await BuildWeeklyEvolutionChartAsync(connection, filters, chartId),
@@ -505,75 +505,75 @@ namespace IT4You.Infrastructure.Repositories
                 "overview_top_months_by_amount" => await BuildTopMonthsByAmountChartAsync(connection, filters, chartId),
                 "overview_month_seasonality" => await BuildMonthSeasonalityChartAsync(connection, filters, chartId),
                 "overview_amount_by_company" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Valor total por empresa/filial", "bar", "EMPRESA", "Empresa", "SUM(VALORTOTAL)", "currency"),
-                "overview_count_by_company" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Quantidade de orçamentos por empresa/filial", "bar", "EMPRESA", "Empresa", DistinctBudgetCountSql(), "number"),
+                "overview_count_by_company" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Quantidade de orÃ§amentos por empresa/filial", "bar", "EMPRESA", "Empresa", DistinctBudgetCountSql(), "number"),
                 "overview_weekday_heatmap" => await BuildWeekdayHeatmapChartAsync(connection, filters),
                 "overview_month_year_heatmap" => await BuildMonthYearHeatmapChartAsync(connection, filters, chartId),
 
-                "funnel_by_status" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Funil por status do orçamento", "bar", "STATUS", "Status", "SUM(VALORTOTAL)", "currency"),
+                "funnel_by_status" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Funil por status do orÃ§amento", "bar", "STATUS", "Status", "SUM(VALORTOTAL)", "currency"),
                 "funnel_amount_by_status" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Valor total por status", "bar", "STATUS", "Status", "SUM(VALORTOTAL)", "currency"),
-                "funnel_count_by_status" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Quantidade de orçamentos por status", "bar", "STATUS", "Status", DistinctBudgetCountSql(), "number", null, 15),
+                "funnel_count_by_status" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Quantidade de orÃ§amentos por status", "bar", "STATUS", "Status", DistinctBudgetCountSql(), "number", null, 15),
                 "funnel_conversion_percent_by_status" => await BuildStatusParticipationChartAsync(connection, filters, chartId),
                 "funnel_open_approved_lost" => await BuildOpenApprovedLostChartAsync(connection, filters, chartId),
-                "funnel_pending_amount" => await BuildOpenPipelineLikeChartAsync(connection, filters, chartId, "Valor parado em orçamentos pendentes"),
-                "funnel_approval_rate" => await BuildConversionKpiChartAsync(connection, filters, chartId, "Taxa de aprovação de orçamentos"),
+                "funnel_pending_amount" => await BuildOpenPipelineLikeChartAsync(connection, filters, chartId, "Valor parado em orÃ§amentos pendentes"),
+                "funnel_approval_rate" => await BuildConversionKpiChartAsync(connection, filters, chartId, "Taxa de aprovaÃ§Ã£o de orÃ§amentos"),
                 "funnel_loss_cancel_rate" => await BuildLostCancelRateChartAsync(connection, filters, chartId),
                 "funnel_conversion_evolution" => await BuildConversionEvolutionChartAsync(connection, filters, chartId),
-                "funnel_conversion_by_seller" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Conversão por vendedor", "VENDEDOR", "Vendedor"),
-                "funnel_conversion_by_customer" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Conversão por cliente", "CLIENTE", "Cliente"),
-                "funnel_conversion_by_origin" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Conversão por origem", "ORIGEM", "Origem"),
-                "funnel_conversion_by_geo" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Conversão por UF", "UF", "UF"),
-                "funnel_conversion_by_payment" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Conversão por condição de pagamento", "CONDPAG", "Condicao"),
+                "funnel_conversion_by_seller" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "ConversÃ£o por vendedor", "VENDEDOR", "Vendedor"),
+                "funnel_conversion_by_customer" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "ConversÃ£o por cliente", "CLIENTE", "Cliente"),
+                "funnel_conversion_by_origin" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "ConversÃ£o por origem", "ORIGEM", "Origem"),
+                "funnel_conversion_by_geo" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "ConversÃ£o por UF", "UF", "UF"),
+                "funnel_conversion_by_payment" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "ConversÃ£o por condiÃ§Ã£o de pagamento", "CONDPAG", "Condicao"),
                 "funnel_blocking_status_ranking" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Ranking de status que mais travam vendas", "bar", "STATUS", "Status", "SUM(VALORTOTAL)", "currency", OpenStatusCondition()),
 
-                "seller_total_amount" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Valor total orçado por vendedor", "bar", "VENDEDOR", "Vendedor", "SUM(VALORTOTAL)", "currency"),
-                "seller_total_count" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Quantidade de orçamentos por vendedor", "bar", "VENDEDOR", "Vendedor", DistinctBudgetCountSql(), "number"),
-                "seller_avg_ticket" => await BuildAverageTicketByGroupChartAsync(connection, filters, chartId, "Ticket médio por vendedor", "VENDEDOR", "Vendedor"),
-                "seller_conversion" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Conversão por vendedor", "VENDEDOR", "Vendedor"),
-                "seller_avg_discount" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "Desconto médio concedido por vendedor", "VENDEDOR", "Vendedor", "PERCENTUALDESCONTO", "VALORDESCONTO"),
-                "seller_avg_markup" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Markup médio por vendedor", "bar", "VENDEDOR", "Vendedor", "AVG(MARKUP)", "number"),
-                "seller_avg_surcharge" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "Acréscimo médio por vendedor", "VENDEDOR", "Vendedor", "PERCENTUALACRESCIMO", "VALORACRESCIMO"),
-                "seller_avg_freight" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Valor de frete médio por vendedor", "bar", "VENDEDOR", "Vendedor", "AVG(VALORFRETE)", "currency"),
+                "seller_total_amount" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Valor total orÃ§ado por vendedor", "bar", "VENDEDOR", "Vendedor", "SUM(VALORTOTAL)", "currency"),
+                "seller_total_count" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Quantidade de orÃ§amentos por vendedor", "bar", "VENDEDOR", "Vendedor", DistinctBudgetCountSql(), "number"),
+                "seller_avg_ticket" => await BuildAverageTicketByGroupChartAsync(connection, filters, chartId, "Ticket mÃ©dio por vendedor", "VENDEDOR", "Vendedor"),
+                "seller_conversion" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "ConversÃ£o por vendedor", "VENDEDOR", "Vendedor"),
+                "seller_avg_discount" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "Desconto mÃ©dio concedido por vendedor", "VENDEDOR", "Vendedor", "PERCENTUALDESCONTO", "VALORDESCONTO"),
+                "seller_avg_markup" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Markup mÃ©dio por vendedor", "bar", "VENDEDOR", "Vendedor", "AVG(MARKUP)", "number"),
+                "seller_avg_surcharge" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "AcrÃ©scimo mÃ©dio por vendedor", "VENDEDOR", "Vendedor", "PERCENTUALACRESCIMO", "VALORACRESCIMO"),
+                "seller_avg_freight" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Valor de frete mÃ©dio por vendedor", "bar", "VENDEDOR", "Vendedor", "AVG(VALORFRETE)", "currency"),
                 "seller_ranking_amount" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Ranking de vendedores por valor total", "bar", "VENDEDOR", "Vendedor", "SUM(VALORTOTAL)", "currency", null, 12),
                 "seller_ranking_count" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Ranking de vendedores por quantidade", "bar", "VENDEDOR", "Vendedor", DistinctBudgetCountSql(), "number", null, 12),
                 "seller_ranking_ticket" => await BuildRankingAvgTicketBySellerChartAsync(connection, filters, chartId),
                 "seller_ranking_markup" => await BuildRankingAvgMarkupBySellerChartAsync(connection, filters, chartId),
-                "seller_most_lost" => await BuildStatusCountAmountByGroupChartAsync(connection, filters, chartId, "Vendedores com mais orçamentos perdidos", "VENDEDOR", "Vendedor", LostStatusCondition(), 12),
-                "seller_most_approved" => await BuildStatusCountAmountByGroupChartAsync(connection, filters, chartId, "Vendedores com mais orçamentos aprovados", "VENDEDOR", "Vendedor", ApprovedStatusCondition(), 12),
-                "seller_monthly_evolution" => await BuildMonthlyEvolutionByGroupChartAsync(connection, filters, chartId, "Evolução mensal por vendedor", "VENDEDOR", 5),
+                "seller_most_lost" => await BuildStatusCountAmountByGroupChartAsync(connection, filters, chartId, "Vendedores com mais orÃ§amentos perdidos", "VENDEDOR", "Vendedor", LostStatusCondition(), 12),
+                "seller_most_approved" => await BuildStatusCountAmountByGroupChartAsync(connection, filters, chartId, "Vendedores com mais orÃ§amentos aprovados", "VENDEDOR", "Vendedor", ApprovedStatusCondition(), 12),
+                "seller_monthly_evolution" => await BuildMonthlyEvolutionByGroupChartAsync(connection, filters, chartId, "EvoluÃ§Ã£o mensal por vendedor", "VENDEDOR", 5),
                 "seller_comparison" => await BuildSellerComparisonChartAsync(connection, filters, chartId, 8),
-                "seller_share_total" => await BuildShareByGroupChartAsync(connection, filters, chartId, "Participação de cada vendedor no faturamento", "VENDEDOR", "Vendedor", 12),
+                "seller_share_total" => await BuildShareByGroupChartAsync(connection, filters, chartId, "ParticipaÃ§Ã£o de cada vendedor no faturamento", "VENDEDOR", "Vendedor", 12),
                 "seller_abc_curve" => await BuildAbcChartAsync(connection, filters, chartId, "Curva ABC de vendedores", "VENDEDOR", "Vendedor"),
-                "seller_top_product" => await BuildTopCrossChartAsync(connection, filters, chartId, "Vendedor x produto mais orçado", "O.VENDEDOR", "Vendedor", "I.ITEM", "Produto"),
+                "seller_top_product" => await BuildTopCrossChartAsync(connection, filters, chartId, "Vendedor x produto mais orÃ§ado", "O.VENDEDOR", "Vendedor", "I.ITEM", "Produto"),
                 "seller_top_customer" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Vendedor x cliente mais atendido", "VENDEDOR", "Vendedor", "CLIENTE", "Cliente"),
 
-                "customer_top_amount" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Top clientes por valor orçado", "bar", "CLIENTE", "Cliente", "SUM(VALORTOTAL)", "currency"),
-                "customer_top_count" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Top clientes por quantidade de orçamentos", "bar", "CLIENTE", "Cliente", DistinctBudgetCountSql(), "number", null, 12),
-                "customer_avg_ticket" => await BuildAverageTicketByGroupChartAsync(connection, filters, chartId, "Ticket médio por cliente", "CLIENTE", "Cliente", 12),
+                "customer_top_amount" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Top clientes por valor orÃ§ado", "bar", "CLIENTE", "Cliente", "SUM(VALORTOTAL)", "currency"),
+                "customer_top_count" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Top clientes por quantidade de orÃ§amentos", "bar", "CLIENTE", "Cliente", DistinctBudgetCountSql(), "number", null, 12),
+                "customer_avg_ticket" => await BuildAverageTicketByGroupChartAsync(connection, filters, chartId, "Ticket mÃ©dio por cliente", "CLIENTE", "Cliente", 12),
                 "customer_recurring" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Clientes recorrentes", "bar", "CLIENTE", "Cliente", DistinctBudgetCountSql(), "number"),
                 "customer_new_period" => await BuildNewCustomersChartAsync(connection, filters, chartId),
                 "customer_inactive_recent" => await BuildInactiveCustomersChartAsync(connection, filters, chartId),
                 "customer_highest_discount" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "Clientes com maior desconto recebido", "CLIENTE", "Cliente", "PERCENTUALDESCONTO", "VALORDESCONTO", 12),
                 "customer_highest_markup" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Clientes com maior markup", "bar", "CLIENTE", "Cliente", "AVG(MARKUP)", "number", null, 12),
                 "customer_highest_open_amount" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Clientes com maior valor em aberto", "bar", "CLIENTE", "Cliente", "SUM(VALORTOTAL)", "currency", OpenStatusCondition(), 12),
-                "customer_highest_conversion" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Clientes com maior taxa de conversão", "CLIENTE", "Cliente"),
+                "customer_highest_conversion" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Clientes com maior taxa de conversÃ£o", "CLIENTE", "Cliente"),
                 "customer_low_conversion" => await BuildLowConversionCustomersChartAsync(connection, filters, chartId),
                 "customer_abc_curve" => await BuildAbcChartAsync(connection, filters, chartId, "Curva ABC de clientes", "CLIENTE", "Cliente"),
-                "customer_top_share" => await BuildShareByGroupChartAsync(connection, filters, chartId, "Participação dos principais clientes no total", "CLIENTE", "Cliente", 12),
-                "customer_evolution" => await BuildMonthlyEvolutionByGroupChartAsync(connection, filters, chartId, "Evolução de orçamentos por cliente", "CLIENTE", 5),
-                "customer_top_products" => await BuildTopCrossChartAsync(connection, filters, chartId, "Cliente x produtos mais orçados", "O.CLIENTE", "Cliente", "I.ITEM", "Produto"),
-                "customer_responsible_seller" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Cliente x vendedor responsável", "CLIENTE", "Cliente", "VENDEDOR", "Vendedor", 12),
+                "customer_top_share" => await BuildShareByGroupChartAsync(connection, filters, chartId, "ParticipaÃ§Ã£o dos principais clientes no total", "CLIENTE", "Cliente", 12),
+                "customer_evolution" => await BuildMonthlyEvolutionByGroupChartAsync(connection, filters, chartId, "EvoluÃ§Ã£o de orÃ§amentos por cliente", "CLIENTE", 5),
+                "customer_top_products" => await BuildTopCrossChartAsync(connection, filters, chartId, "Cliente x produtos mais orÃ§ados", "O.CLIENTE", "Cliente", "I.ITEM", "Produto"),
+                "customer_responsible_seller" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Cliente x vendedor responsÃ¡vel", "CLIENTE", "Cliente", "VENDEDOR", "Vendedor", 12),
                 "customer_origin" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Cliente x origem", "CLIENTE", "Cliente", "ORIGEM", "Origem", 12),
-                "customer_payment_condition" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Cliente x condição de pagamento", "CLIENTE", "Cliente", "CONDPAG", "Condicao", 12),
+                "customer_payment_condition" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Cliente x condiÃ§Ã£o de pagamento", "CLIENTE", "Cliente", "CONDPAG", "Condicao", 12),
                 "customer_by_city" => await BuildDistinctCustomerCountByGroupChartAsync(connection, filters, chartId, "Clientes por cidade", "CIDADE", "Cidade", 12),
                 "customer_by_uf" => await BuildDistinctCustomerCountByGroupChartAsync(connection, filters, chartId, "Clientes por UF", "UF", "UF", 27),
 
                 "product_top_amount" => await BuildGroupedItemChartAsync(connection, filters, chartId, "Top produtos por valor total", "bar", "I.ITEM", "Produto", "SUM(I.VALORTOTAL)", "currency"),
-                "product_top_quantity" => await BuildGroupedItemChartAsync(connection, filters, chartId, "Top produtos por quantidade vendida/orçada", "bar", "I.ITEM", "Produto", "SUM(ISNULL(I.QUANTIDADE, 0))", "number", 12),
+                "product_top_quantity" => await BuildGroupedItemChartAsync(connection, filters, chartId, "Top produtos por quantidade vendida/orÃ§ada", "bar", "I.ITEM", "Produto", "SUM(ISNULL(I.QUANTIDADE, 0))", "number", 12),
                 "product_highest_avg_ticket" => await BuildAverageTicketByItemChartAsync(connection, filters, chartId),
                 "product_highest_discount" => await BuildAveragePercentByItemChartAsync(connection, filters, chartId, "Produtos com maior desconto aplicado", "PERCENTUALDESCONTO", "VALORDESCONTO"),
                 "product_highest_markup" => await BuildAverageNumberByItemChartAsync(connection, filters, chartId, "Produtos com maior markup", "AVG(ISNULL(I.MARKUP, 0))", "number"),
-                "product_highest_surcharge" => await BuildAveragePercentByItemChartAsync(connection, filters, chartId, "Produtos com maior acréscimo", "PERCENTUALACRESCIMO", "VALORACRESCIMO"),
-                "product_most_quoted_period" => await BuildGroupedItemChartAsync(connection, filters, chartId, "Produtos mais orçados por período", "bar", "I.ITEM", "Produto", DistinctBudgetCountSql("I"), "number", 12),
+                "product_highest_surcharge" => await BuildAveragePercentByItemChartAsync(connection, filters, chartId, "Produtos com maior acrÃ©scimo", "PERCENTUALACRESCIMO", "VALORACRESCIMO"),
+                "product_most_quoted_period" => await BuildGroupedItemChartAsync(connection, filters, chartId, "Produtos mais orÃ§ados por perÃ­odo", "bar", "I.ITEM", "Produto", DistinctBudgetCountSql("I"), "number", 12),
                 "product_least_quoted" => await BuildLeastQuotedProductsChartAsync(connection, filters, chartId),
                 "product_share_total" => await BuildShareByItemChartAsync(connection, filters, chartId, 12),
                 "product_abc_curve" => await BuildAbcItemChartAsync(connection, filters, chartId, 12),
@@ -582,11 +582,11 @@ namespace IT4You.Infrastructure.Repositories
                 "product_by_customer" => await BuildTopCrossChartAsync(connection, filters, chartId, "Produtos por cliente", "O.CLIENTE", "Cliente", "I.ITEM", "Produto"),
                 "product_by_geo" => await BuildTopCrossChartAsync(connection, filters, chartId, "Produtos por UF", "O.UF", "UF", "I.ITEM", "Produto"),
                 "product_by_company" => await BuildTopCrossChartAsync(connection, filters, chartId, "Produtos por empresa/filial", "O.EMPRESA", "Empresa", "I.ITEM", "Produto"),
-                "product_by_origin" => await BuildTopCrossChartAsync(connection, filters, chartId, "Produtos por origem do orçamento", "O.ORIGEM", "Origem", "I.ITEM", "Produto"),
-                "product_avg_quantity_per_item" => await BuildAverageNumberByItemChartAsync(connection, filters, chartId, "Quantidade média por item", "AVG(ISNULL(I.QUANTIDADE, 0))", "number"),
-                "product_avg_value_per_item" => await BuildAverageNumberByItemChartAsync(connection, filters, chartId, "Valor médio por item", "AVG(ISNULL(I.VALORTOTAL, 0))", "currency"),
-                "product_highest_gross_unit" => await BuildAverageNumberByItemChartAsync(connection, filters, chartId, "Produtos com maior valor unitário bruto", "AVG(ISNULL(I.VALORUNITARIOBRUTO, 0))", "currency"),
-                "product_highest_net_unit" => await BuildAverageNumberByItemChartAsync(connection, filters, chartId, "Produtos com maior valor unitário líquido", "AVG(ISNULL(I.VALORUNITARIOLIQUIDO, 0))", "currency"),
+                "product_by_origin" => await BuildTopCrossChartAsync(connection, filters, chartId, "Produtos por origem do orÃ§amento", "O.ORIGEM", "Origem", "I.ITEM", "Produto"),
+                "product_avg_quantity_per_item" => await BuildAverageNumberByItemChartAsync(connection, filters, chartId, "Quantidade mÃ©dia por item", "AVG(ISNULL(I.QUANTIDADE, 0))", "number"),
+                "product_avg_value_per_item" => await BuildAverageNumberByItemChartAsync(connection, filters, chartId, "Valor mÃ©dio por item", "AVG(ISNULL(I.VALORTOTAL, 0))", "currency"),
+                "product_highest_gross_unit" => await BuildAverageNumberByItemChartAsync(connection, filters, chartId, "Produtos com maior valor unitÃ¡rio bruto", "AVG(ISNULL(I.VALORUNITARIOBRUTO, 0))", "currency"),
+                "product_highest_net_unit" => await BuildAverageNumberByItemChartAsync(connection, filters, chartId, "Produtos com maior valor unitÃ¡rio lÃ­quido", "AVG(ISNULL(I.VALORUNITARIOLIQUIDO, 0))", "currency"),
                 "product_gross_net_gap" => await BuildGrossNetGapByItemChartAsync(connection, filters, chartId),
                 "product_demand_drop" => await BuildProductDemandDropChartAsync(connection, filters, chartId),
                 "product_demand_growth" => await BuildProductDemandGrowthChartAsync(connection, filters, chartId),
@@ -595,82 +595,82 @@ namespace IT4You.Infrastructure.Repositories
 
                 "margin_total_discount" => await BuildSingleValueChartAsync(connection, filters, chartId, "Valor total de descontos concedidos", "kpi", "SELECT ISNULL(SUM(VALORDESCONTO), 0) AS Valor FROM VW_SWIA_ORCAMENTO {0}", "Desconto total", "currency"),
                 "margin_discount_vs_conversion" => await BuildDiscountVsConversionChartAsync(connection, filters, chartId),
-                "margin_avg_markup_general" => await BuildSingleValueChartAsync(connection, filters, chartId, "Markup médio geral", "kpi", "SELECT ISNULL(AVG(MARKUP), 0) AS Valor FROM VW_SWIA_ORCAMENTO {0}", "Markup médio", "number"),
-                "margin_avg_discount_percent" => await BuildSinglePercentKpiChartAsync(connection, filters, chartId, "Percentual médio de desconto", "PERCENTUALDESCONTO"),
+                "margin_avg_markup_general" => await BuildSingleValueChartAsync(connection, filters, chartId, "Markup mÃ©dio geral", "kpi", "SELECT ISNULL(AVG(MARKUP), 0) AS Valor FROM VW_SWIA_ORCAMENTO {0}", "Markup mÃ©dio", "number"),
+                "margin_avg_discount_percent" => await BuildSinglePercentKpiChartAsync(connection, filters, chartId, "Percentual mÃ©dio de desconto", "PERCENTUALDESCONTO"),
                 "margin_discount_by_seller" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "Desconto por vendedor", "VENDEDOR", "Vendedor", "PERCENTUALDESCONTO", "VALORDESCONTO", 12),
                 "margin_discount_by_customer" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "Desconto por cliente", "CLIENTE", "Cliente", "PERCENTUALDESCONTO", "VALORDESCONTO", 12),
                 "margin_discount_by_origin" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "Desconto por origem", "ORIGEM", "Origem", "PERCENTUALDESCONTO", "VALORDESCONTO", 12),
-                "margin_discount_by_payment" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "Desconto por condição de pagamento", "CONDPAG", "Condicao", "PERCENTUALDESCONTO", "VALORDESCONTO", 12),
+                "margin_discount_by_payment" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "Desconto por condiÃ§Ã£o de pagamento", "CONDPAG", "Condicao", "PERCENTUALDESCONTO", "VALORDESCONTO", 12),
                 "margin_discount_by_product" => await BuildAveragePercentByItemChartAsync(connection, filters, chartId, "Desconto por produto", "PERCENTUALDESCONTO", "VALORDESCONTO", 12),
                 "margin_highest_discount_ranking" => await BuildHighestDiscountRankingChartAsync(connection, filters, chartId),
                 "margin_above_avg_discount_budgets" => await BuildAboveAvgDiscountBudgetsChartAsync(connection, filters, chartId),
                 "margin_discount_impact_total" => await BuildDiscountImpactTotalChartAsync(connection, filters, chartId),
                 "margin_discount_vs_seller" => await BuildDiscountVsSellerChartAsync(connection, filters, chartId),
-                "margin_total_surcharge" => await BuildSingleValueChartAsync(connection, filters, chartId, "Valor total de acréscimos", "kpi", "SELECT ISNULL(SUM(VALORACRESCIMO), 0) AS Valor FROM VW_SWIA_ORCAMENTO {0}", "Acréscimo total", "currency"),
-                "margin_avg_surcharge_percent" => await BuildSinglePercentKpiChartAsync(connection, filters, chartId, "Percentual médio de acréscimo", "PERCENTUALACRESCIMO"),
-                "margin_surcharge_by_seller" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "Acréscimo por vendedor", "VENDEDOR", "Vendedor", "PERCENTUALACRESCIMO", "VALORACRESCIMO", 12),
-                "margin_surcharge_by_customer" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "Acréscimo por cliente", "CLIENTE", "Cliente", "PERCENTUALACRESCIMO", "VALORACRESCIMO", 12),
-                "margin_surcharge_by_product" => await BuildAveragePercentByItemChartAsync(connection, filters, chartId, "Acréscimo por produto", "PERCENTUALACRESCIMO", "VALORACRESCIMO", 12),
+                "margin_total_surcharge" => await BuildSingleValueChartAsync(connection, filters, chartId, "Valor total de acrÃ©scimos", "kpi", "SELECT ISNULL(SUM(VALORACRESCIMO), 0) AS Valor FROM VW_SWIA_ORCAMENTO {0}", "AcrÃ©scimo total", "currency"),
+                "margin_avg_surcharge_percent" => await BuildSinglePercentKpiChartAsync(connection, filters, chartId, "Percentual mÃ©dio de acrÃ©scimo", "PERCENTUALACRESCIMO"),
+                "margin_surcharge_by_seller" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "AcrÃ©scimo por vendedor", "VENDEDOR", "Vendedor", "PERCENTUALACRESCIMO", "VALORACRESCIMO", 12),
+                "margin_surcharge_by_customer" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "AcrÃ©scimo por cliente", "CLIENTE", "Cliente", "PERCENTUALACRESCIMO", "VALORACRESCIMO", 12),
+                "margin_surcharge_by_product" => await BuildAveragePercentByItemChartAsync(connection, filters, chartId, "AcrÃ©scimo por produto", "PERCENTUALACRESCIMO", "VALORACRESCIMO", 12),
                 "margin_markup_by_seller" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Markup por vendedor", "bar", "VENDEDOR", "Vendedor", "AVG(MARKUP)", "number", null, 12),
                 "margin_markup_by_customer" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Markup por cliente", "bar", "CLIENTE", "Cliente", "AVG(MARKUP)", "number", null, 12),
                 "margin_markup_by_origin" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Markup por origem", "bar", "ORIGEM", "Origem", "AVG(MARKUP)", "number", null, 12),
                 "margin_markup_by_product" => await BuildAverageNumberByItemChartAsync(connection, filters, chartId, "Markup por produto", "AVG(ISNULL(I.MARKUP, 0))", "number", 12),
-                "margin_low_markup_budgets" => await BuildLowMarkupBudgetsChartAsync(connection, filters, chartId, 10, "Orçamentos com markup baixo"),
+                "margin_low_markup_budgets" => await BuildLowMarkupBudgetsChartAsync(connection, filters, chartId, 10, "OrÃ§amentos com markup baixo"),
                 "margin_possible_bad_margin_budgets" => await BuildLowMarkupBudgetsChartAsync(connection, filters, chartId),
                 "margin_gross_vs_net" => await BuildGrossVsNetChartAsync(connection, filters, chartId),
 
                 "source_total_amount" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Valor total por origem", "pie", "ORIGEM", "Origem", "SUM(VALORTOTAL)", "currency"),
-                "source_total_count" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Quantidade de orçamentos por origem", "bar", "ORIGEM", "Origem", DistinctBudgetCountSql(), "number", null, 12),
-                "source_avg_ticket" => await BuildAverageTicketByGroupChartAsync(connection, filters, chartId, "Ticket médio por origem", "ORIGEM", "Origem", 12),
-                "source_conversion" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Conversão por origem", "ORIGEM", "Origem"),
-                "source_highest_avg_discount" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "Origem com maior desconto médio", "ORIGEM", "Origem", "PERCENTUALDESCONTO", "VALORDESCONTO", 12),
+                "source_total_count" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Quantidade de orÃ§amentos por origem", "bar", "ORIGEM", "Origem", DistinctBudgetCountSql(), "number", null, 12),
+                "source_avg_ticket" => await BuildAverageTicketByGroupChartAsync(connection, filters, chartId, "Ticket mÃ©dio por origem", "ORIGEM", "Origem", 12),
+                "source_conversion" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "ConversÃ£o por origem", "ORIGEM", "Origem"),
+                "source_highest_avg_discount" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "Origem com maior desconto mÃ©dio", "ORIGEM", "Origem", "PERCENTUALDESCONTO", "VALORDESCONTO", 12),
                 "source_highest_markup" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Origem com maior markup", "bar", "ORIGEM", "Origem", "AVG(MARKUP)", "number", null, 12),
-                "source_evolution" => await BuildMonthlyEvolutionByGroupChartAsync(connection, filters, chartId, "Evolução de origens por período", "ORIGEM", 5),
-                "source_share_total" => await BuildShareByGroupChartAsync(connection, filters, chartId, "Participação de cada origem no total", "ORIGEM", "Origem", 12),
+                "source_evolution" => await BuildMonthlyEvolutionByGroupChartAsync(connection, filters, chartId, "EvoluÃ§Ã£o de origens por perÃ­odo", "ORIGEM", 5),
+                "source_share_total" => await BuildShareByGroupChartAsync(connection, filters, chartId, "ParticipaÃ§Ã£o de cada origem no total", "ORIGEM", "Origem", 12),
                 "source_by_seller" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Origem x vendedor", "ORIGEM", "Origem", "VENDEDOR", "Vendedor", 12),
                 "source_by_product" => await BuildTopCrossChartAsync(connection, filters, chartId, "Origem x produto", "O.ORIGEM", "Origem", "I.ITEM", "Produto", 12),
                 "source_by_customer" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Origem x cliente", "ORIGEM", "Origem", "CLIENTE", "Cliente", 12),
                 "source_by_geo" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Origem x UF", "ORIGEM", "Origem", "UF", "UF", 12),
                 "source_best_channels" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Ranking de melhores canais de venda", "bar", "ORIGEM", "Origem", "SUM(VALORTOTAL)", "currency"),
-                "source_high_volume_low_conversion" => await BuildVolumeLowConversionChartAsync(connection, filters, chartId, "Canais com muito orçamento e pouca conversão", "ORIGEM", "Origem"),
+                "source_high_volume_low_conversion" => await BuildVolumeLowConversionChartAsync(connection, filters, chartId, "Canais com muito orÃ§amento e pouca conversÃ£o", "ORIGEM", "Origem"),
                 "source_low_volume_high_ticket" => await BuildLowVolumeHighTicketByOriginChartAsync(connection, filters, chartId),
 
                 "geo_amount_by_uf" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Valor total por UF", "bar", "UF", "UF", "SUM(VALORTOTAL)", "currency"),
-                "geo_count_by_uf" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Quantidade de orçamentos por UF", "bar", "UF", "UF", DistinctBudgetCountSql(), "number", null, 27),
-                "geo_avg_ticket_by_uf" => await BuildAverageTicketByGroupChartAsync(connection, filters, chartId, "Ticket médio por UF", "UF", "UF", 27),
-                "geo_conversion_by_uf" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Conversão por UF", "UF", "UF", 27),
+                "geo_count_by_uf" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Quantidade de orÃ§amentos por UF", "bar", "UF", "UF", DistinctBudgetCountSql(), "number", null, 27),
+                "geo_avg_ticket_by_uf" => await BuildAverageTicketByGroupChartAsync(connection, filters, chartId, "Ticket mÃ©dio por UF", "UF", "UF", 27),
+                "geo_conversion_by_uf" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "ConversÃ£o por UF", "UF", "UF", 27),
                 "geo_count_by_city" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Quantidade por cidade", "bar", "CIDADE", "Cidade", DistinctBudgetCountSql(), "number"),
                 "geo_amount_by_city" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Valor total por cidade", "bar", "CIDADE", "Cidade", "SUM(VALORTOTAL)", "currency", null, 12),
-                "geo_top_cities_count" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Ranking de cidades com mais vendas/orçamentos", "bar", "CIDADE", "Cidade", DistinctBudgetCountSql(), "number", null, 12),
+                "geo_top_cities_count" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Ranking de cidades com mais vendas/orÃ§amentos", "bar", "CIDADE", "Cidade", DistinctBudgetCountSql(), "number", null, 12),
                 "geo_top_cities_ticket" => await BuildTopCitiesTicketChartAsync(connection, filters, chartId, 12, 10),
                 "geo_state_heatmap" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Mapa de calor por estado", "heatmap", "UF", "UF", "SUM(VALORTOTAL)", "currency"),
                 "geo_city_heatmap" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Mapa de calor por cidade", "heatmap", "CIDADE", "Cidade", "SUM(VALORTOTAL)", "currency", null, 28),
-                "geo_seller_by_region" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Vendedor por região", "UF", "UF", "VENDEDOR", "Vendedor", 12),
-                "geo_top_product_by_uf" => await BuildTopCrossChartAsync(connection, filters, chartId, "Produto mais orçado por UF", "O.UF", "UF", "I.ITEM", "Produto", 12),
-                "geo_customer_by_region" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Cliente por região", "UF", "UF", "CLIENTE", "Cliente", 12),
-                "geo_origin_by_region" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Origem por região", "UF", "UF", "ORIGEM", "Origem", 12),
-                "geo_highest_avg_discount_regions" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "Regiões com maior desconto médio", "UF", "UF", "PERCENTUALDESCONTO", "VALORDESCONTO", 27),
-                "geo_highest_markup_regions" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Regiões com maior markup", "bar", "UF", "UF", "AVG(MARKUP)", "number", null, 27),
-                "geo_growth_opportunity_regions" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Regiões com maior oportunidade de crescimento", "bar", "UF", "UF", "SUM(VALORDESCONTO)", "currency"),
+                "geo_seller_by_region" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Vendedor por regiÃ£o", "UF", "UF", "VENDEDOR", "Vendedor", 12),
+                "geo_top_product_by_uf" => await BuildTopCrossChartAsync(connection, filters, chartId, "Produto mais orÃ§ado por UF", "O.UF", "UF", "I.ITEM", "Produto", 12),
+                "geo_customer_by_region" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Cliente por regiÃ£o", "UF", "UF", "CLIENTE", "Cliente", 12),
+                "geo_origin_by_region" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Origem por regiÃ£o", "UF", "UF", "ORIGEM", "Origem", 12),
+                "geo_highest_avg_discount_regions" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "RegiÃµes com maior desconto mÃ©dio", "UF", "UF", "PERCENTUALDESCONTO", "VALORDESCONTO", 27),
+                "geo_highest_markup_regions" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "RegiÃµes com maior markup", "bar", "UF", "UF", "AVG(MARKUP)", "number", null, 27),
+                "geo_growth_opportunity_regions" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "RegiÃµes com maior oportunidade de crescimento", "bar", "UF", "UF", "SUM(VALORDESCONTO)", "currency"),
 
-                "payment_total_amount" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Valor total por condição de pagamento", "bar", "CONDPAG", "Condicao", "SUM(VALORTOTAL)", "currency"),
-                "payment_total_count" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Quantidade de orçamentos por condição de pagamento", "bar", "CONDPAG", "Condicao", DistinctBudgetCountSql(), "number", null, 12),
-                "payment_avg_ticket" => await BuildAverageTicketByGroupChartAsync(connection, filters, chartId, "Ticket médio por condição de pagamento", "CONDPAG", "Condicao", 12),
-                "payment_avg_discount" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "Desconto médio por condição de pagamento", "CONDPAG", "Condicao", "PERCENTUALDESCONTO", "VALORDESCONTO", 12),
-                "payment_avg_markup" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Markup médio por condição de pagamento", "bar", "CONDPAG", "Condicao", "AVG(MARKUP)", "number", null, 12),
-                "payment_conversion" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Conversão por condição de pagamento", "CONDPAG", "Condicao"),
-                "payment_most_used" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Condições de pagamento mais usadas", "pie", "CONDPAG", "Condicao", DistinctBudgetCountSql(), "number"),
-                "payment_vs_approval" => await BuildApprovedAmountByGroupChartAsync(connection, filters, chartId, "Condição de pagamento x aprovação", "CONDPAG", "Condicao"),
-                "payment_by_seller" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Condição de pagamento x vendedor", "CONDPAG", "Condicao", "VENDEDOR", "Vendedor", 12),
-                "payment_by_customer" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Condição de pagamento x cliente", "CONDPAG", "Condicao", "CLIENTE", "Cliente", 12),
-                "payment_by_origin" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Condição de pagamento x origem", "CONDPAG", "Condicao", "ORIGEM", "Origem", 12),
-                "payment_by_product" => await BuildTopCrossChartAsync(connection, filters, chartId, "Condição de pagamento x produto", "O.CONDPAG", "Condicao", "I.ITEM", "Produto", 12),
+                "payment_total_amount" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Valor total por condiÃ§Ã£o de pagamento", "bar", "CONDPAG", "Condicao", "SUM(VALORTOTAL)", "currency"),
+                "payment_total_count" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Quantidade de orÃ§amentos por condiÃ§Ã£o de pagamento", "bar", "CONDPAG", "Condicao", DistinctBudgetCountSql(), "number", null, 12),
+                "payment_avg_ticket" => await BuildAverageTicketByGroupChartAsync(connection, filters, chartId, "Ticket mÃ©dio por condiÃ§Ã£o de pagamento", "CONDPAG", "Condicao", 12),
+                "payment_avg_discount" => await BuildAveragePercentByGroupChartAsync(connection, filters, chartId, "Desconto mÃ©dio por condiÃ§Ã£o de pagamento", "CONDPAG", "Condicao", "PERCENTUALDESCONTO", "VALORDESCONTO", 12),
+                "payment_avg_markup" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Markup mÃ©dio por condiÃ§Ã£o de pagamento", "bar", "CONDPAG", "Condicao", "AVG(MARKUP)", "number", null, 12),
+                "payment_conversion" => await BuildConversionByGroupChartAsync(connection, filters, chartId, "ConversÃ£o por condiÃ§Ã£o de pagamento", "CONDPAG", "Condicao"),
+                "payment_most_used" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "CondiÃ§Ãµes de pagamento mais usadas", "pie", "CONDPAG", "Condicao", DistinctBudgetCountSql(), "number"),
+                "payment_vs_approval" => await BuildApprovedAmountByGroupChartAsync(connection, filters, chartId, "CondiÃ§Ã£o de pagamento x aprovaÃ§Ã£o", "CONDPAG", "Condicao"),
+                "payment_by_seller" => await BuildTopByGroupChartAsync(connection, filters, chartId, "CondiÃ§Ã£o de pagamento x vendedor", "CONDPAG", "Condicao", "VENDEDOR", "Vendedor", 12),
+                "payment_by_customer" => await BuildTopByGroupChartAsync(connection, filters, chartId, "CondiÃ§Ã£o de pagamento x cliente", "CONDPAG", "Condicao", "CLIENTE", "Cliente", 12),
+                "payment_by_origin" => await BuildTopByGroupChartAsync(connection, filters, chartId, "CondiÃ§Ã£o de pagamento x origem", "CONDPAG", "Condicao", "ORIGEM", "Origem", 12),
+                "payment_by_product" => await BuildTopCrossChartAsync(connection, filters, chartId, "CondiÃ§Ã£o de pagamento x produto", "O.CONDPAG", "Condicao", "I.ITEM", "Produto", 12),
 
                 "freight_total_amount" => await BuildSingleValueChartAsync(connection, filters, chartId, "Valor total de frete", "kpi", "SELECT ISNULL(SUM(VALORFRETE), 0) AS Valor FROM VW_SWIA_ORCAMENTO {0}", "Frete total", "currency"),
                 "freight_avg_per_budget" => await BuildAverageFreightPerBudgetChartAsync(connection, filters, chartId),
                 "freight_by_type" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Frete por tipo de frete", "pie", "TIPOFRETE", "Tipo de frete", "SUM(VALORFRETE)", "currency"),
                 "freight_most_used_type" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Tipos de frete mais usados", "pie", "TIPOFRETE", "Tipo de frete", DistinctBudgetCountSql(), "number", null, 10),
-                "freight_avg_ticket_by_type" => await BuildAverageTicketByGroupChartAsync(connection, filters, chartId, "Ticket médio por tipo de frete", "TIPOFRETE", "Tipo de frete", 10),
+                "freight_avg_ticket_by_type" => await BuildAverageTicketByGroupChartAsync(connection, filters, chartId, "Ticket mÃ©dio por tipo de frete", "TIPOFRETE", "Tipo de frete", 10),
                 "freight_ratio_total" => await BuildFreightRatioChartAsync(connection, filters, chartId),
                 "freight_vs_conversion" => await BuildConversionByFreightTypeChartAsync(connection, filters, chartId),
                 "freight_by_seller" => await BuildTopByGroupChartAsync(connection, filters, chartId, "Frete x vendedor", "TIPOFRETE", "Tipo de frete", "VENDEDOR", "Vendedor", 12),
@@ -680,48 +680,48 @@ namespace IT4You.Infrastructure.Repositories
 
                 "exec_dashboard" => await BuildExecutiveDashboardChartAsync(connection, filters, chartId),
                 "exec_open_pipeline" => await BuildOpenPipelineChartAsync(connection, filters, chartId),
-                "exec_total_revenue_budget" => await BuildMonthlyAmountSeriesChartAsync(connection, filters, chartId, "Receita/orçamento total por período"),
+                "exec_total_revenue_budget" => await BuildMonthlyAmountSeriesChartAsync(connection, filters, chartId, "Receita/orÃ§amento total por perÃ­odo"),
                 "exec_opportunity_ranking" => await BuildBudgetRankingChartAsync(connection, filters, chartId, "Ranking de oportunidades", OpenStatusCondition(), 10),
                 "exec_monthly_growth" => await BuildMonthlyGrowthChartAsync(connection, filters, chartId),
-                "exec_seller_share" => await BuildShareByGroupChartAsync(connection, filters, chartId, "Participação por vendedor", "VENDEDOR", "vendedor", 12),
-                "exec_customer_share" => await BuildShareByGroupChartAsync(connection, filters, chartId, "Participação por cliente", "CLIENTE", "cliente", 12),
-                "exec_product_share" => await BuildShareByItemChartAsync(connection, filters, chartId, 12, "Participação por produto"),
-                "exec_region_share" => await BuildShareByGroupChartAsync(connection, filters, chartId, "Participação por UF", "UF", "uf", 27),
-                "exec_origin_share" => await BuildShareByGroupChartAsync(connection, filters, chartId, "Participação por origem", "ORIGEM", "origem", 12),
-                "exec_avg_markup" => await BuildSingleValueChartAsync(connection, filters, chartId, "Margem/markup médio consolidado", "kpi", "SELECT ISNULL(AVG(MARKUP), 0) AS Valor FROM VW_SWIA_ORCAMENTO {0}", "Markup médio", "number"),
+                "exec_seller_share" => await BuildShareByGroupChartAsync(connection, filters, chartId, "ParticipaÃ§Ã£o por vendedor", "VENDEDOR", "vendedor", 12),
+                "exec_customer_share" => await BuildShareByGroupChartAsync(connection, filters, chartId, "ParticipaÃ§Ã£o por cliente", "CLIENTE", "cliente", 12),
+                "exec_product_share" => await BuildShareByItemChartAsync(connection, filters, chartId, 12, "ParticipaÃ§Ã£o por produto"),
+                "exec_region_share" => await BuildShareByGroupChartAsync(connection, filters, chartId, "ParticipaÃ§Ã£o por UF", "UF", "uf", 27),
+                "exec_origin_share" => await BuildShareByGroupChartAsync(connection, filters, chartId, "ParticipaÃ§Ã£o por origem", "ORIGEM", "origem", 12),
+                "exec_avg_markup" => await BuildSingleValueChartAsync(connection, filters, chartId, "Margem/markup mÃ©dio consolidado", "kpi", "SELECT ISNULL(AVG(MARKUP), 0) AS Valor FROM VW_SWIA_ORCAMENTO {0}", "Markup mÃ©dio", "number"),
                 "exec_total_discount" => await BuildSingleValueChartAsync(connection, filters, chartId, "Desconto total concedido", "kpi", "SELECT ISNULL(SUM(VALORDESCONTO), 0) AS Valor FROM VW_SWIA_ORCAMENTO {0}", "Desconto total", "currency"),
                 "exec_lost_opportunities" => await BuildBudgetRankingChartAsync(connection, filters, chartId, "Oportunidades perdidas", LostStatusCondition(), 10),
-                "exec_negotiation_opportunities" => await BuildBudgetRankingChartAsync(connection, filters, chartId, "Oportunidades em negociação", NegotiationStatusCondition(), 10),
-                "exec_strategic_customers" => await BuildStrategicRankingByGroupChartAsync(connection, filters, chartId, "Clientes estratégicos", "CLIENTE", 10),
-                "exec_strategic_products" => await BuildStrategicRankingByItemChartAsync(connection, filters, chartId, "Produtos estratégicos", 10),
-                "exec_strategic_channels" => await BuildStrategicRankingByGroupChartAsync(connection, filters, chartId, "Canais estratégicos", "ORIGEM", 10),
+                "exec_negotiation_opportunities" => await BuildBudgetRankingChartAsync(connection, filters, chartId, "Oportunidades em negociaÃ§Ã£o", NegotiationStatusCondition(), 10),
+                "exec_strategic_customers" => await BuildStrategicRankingByGroupChartAsync(connection, filters, chartId, "Clientes estratÃ©gicos", "CLIENTE", 10),
+                "exec_strategic_products" => await BuildStrategicRankingByItemChartAsync(connection, filters, chartId, "Produtos estratÃ©gicos", 10),
+                "exec_strategic_channels" => await BuildStrategicRankingByGroupChartAsync(connection, filters, chartId, "Canais estratÃ©gicos", "ORIGEM", 10),
                 "exec_sales_drop_alerts" => await BuildSalesDropAlertsChartAsync(connection, filters, chartId, 10),
                 "exec_goal_vs_actual" => BuildPlannedChart(chartId, "Meta x realizado"),
                 "exec_sales_forecast" => BuildPlannedChart(chartId, "Forecast de vendas"),
 
                 "future_budget_vs_sold" => await BuildBudgetVsSoldChartAsync(connection, filters, chartId),
                 "future_budget_converted_to_order" => await BuildBudgetConvertedToOrderChartAsync(connection, filters, chartId),
-                "future_avg_conversion_time" => await BuildAverageJourneyDaysKpiChartAsync(connection, filters, chartId, "Tempo medio de conversao", "DIAS_ATE_PRIMEIRO_PEDIDO"),
-                "future_issue_to_approval_time" => await BuildAverageJourneyDaysKpiChartAsync(connection, filters, chartId, "Tempo medio entre emissao e aprovacao (pedido gerado)", "DIAS_ATE_PRIMEIRO_PEDIDO"),
+                "future_avg_conversion_time" => await BuildAverageJourneyDaysKpiChartAsync(connection, filters, chartId, "Tempo médio de conversão", "DIAS_ATE_PRIMEIRO_PEDIDO"),
+                "future_issue_to_approval_time" => await BuildAverageJourneyDaysKpiChartAsync(connection, filters, chartId, "Tempo médio entre emissão e aprovação (pedido gerado)", "DIAS_ATE_PRIMEIRO_PEDIDO"),
 
-                "velocity_avg_cycle_time" => await BuildAverageJourneyDaysKpiChartAsync(connection, filters, chartId, "Tempo medio do ciclo de vendas", "DIAS_ATE_PRIMEIRO_PEDIDO"),
+                "velocity_avg_cycle_time" => await BuildAverageJourneyDaysKpiChartAsync(connection, filters, chartId, "Tempo médio do ciclo de vendas", "DIAS_ATE_PRIMEIRO_PEDIDO"),
                 "velocity_by_seller" => await BuildVelocityBySellerChartAsync(connection, filters, chartId),
                 "velocity_by_product" => await BuildVelocityByProductChartAsync(connection, filters, chartId),
                 "velocity_conversion_acceleration" => await BuildVelocityConversionAccelerationChartAsync(connection, filters, chartId),
-                "velocity_status_bottleneck_time" => BuildPlannedChart(chartId, "Tempo medio de permanencia em status"),
+                "velocity_status_bottleneck_time" => BuildPlannedChart(chartId, "Tempo médio de permanência em status"),
 
                 "insight_pending_followup_budgets" => await BuildPendingFollowupChartAsync(connection, filters, chartId),
                 "insight_high_value_no_return" => await BuildHighValueNoReturnChartAsync(connection, filters, chartId),
                 "insight_seller_vs_team_avg" => await BuildSellerVsTeamChartAsync(connection, filters, chartId),
                 "insight_repurchase_potential_customers" => await BuildRepurchasePotentialChartAsync(connection, filters, chartId),
                 "insight_customers_high_conversion_chance" => await BuildCustomersHighConversionChanceChartAsync(connection, filters, chartId, 12),
-                "insight_frequent_customers" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Clientes que compram/orçam com frequência", "bar", "CLIENTE", "Cliente", DistinctBudgetCountSql(), "number", null, 12),
+                "insight_frequent_customers" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Clientes que compram/orÃ§am com frequÃªncia", "bar", "CLIENTE", "Cliente", DistinctBudgetCountSql(), "number", null, 12),
                 "insight_customers_stopped_quoting" => await BuildCustomersStoppedQuotingChartAsync(connection, filters, chartId, 12),
                 "insight_recommended_products_by_customer" => await BuildRecommendedProductsByCustomerChartAsync(connection, filters, chartId, 12),
                 "insight_top_products_by_region" => await BuildTopProductsByRegionChartAsync(connection, filters, chartId, 12),
                 "insight_high_acceptance_products" => await BuildHighAcceptanceProductsChartAsync(connection, filters, chartId, 12),
                 "insight_old_open_budgets" => await BuildOldOpenBudgetsChartAsync(connection, filters, chartId, 10),
-                "insight_high_ticket_customers" => await BuildAverageTicketByGroupChartAsync(connection, filters, chartId, "Clientes com alto ticket médio", "CLIENTE", "Cliente", 12),
+                "insight_high_ticket_customers" => await BuildAverageTicketByGroupChartAsync(connection, filters, chartId, "Clientes com alto ticket mÃ©dio", "CLIENTE", "Cliente", 12),
                 "insight_discount_sensitive_customers" => await BuildDiscountSensitiveCustomersChartAsync(connection, filters, chartId, 12),
                 "insight_low_discount_customers" => await BuildLowDiscountCustomersChartAsync(connection, filters, chartId, 12),
                 "insight_best_origin_by_seller" => await BuildBestOriginBySellerChartAsync(connection, filters, chartId, 12),
@@ -731,10 +731,10 @@ namespace IT4You.Infrastructure.Repositories
                 "insight_individual_monthly_evolution" => await BuildIndividualMonthlyEvolutionChartAsync(connection, filters, chartId),
                 "insight_underused_products_by_seller" => await BuildUnderusedProductsBySellerChartAsync(connection, filters, chartId, 12),
 
-                "kpi_total_budget_amount" => await BuildSingleValueChartAsync(connection, filters, chartId, "Valor total orçado", "kpi", "SELECT ISNULL(SUM(VALORTOTAL), 0) AS Valor FROM VW_SWIA_ORCAMENTO {0}", "Valor total", "currency"),
-                "kpi_budget_count" => await BuildSingleValueChartAsync(connection, filters, chartId, "Quantidade de orçamentos", "kpi", $"SELECT {DistinctBudgetCountSql()} AS Valor FROM VW_SWIA_ORCAMENTO {{0}}", "Quantidade", "number"),
-                "kpi_avg_ticket" => await BuildAverageTicketKpiChartAsync(connection, filters, chartId, "Ticket médio"),
-                "kpi_conversion_rate" => await BuildConversionKpiChartAsync(connection, filters, chartId, "Taxa de conversão"),
+                "kpi_total_budget_amount" => await BuildSingleValueChartAsync(connection, filters, chartId, "Valor total orÃ§ado", "kpi", "SELECT ISNULL(SUM(VALORTOTAL), 0) AS Valor FROM VW_SWIA_ORCAMENTO {0}", "Valor total", "currency"),
+                "kpi_budget_count" => await BuildSingleValueChartAsync(connection, filters, chartId, "Quantidade de orÃ§amentos", "kpi", $"SELECT {DistinctBudgetCountSql()} AS Valor FROM VW_SWIA_ORCAMENTO {{0}}", "Quantidade", "number"),
+                "kpi_avg_ticket" => await BuildAverageTicketKpiChartAsync(connection, filters, chartId, "Ticket mÃ©dio"),
+                "kpi_conversion_rate" => await BuildConversionKpiChartAsync(connection, filters, chartId, "Taxa de conversÃ£o"),
                 "kpi_open_amount" => await BuildStatusAmountKpiChartAsync(connection, filters, chartId, "Valor em aberto", OpenStatusCondition()),
                 "kpi_approved_amount" => await BuildStatusAmountKpiChartAsync(connection, filters, chartId, "Valor aprovado", ApprovedStatusCondition()),
                 "kpi_lost_amount" => await BuildStatusAmountKpiChartAsync(connection, filters, chartId, "Valor perdido", LostStatusCondition()),
@@ -745,23 +745,23 @@ namespace IT4You.Infrastructure.Repositories
                 "kpi_best_uf" => await BuildTextKpiChartAsync(connection, filters, chartId, "Melhor UF", "UF"),
                 "kpi_best_origin" => await BuildTextKpiChartAsync(connection, filters, chartId, "Melhor origem", "ORIGEM"),
                 "kpi_highest_discount" => await BuildHighestDiscountKpiChartAsync(connection, filters, chartId),
-                "kpi_avg_discount" => await BuildSinglePercentKpiChartAsync(connection, filters, chartId, "Desconto médio", "PERCENTUALDESCONTO"),
-                "kpi_avg_markup" => await BuildSingleValueChartAsync(connection, filters, chartId, "Markup médio", "kpi", "SELECT ISNULL(AVG(MARKUP), 0) AS Valor FROM VW_SWIA_ORCAMENTO {0}", "Markup médio", "number"),
-                "kpi_avg_freight" => await BuildSingleValueChartAsync(connection, filters, chartId, "Frete médio", "kpi", "SELECT ISNULL(AVG(VALORFRETE), 0) AS Valor FROM VW_SWIA_ORCAMENTO {0}", "Frete médio", "currency"),
+                "kpi_avg_discount" => await BuildSinglePercentKpiChartAsync(connection, filters, chartId, "Desconto mÃ©dio", "PERCENTUALDESCONTO"),
+                "kpi_avg_markup" => await BuildSingleValueChartAsync(connection, filters, chartId, "Markup mÃ©dio", "kpi", "SELECT ISNULL(AVG(MARKUP), 0) AS Valor FROM VW_SWIA_ORCAMENTO {0}", "Markup mÃ©dio", "number"),
+                "kpi_avg_freight" => await BuildSingleValueChartAsync(connection, filters, chartId, "Frete mÃ©dio", "kpi", "SELECT ISNULL(AVG(VALORFRETE), 0) AS Valor FROM VW_SWIA_ORCAMENTO {0}", "Frete mÃ©dio", "currency"),
                 "kpi_most_quoted_product" => await BuildMostQuotedProductKpiChartAsync(connection, filters, chartId),
                 "kpi_highest_potential_customer" => await BuildHighestPotentialCustomerKpiChartAsync(connection, filters, chartId),
                 "kpi_seller_highest_growth" => await BuildHighestDeltaByGroupKpiChartAsync(connection, filters, chartId, "Vendedor com maior crescimento", "VENDEDOR", "seller", "growth"),
                 "kpi_seller_highest_drop" => await BuildHighestDeltaByGroupKpiChartAsync(connection, filters, chartId, "Vendedor com maior queda", "VENDEDOR", "seller", "drop"),
                 "kpi_product_highest_growth" => await BuildHighestDeltaByItemKpiChartAsync(connection, filters, chartId, "Produto com maior crescimento", "growth"),
                 "kpi_product_highest_drop" => await BuildHighestDeltaByItemKpiChartAsync(connection, filters, chartId, "Produto com maior queda", "drop"),
-                "kpi_channel_highest_conversion" => await BuildBestConversionOriginKpiTextChartAsync(connection, filters, chartId, "Canal com maior conversão", "highest"),
-                "kpi_channel_lowest_conversion" => await BuildBestConversionOriginKpiTextChartAsync(connection, filters, chartId, "Canal com menor conversão", "lowest"),
+                "kpi_channel_highest_conversion" => await BuildBestConversionOriginKpiTextChartAsync(connection, filters, chartId, "Canal com maior conversÃ£o", "highest"),
+                "kpi_channel_lowest_conversion" => await BuildBestConversionOriginKpiTextChartAsync(connection, filters, chartId, "Canal com menor conversÃ£o", "lowest"),
 
                 // Risk
-                "risk_customer_concentration" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Concentração nos Top Clientes", "pie", "CLIENTE", "Cliente", "SUM(VALORTOTAL)", "currency", null, 10),
-                "risk_product_dependence" => await BuildGroupedItemChartAsync(connection, filters, chartId, "Dependência de produtos", "bar", "I.ITEM", "Produto", "SUM(I.VALORTOTAL)", "currency", 10),
-                "risk_seller_concentration" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Concentração em vendedores", "pie", "VENDEDOR", "Vendedor", "SUM(VALORTOTAL)", "currency", null, 10),
-                "risk_geo_concentration" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "Concentração de risco por região", "bar", "UF", "UF", "SUM(VALORTOTAL)", "currency", null, 10),
+                "risk_customer_concentration" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "ConcentraÃ§Ã£o nos Top Clientes", "pie", "CLIENTE", "Cliente", "SUM(VALORTOTAL)", "currency", null, 10),
+                "risk_product_dependence" => await BuildGroupedItemChartAsync(connection, filters, chartId, "DependÃªncia de produtos", "bar", "I.ITEM", "Produto", "SUM(I.VALORTOTAL)", "currency", 10),
+                "risk_seller_concentration" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "ConcentraÃ§Ã£o em vendedores", "pie", "VENDEDOR", "Vendedor", "SUM(VALORTOTAL)", "currency", null, 10),
+                "risk_geo_concentration" => await BuildGroupedHeaderChartAsync(connection, filters, chartId, "ConcentraÃ§Ã£o de risco por regiÃ£o", "bar", "UF", "UF", "SUM(VALORTOTAL)", "currency", null, 10),
                 "risk_high_discount_volume" => await BuildHighDiscountVolumeChartAsync(connection, filters, chartId),
 
                 // Efficiency
@@ -790,7 +790,7 @@ namespace IT4You.Infrastructure.Repositories
                 Meta = new SalesBudgetChartMetaDto
                 {
                     Source = "future",
-                    Warnings = new List<string> { "Grafico ainda nao implementado neste batch inicial." }
+                    Warnings = new List<string> { "Grafico ainda não implementado neste batch inicial." }
                 }
             };
         }
@@ -842,22 +842,22 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"SELECT 
                             ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
-                            {DistinctBudgetCountSql()} AS TotalOrcamentos
+                            {DistinctBudgetCountSql()} AS TotalOrçamentos
                          FROM VW_SWIA_ORCAMENTO {where}";
 
             var row = await connection.QuerySingleAsync(sql, parameters);
             var totalValor = SafeToDecimal(row, "TotalValor");
-            var totalOrcamentos = Convert.ToInt32(SafeToDecimal(row, "TotalOrcamentos"));
-            var avgTicket = totalOrcamentos > 0 ? totalValor / totalOrcamentos : 0m;
+            var totalOrçamentos = Convert.ToInt32(SafeToDecimal(row, "TotalOrçamentos"));
+            var avgTicket = totalOrçamentos > 0 ? totalValor / totalOrçamentos : 0m;
 
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = "overview_avg_ticket",
-                Title = "Ticket médio dos orçamentos",
+                Title = "Ticket mÃ©dio dos orÃ§amentos",
                 Visualization = "kpi",
                 Data = new List<SalesBudgetChartPointDto>
                 {
-                    new() { Label = "Ticket medio", Value = avgTicket, Amount = avgTicket }
+                    new() { Label = "Ticket médio", Value = avgTicket, Amount = avgTicket }
                 },
                 Totals = new Dictionary<string, decimal> { ["avgTicket"] = avgTicket },
                 Meta = new SalesBudgetChartMetaDto()
@@ -876,20 +876,20 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT
-                    ISNULL(SUM(VALOR_ORCADO), 0) AS TotalOrcado,
+                    ISNULL(SUM(VALOR_ORCADO), 0) AS TotalOrçado,
                     ISNULL(SUM(VALOR_PEDIDO), 0) AS TotalPedido,
                     ISNULL(SUM(VALOR_FATURADO), 0) AS TotalFaturado
                 FROM VW_SWIA_ORCAMENTO_JORNADA
                 {where}";
 
             var row = await connection.QuerySingleAsync(sql, parameters);
-            var totalOrcado = SafeToDecimal(row, "TotalOrcado");
+            var totalOrçado = SafeToDecimal(row, "TotalOrçado");
             var totalPedido = SafeToDecimal(row, "TotalPedido");
             var totalFaturado = SafeToDecimal(row, "TotalFaturado");
 
             var points = new List<SalesBudgetChartPointDto>
             {
-                new() { Label = "Orcado", Value = totalOrcado, Amount = totalOrcado },
+                new() { Label = "Orçado", Value = totalOrçado, Amount = totalOrçado },
                 new() { Label = "Pedido", Value = totalPedido, Amount = totalPedido },
                 new() { Label = "Faturado", Value = totalFaturado, Amount = totalFaturado },
             };
@@ -897,12 +897,12 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Orcado x vendido/faturado",
+                Title = "Orçado x vendido/faturado",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
                 {
-                    ["budgetAmount"] = totalOrcado,
+                    ["budgetAmount"] = totalOrçado,
                     ["orderAmount"] = totalPedido,
                     ["invoicedAmount"] = totalFaturado,
                 },
@@ -912,7 +912,7 @@ namespace IT4You.Infrastructure.Repositories
                     DateField = "EMISSAO_ORCAMENTO",
                     Warnings = new List<string>
                     {
-                        "Usa a view VW_SWIA_ORCAMENTO_JORNADA para comparar valores orcados, pedidos e faturados no periodo."
+                        "Usa a view VW_SWIA_ORCAMENTO_JORNADA para comparar valores orçados, pedidos e faturados no período."
                     }
                 }
             };
@@ -930,29 +930,29 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT
-                    COUNT(*) AS TotalOrcamentos,
-                    ISNULL(SUM(CASE WHEN CONVERTEU_EM_PEDIDO = 1 THEN 1 ELSE 0 END), 0) AS OrcamentosConvertidos
+                    COUNT(*) AS TotalOrçamentos,
+                    ISNULL(SUM(CASE WHEN CONVERTEU_EM_PEDIDO = 1 THEN 1 ELSE 0 END), 0) AS OrçamentosConvertidos
                 FROM VW_SWIA_ORCAMENTO_JORNADA
                 {where}";
 
             var row = await connection.QuerySingleAsync(sql, parameters);
-            var totalOrcamentos = SafeToDecimal(row, "TotalOrcamentos");
-            var convertidos = SafeToDecimal(row, "OrcamentosConvertidos");
-            var taxa = totalOrcamentos > 0 ? convertidos / totalOrcamentos : 0m;
+            var totalOrçamentos = SafeToDecimal(row, "TotalOrçamentos");
+            var convertidos = SafeToDecimal(row, "OrçamentosConvertidos");
+            var taxa = totalOrçamentos > 0 ? convertidos / totalOrçamentos : 0m;
 
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Orcamento convertido em pedido",
+                Title = "Orçamento convertido em pedido",
                 Visualization = "kpi",
                 Data = new List<SalesBudgetChartPointDto>
                 {
-                    new() { Label = "Conversao em pedido", Value = taxa, Percentage = taxa, Count = convertidos }
+                    new() { Label = "Conversão em pedido", Value = taxa, Percentage = taxa, Count = convertidos }
                 },
                 Totals = new Dictionary<string, decimal>
                 {
                     ["convertedCount"] = convertidos,
-                    ["totalCount"] = totalOrcamentos,
+                    ["totalCount"] = totalOrçamentos,
                     ["conversionRate"] = taxa,
                 },
                 Meta = new SalesBudgetChartMetaDto
@@ -998,7 +998,7 @@ namespace IT4You.Infrastructure.Repositories
                 Visualization = "kpi",
                 Data = new List<SalesBudgetChartPointDto>
                 {
-                    new() { Label = "Dias medios", Value = value, Count = totalConvertidos }
+                    new() { Label = "Dias médios", Value = value, Count = totalConvertidos }
                 },
                 Totals = new Dictionary<string, decimal>
                 {
@@ -1054,7 +1054,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Velocidade de conversao por vendedor",
+                Title = "Velocidade de conversão por vendedor",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -1068,8 +1068,8 @@ namespace IT4You.Infrastructure.Repositories
                     DateField = "EMISSAO_ORCAMENTO",
                     Warnings = new List<string>
                     {
-                        "Menor valor = conversao mais rapida.",
-                        $"Considera apenas vendedores com pelo menos {minConverted} orcamentos convertidos."
+                        "Menor valor = conversão mais rápida.",
+                        $"Considera apenas vendedores com pelo menos {minConverted} orçamentos convertidos."
                     }
                 }
             };
@@ -1126,9 +1126,9 @@ namespace IT4You.Infrastructure.Repositories
                     DateField = "EMISSAO_ORCAMENTO",
                     Warnings = new List<string>
                     {
-                        "Menor valor = conversao mais rapida.",
-                        $"Considera apenas produtos com pelo menos {minConverted} orcamentos convertidos.",
-                        "A view atual mede velocidade por produto, nao por categoria agregada."
+                        "Menor valor = conversão mais rápida.",
+                        $"Considera apenas produtos com pelo menos {minConverted} orçamentos convertidos.",
+                        "A view atual mede velocidade por produto, não por categoria agregada."
                     }
                 }
             };
@@ -1174,7 +1174,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Aceleracao de conversao",
+                Title = "Aceleração de conversão",
                 Visualization = "kpi",
                 Data = new List<SalesBudgetChartPointDto>
                 {
@@ -1193,8 +1193,8 @@ namespace IT4You.Infrastructure.Repositories
                     DateField = "EMISSAO_ORCAMENTO",
                     Warnings = new List<string>
                     {
-                        "Positivo = ciclo atual mais rapido que o periodo anterior equivalente.",
-                        "A comparacao usa DIAS_ATE_PRIMEIRO_PEDIDO."
+                        "Positivo = ciclo atual mais rápido que o período anterior equivalente.",
+                        "A comparação usa DIAS_ATE_PRIMEIRO_PEDIDO."
                     }
                 }
             };
@@ -1213,7 +1213,7 @@ namespace IT4You.Infrastructure.Repositories
                     MONTH(EMISSAO) AS Mes,
                     CONCAT(RIGHT('00' + CAST(MONTH(EMISSAO) AS VARCHAR(2)), 2), '/', CAST(YEAR(EMISSAO) AS VARCHAR(4))) AS MesAno,
                     ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos
                 FROM VW_SWIA_ORCAMENTO
                 {where}
                 GROUP BY YEAR(EMISSAO), MONTH(EMISSAO)
@@ -1225,14 +1225,14 @@ namespace IT4You.Infrastructure.Repositories
                 Label = SafeToString(row, "MesAno") ?? "-",
                 Date = SafeToString(row, "MesAno"),
                 Amount = SafeToDecimal(row, "TotalValor"),
-                Count = SafeToDecimal(row, "TotalOrcamentos"),
+                Count = SafeToDecimal(row, "TotalOrçamentos"),
                 Value = SafeToDecimal(row, "TotalValor")
             }).ToList();
 
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = "overview_monthly_evolution",
-                Title = "Evolução mensal de orçamentos",
+                Title = "EvoluÃ§Ã£o mensal de orÃ§amentos",
                 Visualization = "line",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -1257,7 +1257,7 @@ namespace IT4You.Infrastructure.Repositories
                     DATEPART(ISO_WEEK, EMISSAO) AS Semana,
                     CONCAT(CAST(YEAR(EMISSAO) AS VARCHAR(4)), '-W', RIGHT('00' + CAST(DATEPART(ISO_WEEK, EMISSAO) AS VARCHAR(2)), 2)) AS SemanaAno,
                     ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos
                 FROM VW_SWIA_ORCAMENTO
                 {where}
                 GROUP BY YEAR(EMISSAO), DATEPART(ISO_WEEK, EMISSAO)
@@ -1269,14 +1269,14 @@ namespace IT4You.Infrastructure.Repositories
                 Label = SafeToString(row, "SemanaAno") ?? "-",
                 Date = SafeToString(row, "SemanaAno"),
                 Amount = SafeToDecimal(row, "TotalValor"),
-                Count = SafeToDecimal(row, "TotalOrcamentos"),
+                Count = SafeToDecimal(row, "TotalOrçamentos"),
                 Value = SafeToDecimal(row, "TotalValor")
             }).ToList();
 
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Evolução semanal de orçamentos",
+                Title = "EvoluÃ§Ã£o semanal de orÃ§amentos",
                 Visualization = "line",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -1300,7 +1300,7 @@ namespace IT4You.Infrastructure.Repositories
                     CONVERT(date, EMISSAO) AS Dia,
                     CONVERT(VARCHAR(10), CONVERT(date, EMISSAO), 103) AS DiaLabel,
                     ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos
                 FROM VW_SWIA_ORCAMENTO
                 {where}
                 GROUP BY CONVERT(date, EMISSAO)
@@ -1312,14 +1312,14 @@ namespace IT4You.Infrastructure.Repositories
                 Label = SafeToString(row, "DiaLabel") ?? "-",
                 Date = SafeToString(row, "DiaLabel"),
                 Amount = SafeToDecimal(row, "TotalValor"),
-                Count = SafeToDecimal(row, "TotalOrcamentos"),
+                Count = SafeToDecimal(row, "TotalOrçamentos"),
                 Value = SafeToDecimal(row, "TotalValor")
             }).ToList();
 
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Evolução diária de orçamentos",
+                Title = "EvoluÃ§Ã£o diÃ¡ria de orÃ§amentos",
                 Visualization = "line",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -1341,7 +1341,7 @@ namespace IT4You.Infrastructure.Repositories
             var sql = $@"
                 SELECT
                     ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos
                 FROM VW_SWIA_ORCAMENTO
                 WHERE EMISSAO >= @StartDate AND EMISSAO <= @EndDate";
 
@@ -1352,7 +1352,7 @@ namespace IT4You.Infrastructure.Repositories
             });
 
             var totalAmount = SafeToDecimal(row, "TotalValor");
-            var totalCount = Convert.ToInt32(SafeToDecimal(row, "TotalOrcamentos"));
+            var totalCount = Convert.ToInt32(SafeToDecimal(row, "TotalOrçamentos"));
             return new PeriodTotals(totalAmount, totalCount);
         }
 
@@ -1380,16 +1380,16 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-	                Title = "Comparativo mês atual x mês anterior",
+	                Title = "Comparativo mÃªs atual x mÃªs anterior",
 	                Visualization = "kpi_grid",
 	                Data = new List<SalesBudgetChartPointDto>
 	                {
-	                    new() { Label = "Valor (mês atual)", Amount = current.TotalAmount },
-	                    new() { Label = "Qtd. orçamentos (mês atual)", Count = current.TotalCount },
-	                    new() { Label = "Ticket médio (mês atual)", Amount = current.AvgTicket },
-	                    new() { Label = "Valor (mês anterior)", Amount = previous.TotalAmount },
-	                    new() { Label = "Qtd. orçamentos (mês anterior)", Count = previous.TotalCount },
-	                    new() { Label = "Ticket médio (mês anterior)", Amount = previous.AvgTicket },
+	                    new() { Label = "Valor (mÃªs atual)", Amount = current.TotalAmount },
+	                    new() { Label = "Qtd. orÃ§amentos (mÃªs atual)", Count = current.TotalCount },
+	                    new() { Label = "Ticket mÃ©dio (mÃªs atual)", Amount = current.AvgTicket },
+	                    new() { Label = "Valor (mÃªs anterior)", Amount = previous.TotalAmount },
+	                    new() { Label = "Qtd. orÃ§amentos (mÃªs anterior)", Count = previous.TotalCount },
+	                    new() { Label = "Ticket mÃ©dio (mÃªs anterior)", Amount = previous.AvgTicket },
 	                },
                 Totals = new Dictionary<string, decimal>
                 {
@@ -1402,7 +1402,7 @@ namespace IT4You.Infrastructure.Repositories
 	                {
 	                    Warnings = new List<string>
 	                    {
-	                        "Comparativo MTD (mês atual até a data final do filtro) vs período equivalente no mês anterior."
+	                        "Comparativo MTD (mÃªs atual atÃ© a data final do filtro) vs perÃ­odo equivalente no mÃªs anterior."
 	                    }
 	                }
 	            };
@@ -1430,11 +1430,11 @@ namespace IT4You.Infrastructure.Repositories
 	                Data = new List<SalesBudgetChartPointDto>
 	                {
 	                    new() { Label = "Valor (ano atual)", Amount = current.TotalAmount },
-	                    new() { Label = "Qtd. orçamentos (ano atual)", Count = current.TotalCount },
-	                    new() { Label = "Ticket médio (ano atual)", Amount = current.AvgTicket },
+	                    new() { Label = "Qtd. orÃ§amentos (ano atual)", Count = current.TotalCount },
+	                    new() { Label = "Ticket mÃ©dio (ano atual)", Amount = current.AvgTicket },
 	                    new() { Label = "Valor (ano anterior)", Amount = previous.TotalAmount },
-	                    new() { Label = "Qtd. orçamentos (ano anterior)", Count = previous.TotalCount },
-	                    new() { Label = "Ticket médio (ano anterior)", Amount = previous.AvgTicket },
+	                    new() { Label = "Qtd. orÃ§amentos (ano anterior)", Count = previous.TotalCount },
+	                    new() { Label = "Ticket mÃ©dio (ano anterior)", Amount = previous.AvgTicket },
 	                },
                 Totals = new Dictionary<string, decimal>
                 {
@@ -1447,7 +1447,7 @@ namespace IT4You.Infrastructure.Repositories
 	                {
 	                    Warnings = new List<string>
 	                    {
-	                        "Comparativo YTD (ano atual até a data final do filtro) vs período equivalente no ano anterior."
+	                        "Comparativo YTD (ano atual atÃ© a data final do filtro) vs perÃ­odo equivalente no ano anterior."
 	                    }
 	                }
 	            };
@@ -1464,11 +1464,11 @@ namespace IT4You.Infrastructure.Repositories
                 SELECT TOP {top}
                     CONVERT(VARCHAR(10), CONVERT(date, EMISSAO), 103) AS DiaLabel,
                     ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos
                 FROM VW_SWIA_ORCAMENTO
                 {where}
                 GROUP BY CONVERT(date, EMISSAO)
-                ORDER BY TotalOrcamentos DESC, TotalValor DESC";
+                ORDER BY TotalOrçamentos DESC, TotalValor DESC";
 
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row => new SalesBudgetChartPointDto
@@ -1476,13 +1476,13 @@ namespace IT4You.Infrastructure.Repositories
                 Label = SafeToString(row, "DiaLabel") ?? "-",
                 Amount = SafeToDecimal(row, "TotalValor"),
                 Value = SafeToDecimal(row, "TotalValor"),
-                Count = SafeToDecimal(row, "TotalOrcamentos")
+                Count = SafeToDecimal(row, "TotalOrçamentos")
             }).ToList();
 
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Top dias com maior volume de orçamentos",
+                Title = "Top dias com maior volume de orÃ§amentos",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -1526,7 +1526,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Top meses com maior valor orcado",
+                Title = "Top meses com maior valor orçado",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["totalAmount"] = points.Sum(x => x.Amount ?? 0m) },
@@ -1545,7 +1545,7 @@ namespace IT4You.Infrastructure.Repositories
                 SELECT
                     MONTH(EMISSAO) AS MesNumero,
                     ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos
                 FROM VW_SWIA_ORCAMENTO
                 {where}
                 GROUP BY MONTH(EMISSAO)
@@ -1573,7 +1573,7 @@ namespace IT4You.Infrastructure.Repositories
                 var monthNumber = Convert.ToInt32(SafeToDecimal(row, "MesNumero"));
                 var label = monthMap.TryGetValue(monthNumber, out string shortLabel) ? shortLabel : monthNumber.ToString();
                 var totalAmount = SafeToDecimal(row, "TotalValor");
-                var totalCount = SafeToDecimal(row, "TotalOrcamentos");
+                var totalCount = SafeToDecimal(row, "TotalOrçamentos");
                 return new SalesBudgetChartPointDto
                 {
                     Label = label,
@@ -1586,7 +1586,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Sazonalidade de vendas/orçamentos por mês",
+                Title = "Sazonalidade de vendas/orÃ§amentos por mÃªs",
                 Visualization = "heatmap",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -1631,7 +1631,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Mapa de calor de orçamentos por mês e ano",
+                Title = "Mapa de calor de orÃ§amentos por mÃªs e ano",
                 Visualization = "heatmap",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["totalAmount"] = points.Sum(x => x.Amount ?? 0m) },
@@ -1718,7 +1718,7 @@ namespace IT4You.Infrastructure.Repositories
             var isStatusGrouping = string.Equals(groupColumn, "STATUS", StringComparison.OrdinalIgnoreCase);
             var groupExpression = isStatusGrouping
                 ? CanonicalStatusLabelExpression()
-                : $"ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao')";
+                : $"ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informação')";
             var sortSelect = isStatusGrouping
                 ? $", MIN({StatusOrderExpression()}) AS SortOrder"
                 : string.Empty;
@@ -1741,7 +1741,7 @@ namespace IT4You.Infrastructure.Repositories
                 var value = SafeToDecimal(row, "Valor");
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Grupo") ?? "Sem informacao",
+                    Label = SafeToString(row, "Grupo") ?? "Sem informação",
                     Value = value,
                     Amount = metricKind == "currency" ? value : null,
                     Count = metricKind == "number" ? value : null
@@ -1780,7 +1780,7 @@ namespace IT4You.Infrastructure.Repositories
             var where = BuildWhere(conditions);
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informação') AS Grupo,
                     {metricSql} AS Valor
                 FROM VW_SWIA_ORCAMENTO_ITEM I
                 INNER JOIN VW_SWIA_ORCAMENTO O
@@ -1796,7 +1796,7 @@ namespace IT4You.Infrastructure.Repositories
                 var value = SafeToDecimal(row, "Valor");
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Grupo") ?? "Sem informacao",
+                    Label = SafeToString(row, "Grupo") ?? "Sem informação",
                     Value = value,
                     Amount = metricKind == "currency" ? value : null,
                     Count = metricKind == "number" ? value : null
@@ -1834,7 +1834,7 @@ namespace IT4You.Infrastructure.Repositories
                 Visualization = "kpi",
                 Data = new List<SalesBudgetChartPointDto>
                 {
-                    new() { Label = "Conversao", Value = ratio, Percentage = ratio }
+                    new() { Label = "Conversão", Value = ratio, Percentage = ratio }
                 },
                 Totals = new Dictionary<string, decimal>
                 {
@@ -1865,7 +1865,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Taxa de perda/cancelamento de orçamentos",
+                Title = "Taxa de perda/cancelamento de orÃ§amentos",
                 Visualization = "kpi",
                 Data = new List<SalesBudgetChartPointDto>
                 {
@@ -1896,7 +1896,7 @@ namespace IT4You.Infrastructure.Repositories
                     YEAR(EMISSAO) AS Ano,
                     MONTH(EMISSAO) AS Mes,
                     CONCAT(RIGHT('00' + CAST(MONTH(EMISSAO) AS VARCHAR(2)), 2), '/', CAST(YEAR(EMISSAO) AS VARCHAR(4))) AS MesAno,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos,
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos,
                     SUM(CASE WHEN {ApprovedStatusCondition()} THEN 1 ELSE 0 END) AS Aprovados
                 FROM VW_SWIA_ORCAMENTO
                 {where}
@@ -1906,7 +1906,7 @@ namespace IT4You.Infrastructure.Repositories
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row =>
             {
-                var total = SafeToDecimal(row, "TotalOrcamentos");
+                var total = SafeToDecimal(row, "TotalOrçamentos");
                 var approved = SafeToDecimal(row, "Aprovados");
                 var ratio = total > 0 ? approved / total : 0m;
                 return new SalesBudgetChartPointDto
@@ -1922,7 +1922,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-	                Title = "Evolução da conversão ao longo do tempo",
+	                Title = "EvoluÃ§Ã£o da conversÃ£o ao longo do tempo",
                 Visualization = "line",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -1931,7 +1931,7 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-	                    Warnings = new List<string> { "Conversão mensal aproximada com base no STATUS atual." }
+	                    Warnings = new List<string> { "ConversÃ£o mensal aproximada com base no STATUS atual." }
 	                }
 	            };
 	        }
@@ -1951,21 +1951,21 @@ namespace IT4You.Infrastructure.Repositories
             var sql = $@"
                 SELECT TOP {top}
                     {statusLabelExpression} AS StatusLabel,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos,
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos,
                     ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
                     MIN({statusOrderExpression}) AS SortOrder
                 FROM VW_SWIA_ORCAMENTO
                 {where}
                 GROUP BY {statusLabelExpression}
                 HAVING {DistinctBudgetCountSql()} > 0
-                ORDER BY SortOrder, TotalOrcamentos DESC, TotalValor DESC";
+                ORDER BY SortOrder, TotalOrçamentos DESC, TotalValor DESC";
 
             var rows = await connection.QueryAsync(sql, parameters);
             decimal cumulative = 0m;
             var points = rows.Select(row =>
             {
                 var label = SafeToString(row, "StatusLabel") ?? "Sem status";
-                var count = Convert.ToInt32(SafeToDecimal(row, "TotalOrcamentos"));
+                var count = Convert.ToInt32(SafeToDecimal(row, "TotalOrçamentos"));
                 var pct = total > 0 ? (decimal)count / total : 0m;
                 cumulative += pct;
 
@@ -1981,7 +1981,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-	                Title = "Percentual de conversão por status",
+	                Title = "Percentual de conversÃ£o por status",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -1991,7 +1991,7 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-	                    Warnings = new List<string> { "Leitura inicial: percentual de participação (por quantidade) em cada STATUS; o acumulado aparece no label." }
+	                    Warnings = new List<string> { "Leitura inicial: percentual de participaÃ§Ã£o (por quantidade) em cada STATUS; o acumulado aparece no label." }
 	                }
 	            };
 	        }
@@ -2032,7 +2032,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Orçamentos em aberto x aprovados x perdidos",
+                Title = "OrÃ§amentos em aberto x aprovados x perdidos",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -2084,20 +2084,20 @@ namespace IT4You.Infrastructure.Repositories
                 WITH first_budget AS (
                     SELECT
                         CLIENTE,
-                        MIN(EMISSAO) AS FirstEmissao
+                        MIN(EMISSAO) AS FirstEmissão
                     FROM VW_SWIA_ORCAMENTO
                     WHERE CLIENTE IS NOT NULL
                     GROUP BY CLIENTE
                 )
                 SELECT
-                    YEAR(FirstEmissao) AS Ano,
-                    MONTH(FirstEmissao) AS Mes,
-                    CONCAT(RIGHT('00' + CAST(MONTH(FirstEmissao) AS VARCHAR(2)), 2), '/', CAST(YEAR(FirstEmissao) AS VARCHAR(4))) AS MesAno,
+                    YEAR(FirstEmissão) AS Ano,
+                    MONTH(FirstEmissão) AS Mes,
+                    CONCAT(RIGHT('00' + CAST(MONTH(FirstEmissão) AS VARCHAR(2)), 2), '/', CAST(YEAR(FirstEmissão) AS VARCHAR(4))) AS MesAno,
                     COUNT(*) AS NovosClientes
                 FROM first_budget
-                WHERE FirstEmissao >= @StartDate AND FirstEmissao <= @EndDate
-                GROUP BY YEAR(FirstEmissao), MONTH(FirstEmissao)
-                ORDER BY YEAR(FirstEmissao), MONTH(FirstEmissao)";
+                WHERE FirstEmissão >= @StartDate AND FirstEmissão <= @EndDate
+                GROUP BY YEAR(FirstEmissão), MONTH(FirstEmissão)
+                ORDER BY YEAR(FirstEmissão), MONTH(FirstEmissão)";
 
             var rows = await connection.QueryAsync(sql, new { StartDate = startDate, EndDate = endDate });
             var points = rows.Select(row => new SalesBudgetChartPointDto
@@ -2111,13 +2111,13 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Clientes novos por periodo",
+                Title = "Clientes novos por período",
                 Visualization = "line",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["newCustomers"] = points.Sum(x => x.Value ?? 0m) },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Conta clientes cuja primeira emissao ocorreu dentro do periodo selecionado." }
+                    Warnings = new List<string> { "Conta clientes cuja primeira emissão ocorreu dentro do período selecionado." }
                 }
             };
         }
@@ -2131,8 +2131,8 @@ namespace IT4You.Infrastructure.Repositories
             var sql = $@"
                 SELECT TOP {top}
                     CLIENTE,
-                    MAX(EMISSAO) AS UltimaEmissao,
-                    {DistinctBudgetCountSql()} AS OrcamentosNoPeriodo
+                    MAX(EMISSAO) AS UltimaEmissão,
+                    {DistinctBudgetCountSql()} AS OrçamentosNoPeríodo
                 FROM VW_SWIA_ORCAMENTO
                 WHERE EMISSAO >= @StartDate AND EMISSAO <= @EndDate
                   AND CLIENTE IS NOT NULL
@@ -2143,26 +2143,26 @@ namespace IT4You.Infrastructure.Repositories
             var rows = await connection.QueryAsync(sql, new { StartDate = startDate, EndDate = endDate, ReferenceDate = referenceDate });
             var points = rows.Select(row =>
             {
-                var lastDate = row?.UltimaEmissao is DateTime dt ? dt.Date : endDate;
+                var lastDate = row?.UltimaEmissão is DateTime dt ? dt.Date : endDate;
                 var days = (decimal)(endDate.Date - lastDate).TotalDays;
                 return new SalesBudgetChartPointDto
                 {
                     Label = SafeToString(row, "CLIENTE") ?? "Sem cliente",
                     Value = days,
-                    Count = SafeToDecimal(row, "OrcamentosNoPeriodo"),
+                    Count = SafeToDecimal(row, "OrçamentosNoPeríodo"),
                 };
             }).ToList();
 
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Clientes sem compra/orçamento recente",
+                Title = "Clientes sem compra/orÃ§amento recente",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["customers"] = points.Count },
 	                Meta = new SalesBudgetChartMetaDto
 	                {
-	                    Warnings = new List<string> { $"Recorte inicial: clientes sem orçamento nos últimos {daysWithoutBudget} dias até a data final do filtro." }
+	                    Warnings = new List<string> { $"Recorte inicial: clientes sem orÃ§amento nos Ãºltimos {daysWithoutBudget} dias atÃ© a data final do filtro." }
 	                }
 	            };
 	        }
@@ -2178,7 +2178,7 @@ namespace IT4You.Infrastructure.Repositories
             var sql = $@"
                 SELECT TOP {top}
                     ISNULL(CAST(CLIENTE AS NVARCHAR(200)), 'Sem cliente') AS Cliente,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos,
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos,
                     SUM(CASE WHEN {ApprovedStatusCondition()} THEN 1 ELSE 0 END) AS Aprovados
                 FROM VW_SWIA_ORCAMENTO
                 {where}
@@ -2190,7 +2190,7 @@ namespace IT4You.Infrastructure.Repositories
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row =>
             {
-                var total = SafeToDecimal(row, "TotalOrcamentos");
+                var total = SafeToDecimal(row, "TotalOrçamentos");
                 var approved = SafeToDecimal(row, "Aprovados");
                 var ratio = total > 0 ? approved / total : 0m;
                 return new SalesBudgetChartPointDto
@@ -2206,7 +2206,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-	                Title = "Clientes com baixa conversão",
+	                Title = "Clientes com baixa conversÃ£o",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -2216,7 +2216,7 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-	                    Warnings = new List<string> { $"Ordenado por menor conversão (mínimo {minBudgets} orçamentos)." }
+	                    Warnings = new List<string> { $"Ordenado por menor conversÃ£o (mÃ­nimo {minBudgets} orÃ§amentos)." }
 	                }
 	            };
 	        }
@@ -2237,7 +2237,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informação') AS Grupo,
                     {DistinctCustomerCountSql()} AS TotalClientes
                 FROM VW_SWIA_ORCAMENTO
                 {where}
@@ -2250,7 +2250,7 @@ namespace IT4You.Infrastructure.Repositories
                 var value = SafeToDecimal(row, "TotalClientes");
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Grupo") ?? "Sem informacao",
+                    Label = SafeToString(row, "Grupo") ?? "Sem informação",
                     Value = value,
                     Count = value
                 };
@@ -2279,9 +2279,9 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') AS Item,
+                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') AS Item,
                     ISNULL(SUM(I.VALORTOTAL), 0) AS TotalValor,
-                    {DistinctBudgetCountSql("I")} AS TotalOrcamentos
+                    {DistinctBudgetCountSql("I")} AS TotalOrçamentos
                 FROM VW_SWIA_ORCAMENTO_ITEM I
                 INNER JOIN VW_SWIA_ORCAMENTO O
                   ON O.CODEMPRESA = I.CODEMPRESA
@@ -2289,17 +2289,17 @@ namespace IT4You.Infrastructure.Repositories
                 {where}
                 GROUP BY I.ITEM
                 HAVING {DistinctBudgetCountSql("I")} > 0
-                ORDER BY (ISNULL(SUM(I.VALORTOTAL), 0) / NULLIF({DistinctBudgetCountSql("I")}, 0)) DESC, TotalOrcamentos DESC";
+                ORDER BY (ISNULL(SUM(I.VALORTOTAL), 0) / NULLIF({DistinctBudgetCountSql("I")}, 0)) DESC, TotalOrçamentos DESC";
 
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row =>
             {
                 var total = SafeToDecimal(row, "TotalValor");
-                var count = SafeToDecimal(row, "TotalOrcamentos");
+                var count = SafeToDecimal(row, "TotalOrçamentos");
                 var avg = count > 0 ? total / count : 0m;
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Item") ?? "Sem informacao",
+                    Label = SafeToString(row, "Item") ?? "Sem informação",
                     Value = avg,
                     Amount = avg,
                     Count = count
@@ -2333,7 +2333,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') AS Item,
+                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') AS Item,
                     ISNULL(AVG(ISNULL(I.{percentColumn}, 0)), 0) AS AvgPercent,
                     ISNULL(SUM(ISNULL(I.{amountColumn}, 0)), 0) AS TotalAmount
                 FROM VW_SWIA_ORCAMENTO_ITEM I
@@ -2351,7 +2351,7 @@ namespace IT4You.Infrastructure.Repositories
                 var avgNormalized = NormalizePercent(avgRaw);
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Item") ?? "Sem informacao",
+                    Label = SafeToString(row, "Item") ?? "Sem informação",
                     Value = avgNormalized,
                     Percentage = avgNormalized,
                     Count = SafeToDecimal(row, "TotalAmount")
@@ -2388,7 +2388,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') AS Item,
+                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') AS Item,
                     {metricSql} AS Valor
                 FROM VW_SWIA_ORCAMENTO_ITEM I
                 INNER JOIN VW_SWIA_ORCAMENTO O
@@ -2404,7 +2404,7 @@ namespace IT4You.Infrastructure.Repositories
                 var value = SafeToDecimal(row, "Valor");
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Item") ?? "Sem informacao",
+                    Label = SafeToString(row, "Item") ?? "Sem informação",
                     Value = value,
                     Amount = metricKind == "currency" ? value : null,
                     Count = metricKind == "number" ? value : null
@@ -2431,8 +2431,8 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') AS Item,
-                    {DistinctBudgetCountSql("I")} AS Orcamentos
+                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') AS Item,
+                    {DistinctBudgetCountSql("I")} AS Orçamentos
                 FROM VW_SWIA_ORCAMENTO_ITEM I
                 INNER JOIN VW_SWIA_ORCAMENTO O
                   ON O.CODEMPRESA = I.CODEMPRESA
@@ -2440,15 +2440,15 @@ namespace IT4You.Infrastructure.Repositories
                 {where}
                 GROUP BY I.ITEM
                 HAVING {DistinctBudgetCountSql("I")} > 0
-                ORDER BY Orcamentos ASC";
+                ORDER BY Orçamentos ASC";
 
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row =>
             {
-                var value = SafeToDecimal(row, "Orcamentos");
+                var value = SafeToDecimal(row, "Orçamentos");
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Item") ?? "Sem informacao",
+                    Label = SafeToString(row, "Item") ?? "Sem informação",
                     Value = value,
                     Count = value
                 };
@@ -2457,7 +2457,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Produtos menos orcados",
+                Title = "Produtos menos orçados",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["items"] = points.Count },
@@ -2470,7 +2470,7 @@ namespace IT4You.Infrastructure.Repositories
             SalesBudgetFilterDto filters,
             string chartId,
             int top = 12,
-            string title = "Participacao de cada produto no total")
+            string title = "Participação de cada produto no total")
         {
             var parameters = new DynamicParameters();
             var conditions = new List<string>();
@@ -2482,7 +2482,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') AS Item,
+                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') AS Item,
                     ISNULL(SUM(I.VALORTOTAL), 0) AS Valor
                 FROM VW_SWIA_ORCAMENTO_ITEM I
                 INNER JOIN VW_SWIA_ORCAMENTO O
@@ -2499,7 +2499,7 @@ namespace IT4You.Infrastructure.Repositories
                 var pct = total > 0 ? amount / total : 0m;
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Item") ?? "Sem informacao",
+                    Label = SafeToString(row, "Item") ?? "Sem informação",
                     Value = amount,
                     Amount = amount,
                     Percentage = pct
@@ -2529,7 +2529,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') AS Item,
+                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') AS Item,
                     ISNULL(SUM(I.VALORTOTAL), 0) AS Valor
                 FROM VW_SWIA_ORCAMENTO_ITEM I
                 INNER JOIN VW_SWIA_ORCAMENTO O
@@ -2548,7 +2548,7 @@ namespace IT4You.Infrastructure.Repositories
                 var cumulativePct = total > 0 ? cumulative / total : 0m;
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Item") ?? "Sem informacao",
+                    Label = SafeToString(row, "Item") ?? "Sem informação",
                     Value = value,
                     Amount = value,
                     Percentage = cumulativePct
@@ -2578,7 +2578,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var topSql = $@"
                 SELECT TOP {topItems}
-                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') AS Item,
+                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') AS Item,
                     ISNULL(SUM(I.VALORTOTAL), 0) AS TotalValor
                 FROM VW_SWIA_ORCAMENTO_ITEM I
                 INNER JOIN VW_SWIA_ORCAMENTO O
@@ -2593,7 +2593,7 @@ namespace IT4You.Infrastructure.Repositories
             var items = new List<string>();
             foreach (var row in topRows)
             {
-                var item = SafeToString(row, "Item") ?? "Sem informacao";
+                var item = SafeToString(row, "Item") ?? "Sem informação";
                 if (!string.IsNullOrWhiteSpace(item) && itemSet.Add(item))
                 {
                     items.Add(item);
@@ -2614,7 +2614,7 @@ namespace IT4You.Infrastructure.Repositories
             }
 
             parameters.Add("Items", items);
-            var whereWithItems = AppendCondition(where, "ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') IN @Items");
+            var whereWithItems = AppendCondition(where, "ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') IN @Items");
 
             var sql = $@"
                 SELECT
@@ -2666,9 +2666,9 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') AS Item,
+                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') AS Item,
                     ISNULL(AVG(ISNULL(I.VALORUNITARIOBRUTO, 0)), 0) AS BrutoMedio,
-                    ISNULL(AVG(ISNULL(I.VALORUNITARIOLIQUIDO, 0)), 0) AS LiquidoMedio
+                    ISNULL(AVG(ISNULL(I.VALORUNITARIOLIQUIDO, 0)), 0) AS LíquidoMedio
                 FROM VW_SWIA_ORCAMENTO_ITEM I
                 INNER JOIN VW_SWIA_ORCAMENTO O
                   ON O.CODEMPRESA = I.CODEMPRESA
@@ -2681,27 +2681,27 @@ namespace IT4You.Infrastructure.Repositories
             var points = rows.Select(row =>
             {
                 var bruto = SafeToDecimal(row, "BrutoMedio");
-                var liquido = SafeToDecimal(row, "LiquidoMedio");
-                var gap = bruto - liquido;
+                var líquido = SafeToDecimal(row, "LíquidoMedio");
+                var gap = bruto - líquido;
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Item") ?? "Sem informacao",
+                    Label = SafeToString(row, "Item") ?? "Sem informação",
                     Value = gap,
                     Amount = gap,
-                    Count = liquido
+                    Count = líquido
                 };
             }).ToList();
 
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Diferenca entre valor bruto e liquido por produto",
+                Title = "Diferenca entre valor bruto e líquido por produto",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["items"] = points.Count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Versao inicial: Value=(bruto medio - liquido medio), Count=liquido medio." }
+                    Warnings = new List<string> { "Versao inicial: Value=(bruto medio - líquido medio), Count=líquido medio." }
                 }
             };
         }
@@ -2756,7 +2756,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var points = rows.Select(row => new SalesBudgetChartPointDto
             {
-                Label = SafeToString(row, "Item") ?? "Sem informacao",
+                Label = SafeToString(row, "Item") ?? "Sem informação",
                 Value = SafeToDecimal(row, "Crescimento"),
                 Amount = SafeToDecimal(row, "ValorAtual"),
                 Count = SafeToDecimal(row, "ValorAnterior")
@@ -2774,7 +2774,7 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Comparativo entre o periodo selecionado e a janela imediatamente anterior." }
+                    Warnings = new List<string> { "Comparativo entre o período selecionado e a janela imediatamente anterior." }
                 }
             };
         }
@@ -2788,24 +2788,24 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos,
+                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informação') AS Grupo,
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos,
                     SUM(CASE WHEN {ApprovedStatusCondition()} THEN 1 ELSE 0 END) AS Aprovados
                 FROM VW_SWIA_ORCAMENTO
                 {where}
                 GROUP BY {groupColumn}
                 HAVING {DistinctBudgetCountSql()} > 0
-                ORDER BY Aprovados DESC, TotalOrcamentos DESC";
+                ORDER BY Aprovados DESC, TotalOrçamentos DESC";
 
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row =>
             {
-                var total = SafeToDecimal(row, "TotalOrcamentos");
+                var total = SafeToDecimal(row, "TotalOrçamentos");
                 var approved = SafeToDecimal(row, "Aprovados");
                 var ratio = total > 0 ? approved / total : 0m;
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Grupo") ?? "Sem informacao",
+                    Label = SafeToString(row, "Grupo") ?? "Sem informação",
                     Value = ratio * 100m,
                     Percentage = ratio,
                     Count = total
@@ -2825,7 +2825,7 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { $"Conversao aproximada por {labelAlias.ToLowerInvariant()} com base no STATUS atual." }
+                    Warnings = new List<string> { $"Conversão aproximada por {labelAlias.ToLowerInvariant()} com base no STATUS atual." }
                 }
             };
         }
@@ -2852,9 +2852,9 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informação') AS Grupo,
                     ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos
                 FROM VW_SWIA_ORCAMENTO
                 {where}
                 GROUP BY {groupColumn}
@@ -2865,11 +2865,11 @@ namespace IT4You.Infrastructure.Repositories
             var points = rows.Select(row =>
             {
                 var totalAmount = SafeToDecimal(row, "TotalValor");
-                var totalCount = SafeToDecimal(row, "TotalOrcamentos");
+                var totalCount = SafeToDecimal(row, "TotalOrçamentos");
                 var avgTicket = totalCount > 0 ? totalAmount / totalCount : 0m;
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Grupo") ?? "Sem informacao",
+                    Label = SafeToString(row, "Grupo") ?? "Sem informação",
                     Value = avgTicket,
                     Amount = avgTicket,
                     Count = totalCount
@@ -2889,7 +2889,7 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { $"Ticket medio por {labelAlias.ToLowerInvariant()} (valor total / quantidade)." }
+                    Warnings = new List<string> { $"Ticket médio por {labelAlias.ToLowerInvariant()} (valor total / quantidade)." }
                 }
             };
         }
@@ -2912,7 +2912,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informação') AS Grupo,
                     ISNULL(AVG(ISNULL({percentColumn}, 0)), 0) AS AvgPercent,
                     ISNULL(SUM(ISNULL({amountColumn}, 0)), 0) AS TotalAmount
                 FROM VW_SWIA_ORCAMENTO
@@ -2927,7 +2927,7 @@ namespace IT4You.Infrastructure.Repositories
                 var avgNormalized = NormalizePercent(avgRaw);
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Grupo") ?? "Sem informacao",
+                    Label = SafeToString(row, "Grupo") ?? "Sem informação",
                     Value = avgNormalized,
                     Percentage = avgNormalized,
                     Count = SafeToDecimal(row, "TotalAmount")
@@ -2964,18 +2964,18 @@ namespace IT4You.Infrastructure.Repositories
                     SELECT
                         ISNULL(VENDEDOR, 'Sem vendedor') AS Vendedor,
                         ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
-                        {DistinctBudgetCountSql()} AS TotalOrcamentos
+                        {DistinctBudgetCountSql()} AS TotalOrçamentos
                     FROM VW_SWIA_ORCAMENTO
                     {where}
                     GROUP BY VENDEDOR
                 )
                 SELECT TOP {top}
                     Vendedor,
-                    TotalValor / NULLIF(TotalOrcamentos, 0) AS TicketMedio,
-                    TotalOrcamentos
+                    TotalValor / NULLIF(TotalOrçamentos, 0) AS TicketMedio,
+                    TotalOrçamentos
                 FROM base_data
-                WHERE TotalOrcamentos >= @MinBudgets
-                ORDER BY TicketMedio DESC, TotalOrcamentos DESC";
+                WHERE TotalOrçamentos >= @MinBudgets
+                ORDER BY TicketMedio DESC, TotalOrçamentos DESC";
 
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row => new SalesBudgetChartPointDto
@@ -2983,7 +2983,7 @@ namespace IT4You.Infrastructure.Repositories
                 Label = SafeToString(row, "Vendedor") ?? "Sem vendedor",
                 Value = SafeToDecimal(row, "TicketMedio"),
                 Amount = SafeToDecimal(row, "TicketMedio"),
-                Count = SafeToDecimal(row, "TotalOrcamentos")
+                Count = SafeToDecimal(row, "TotalOrçamentos")
             }).ToList();
 
             return new SalesBudgetChartDatasetDto
@@ -2999,7 +2999,7 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-	                    Warnings = new List<string> { $"Aplica mínimo de {minBudgets} orçamentos para evitar distorção." }
+	                    Warnings = new List<string> { $"Aplica mÃ­nimo de {minBudgets} orÃ§amentos para evitar distorÃ§Ã£o." }
 	                }
 	            };
 	        }
@@ -3020,28 +3020,28 @@ namespace IT4You.Infrastructure.Repositories
             var sql = $@"
                 WITH base_data AS (
                     SELECT
-                        ISNULL(CAST(CIDADE AS NVARCHAR(200)), 'Sem informacao') AS Cidade,
+                        ISNULL(CAST(CIDADE AS NVARCHAR(200)), 'Sem informação') AS Cidade,
                         ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
-                        {DistinctBudgetCountSql()} AS TotalOrcamentos
+                        {DistinctBudgetCountSql()} AS TotalOrçamentos
                     FROM VW_SWIA_ORCAMENTO
                     {where}
                     GROUP BY CIDADE
                 )
                 SELECT TOP {top}
                     Cidade,
-                    TotalValor / NULLIF(TotalOrcamentos, 0) AS TicketMedio,
-                    TotalOrcamentos
+                    TotalValor / NULLIF(TotalOrçamentos, 0) AS TicketMedio,
+                    TotalOrçamentos
                 FROM base_data
-                WHERE TotalOrcamentos >= @MinBudgets
-                ORDER BY TicketMedio DESC, TotalOrcamentos DESC";
+                WHERE TotalOrçamentos >= @MinBudgets
+                ORDER BY TicketMedio DESC, TotalOrçamentos DESC";
 
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row => new SalesBudgetChartPointDto
             {
-                Label = SafeToString(row, "Cidade") ?? "Sem informacao",
+                Label = SafeToString(row, "Cidade") ?? "Sem informação",
                 Value = SafeToDecimal(row, "TicketMedio"),
                 Amount = SafeToDecimal(row, "TicketMedio"),
-                Count = SafeToDecimal(row, "TotalOrcamentos")
+                Count = SafeToDecimal(row, "TotalOrçamentos")
             }).ToList();
 
             return new SalesBudgetChartDatasetDto
@@ -3057,7 +3057,7 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-	                    Warnings = new List<string> { $"Aplica mínimo de {minBudgets} orçamentos por cidade." }
+	                    Warnings = new List<string> { $"Aplica mÃ­nimo de {minBudgets} orÃ§amentos por cidade." }
 	                }
 	            };
 	        }
@@ -3074,12 +3074,12 @@ namespace IT4You.Infrastructure.Repositories
                 SELECT TOP {top}
                     ISNULL(VENDEDOR, 'Sem vendedor') AS Vendedor,
                     ISNULL(AVG(ISNULL(MARKUP, 0)), 0) AS AvgMarkup,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos
                 FROM VW_SWIA_ORCAMENTO
                 {where}
                 GROUP BY VENDEDOR
                 HAVING {DistinctBudgetCountSql()} >= @MinBudgets
-                ORDER BY AvgMarkup DESC, TotalOrcamentos DESC";
+                ORDER BY AvgMarkup DESC, TotalOrçamentos DESC";
 
             var rows = await connection.QueryAsync(sql, parameters);
 
@@ -3087,7 +3087,7 @@ namespace IT4You.Infrastructure.Repositories
             {
                 Label = SafeToString(row, "Vendedor") ?? "Sem vendedor",
                 Value = SafeToDecimal(row, "AvgMarkup"),
-                Count = SafeToDecimal(row, "TotalOrcamentos")
+                Count = SafeToDecimal(row, "TotalOrçamentos")
             }).ToList();
 
             return new SalesBudgetChartDatasetDto
@@ -3122,21 +3122,21 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos,
+                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informação') AS Grupo,
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos,
                     ISNULL(SUM(VALORTOTAL), 0) AS TotalValor
                 FROM VW_SWIA_ORCAMENTO
                 {where}
                 GROUP BY {groupColumn}
                 HAVING {DistinctBudgetCountSql()} > 0
-                ORDER BY TotalOrcamentos DESC, TotalValor DESC";
+                ORDER BY TotalOrçamentos DESC, TotalValor DESC";
 
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row => new SalesBudgetChartPointDto
             {
-                Label = SafeToString(row, "Grupo") ?? "Sem informacao",
-                Value = SafeToDecimal(row, "TotalOrcamentos"),
-                Count = SafeToDecimal(row, "TotalOrcamentos"),
+                Label = SafeToString(row, "Grupo") ?? "Sem informação",
+                Value = SafeToDecimal(row, "TotalOrçamentos"),
+                Count = SafeToDecimal(row, "TotalOrçamentos"),
                 Amount = SafeToDecimal(row, "TotalValor")
             }).ToList();
 
@@ -3169,7 +3169,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var topGroupsSql = $@"
                 SELECT TOP {topGroups}
-                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informação') AS Grupo,
                     ISNULL(SUM(VALORTOTAL), 0) AS TotalValor
                 FROM VW_SWIA_ORCAMENTO
                 {where}
@@ -3181,7 +3181,7 @@ namespace IT4You.Infrastructure.Repositories
             var groups = new List<string>();
             foreach (var row in groupRows)
             {
-                var group = SafeToString(row, "Grupo") ?? "Sem informacao";
+                var group = SafeToString(row, "Grupo") ?? "Sem informação";
                 if (!string.IsNullOrWhiteSpace(group))
                 {
                     if (groupSet.Add(group))
@@ -3208,14 +3208,14 @@ namespace IT4You.Infrastructure.Repositories
             }
 
             parameters.Add("Groups", groups);
-            var whereWithGroups = AppendCondition(where, $"ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') IN @Groups");
+            var whereWithGroups = AppendCondition(where, $"ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informação') IN @Groups");
 
             var sql = $@"
                 SELECT
                     YEAR(EMISSAO) AS Ano,
                     MONTH(EMISSAO) AS Mes,
                     CONCAT(RIGHT('00' + CAST(MONTH(EMISSAO) AS VARCHAR(2)), 2), '/', CAST(YEAR(EMISSAO) AS VARCHAR(4))) AS MesAno,
-                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informação') AS Grupo,
                     ISNULL(SUM(VALORTOTAL), 0) AS TotalValor
                 FROM VW_SWIA_ORCAMENTO
                 {whereWithGroups}
@@ -3238,7 +3238,7 @@ namespace IT4You.Infrastructure.Repositories
             var normalizedRows = rows.Select(row => new
             {
                 Month = SafeToString(row, "MesAno") ?? "-",
-                Group = SafeToString(row, "Grupo") ?? "Sem informacao",
+                Group = SafeToString(row, "Grupo") ?? "Sem informação",
                 Value = SafeToDecimal(row, "TotalValor")
             }).ToList();
 
@@ -3292,7 +3292,7 @@ namespace IT4You.Infrastructure.Repositories
                 SELECT TOP {top}
                     ISNULL(CAST(VENDEDOR AS NVARCHAR(200)), 'Sem vendedor') AS Vendedor,
                     ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos,
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos,
                     ISNULL(AVG(ISNULL(MARKUP, 0)), 0) AS AvgMarkup,
                     ISNULL(AVG(ISNULL(PERCENTUALDESCONTO, 0)), 0) AS AvgDiscount
                 FROM VW_SWIA_ORCAMENTO
@@ -3304,7 +3304,7 @@ namespace IT4You.Infrastructure.Repositories
             var points = rows.Select(row =>
             {
                 var totalAmount = SafeToDecimal(row, "TotalValor");
-                var totalCount = SafeToDecimal(row, "TotalOrcamentos");
+                var totalCount = SafeToDecimal(row, "TotalOrçamentos");
                 var avgTicket = totalCount > 0 ? totalAmount / totalCount : 0m;
                 var avgDiscount = NormalizePercent(SafeToDecimal(row, "AvgDiscount"));
                 return new SalesBudgetChartPointDto
@@ -3351,7 +3351,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informação') AS Grupo,
                     ISNULL(SUM(VALORTOTAL), 0) AS Valor
                 FROM VW_SWIA_ORCAMENTO
                 {where}
@@ -3365,7 +3365,7 @@ namespace IT4You.Infrastructure.Repositories
                 var pct = total > 0 ? amount / total : 0m;
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Grupo") ?? "Sem informacao",
+                    Label = SafeToString(row, "Grupo") ?? "Sem informação",
                     Value = amount,
                     Amount = amount,
                     Percentage = pct
@@ -3384,7 +3384,7 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { $"Participacao (aproximada) do {labelAlias.ToLowerInvariant()} no total do periodo." }
+                    Warnings = new List<string> { $"Participação (aproximada) do {labelAlias.ToLowerInvariant()} no total do período." }
                 }
             };
         }
@@ -3412,18 +3412,18 @@ namespace IT4You.Infrastructure.Repositories
                         ' / ',
                         ISNULL(CAST({group2Column} AS NVARCHAR(200)), 'Sem {group2Label.ToLowerInvariant()}')
                     ) AS Grupo,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos
                 FROM VW_SWIA_ORCAMENTO
                 {where}
                 GROUP BY {group1Column}, {group2Column}
-                ORDER BY TotalOrcamentos DESC";
+                ORDER BY TotalOrçamentos DESC";
 
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row => new SalesBudgetChartPointDto
             {
-                Label = SafeToString(row, "Grupo") ?? "Sem informacao",
-                Value = SafeToDecimal(row, "TotalOrcamentos"),
-                Count = SafeToDecimal(row, "TotalOrcamentos")
+                Label = SafeToString(row, "Grupo") ?? "Sem informação",
+                Value = SafeToDecimal(row, "TotalOrçamentos"),
+                Count = SafeToDecimal(row, "TotalOrçamentos")
             }).ToList();
 
             return new SalesBudgetChartDatasetDto
@@ -3445,7 +3445,7 @@ namespace IT4You.Infrastructure.Repositories
             var where = BuildWhere(conditions);
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informação') AS Grupo,
                     SUM(VALORTOTAL) AS Valor
                 FROM VW_SWIA_ORCAMENTO
                 {where}
@@ -3455,7 +3455,7 @@ namespace IT4You.Infrastructure.Repositories
             var rows = (await connection.QueryAsync(sql, parameters)).Cast<object>().ToList();
             var values = rows.Select(row =>
             {
-                string label = SafeToString(row, "Grupo") ?? "Sem informacao";
+                string label = SafeToString(row, "Grupo") ?? "Sem informação";
                 decimal value = SafeToDecimal(row, "Valor");
 
                 return (Label: label, Value: value);
@@ -3522,7 +3522,7 @@ namespace IT4You.Infrastructure.Repositories
                 var value = SafeToDecimal(row, "Valor");
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Grupo") ?? "Sem informacao",
+                    Label = SafeToString(row, "Grupo") ?? "Sem informação",
                     Value = value,
                     Amount = value
                 };
@@ -3589,7 +3589,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var points = rows.Select(row => new SalesBudgetChartPointDto
             {
-                Label = SafeToString(row, "Item") ?? "Sem informacao",
+                Label = SafeToString(row, "Item") ?? "Sem informação",
                 Value = SafeToDecimal(row, "Crescimento"),
                 Amount = SafeToDecimal(row, "ValorAtual"),
                 Count = SafeToDecimal(row, "ValorAnterior")
@@ -3607,7 +3607,7 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Comparativo entre o periodo selecionado e a janela imediatamente anterior." }
+                    Warnings = new List<string> { "Comparativo entre o período selecionado e a janela imediatamente anterior." }
                 }
             };
         }
@@ -3621,7 +3621,7 @@ namespace IT4You.Infrastructure.Repositories
             var sql = $@"
                 WITH mix AS (
                     SELECT
-                        CONCAT(CAST(O.CODEMPRESA AS NVARCHAR(50)), ':', CAST(O.ORCAMENTO AS NVARCHAR(50))) AS OrcamentoKey,
+                        CONCAT(CAST(O.CODEMPRESA AS NVARCHAR(50)), ':', CAST(O.ORCAMENTO AS NVARCHAR(50))) AS OrçamentoKey,
                         COUNT(DISTINCT I.CODIGOITEM) AS ItensDistintos
                     FROM VW_SWIA_ORCAMENTO O
                     INNER JOIN VW_SWIA_ORCAMENTO_ITEM I
@@ -3648,7 +3648,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-	                Title = "Mix de produtos por orçamento",
+	                Title = "Mix de produtos por orÃ§amento",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["budgets"] = points.Sum(x => x.Value ?? 0m) },
@@ -3665,7 +3665,7 @@ namespace IT4You.Infrastructure.Repositories
             var sql = $@"
                 SELECT TOP {top}
                     CONCAT(I1.ITEM, ' + ', I2.ITEM) AS ParProdutos,
-                    COUNT(*) AS Frequencia
+                    COUNT(*) AS Frequência
                 FROM VW_SWIA_ORCAMENTO O
                 INNER JOIN VW_SWIA_ORCAMENTO_ITEM I1
                   ON O.CODEMPRESA = I1.CODEMPRESA
@@ -3676,14 +3676,14 @@ namespace IT4You.Infrastructure.Repositories
                  AND I1.CODIGOITEM < I2.CODIGOITEM
                 {where}
                 GROUP BY I1.ITEM, I2.ITEM
-                ORDER BY Frequencia DESC";
+                ORDER BY Frequência DESC";
 
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row => new SalesBudgetChartPointDto
             {
-                Label = SafeToString(row, "ParProdutos") ?? "Sem informacao",
-                Value = SafeToDecimal(row, "Frequencia"),
-                Count = SafeToDecimal(row, "Frequencia")
+                Label = SafeToString(row, "ParProdutos") ?? "Sem informação",
+                Value = SafeToDecimal(row, "Frequência"),
+                Count = SafeToDecimal(row, "Frequência")
             }).ToList();
 
             return new SalesBudgetChartDatasetDto
@@ -3715,7 +3715,7 @@ namespace IT4You.Infrastructure.Repositories
                         WHEN PERCENTUALDESCONTO <= 20 THEN '10-20%'
                         ELSE '20%+'
                     END AS FaixaDesconto,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos,
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos,
                     SUM(CASE WHEN {ApprovedStatusCondition()} THEN 1 ELSE 0 END) AS Aprovados
                 FROM VW_SWIA_ORCAMENTO
                 {where}
@@ -3730,7 +3730,7 @@ namespace IT4You.Infrastructure.Repositories
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row =>
             {
-                var total = SafeToDecimal(row, "TotalOrcamentos");
+                var total = SafeToDecimal(row, "TotalOrçamentos");
                 var approved = SafeToDecimal(row, "Aprovados");
                 var ratio = total > 0 ? approved / total : 0m;
                 return new SalesBudgetChartPointDto
@@ -3745,13 +3745,13 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-	                Title = "Relação desconto x conversão",
+	                Title = "RelaÃ§Ã£o desconto x conversÃ£o",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["avgConversion"] = points.Count > 0 ? points.Average(x => x.Value ?? 0m) : 0m },
                 Meta = new SalesBudgetChartMetaDto
                 {
-	                    Warnings = new List<string> { "Conversão aproximada por faixa de desconto." }
+	                    Warnings = new List<string> { "ConversÃ£o aproximada por faixa de desconto." }
 	                }
 	            };
 	        }
@@ -3802,13 +3802,13 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT
-                    ISNULL(SUM(VALORTOTAL), 0) AS TotalLiquido,
+                    ISNULL(SUM(VALORTOTAL), 0) AS TotalLíquido,
                     ISNULL(SUM(VALORDESCONTO), 0) AS TotalDesconto
                 FROM VW_SWIA_ORCAMENTO
                 {where}";
 
             var row = await connection.QuerySingleAsync(sql, parameters);
-            var netTotal = SafeToDecimal(row, "TotalLiquido");
+            var netTotal = SafeToDecimal(row, "TotalLíquido");
             var discountTotal = SafeToDecimal(row, "TotalDesconto");
             var denominator = netTotal + discountTotal;
             var ratio = denominator > 0 ? discountTotal / denominator : 0m;
@@ -3841,7 +3841,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP {top}
-                    CONCAT(CAST(CODEMPRESA AS NVARCHAR(30)), '/', CAST(ORCAMENTO AS NVARCHAR(30))) AS OrcamentoKey,
+                    CONCAT(CAST(CODEMPRESA AS NVARCHAR(30)), '/', CAST(ORCAMENTO AS NVARCHAR(30))) AS OrçamentoKey,
                     ISNULL(CLIENTE, 'Sem cliente') AS Cliente,
                     ISNULL(VALORTOTAL, 0) AS ValorTotal,
                     ISNULL(VALORDESCONTO, 0) AS ValorDesconto,
@@ -3855,7 +3855,7 @@ namespace IT4You.Infrastructure.Repositories
             {
                 var discountValue = SafeToDecimal(row, "ValorDesconto");
                 var percent = NormalizePercent(SafeToDecimal(row, "PercentualDesconto"));
-                var key = SafeToString(row, "OrcamentoKey") ?? "-";
+                var key = SafeToString(row, "OrçamentoKey") ?? "-";
                 var customer = SafeToString(row, "Cliente") ?? "Sem cliente";
                 return new SalesBudgetChartPointDto
                 {
@@ -3876,7 +3876,7 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["items"] = points.Count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-	                    Warnings = new List<string> { "Value=valor do desconto; Count=valor total do orçamento; percentual aproximado no label." }
+	                    Warnings = new List<string> { "Value=valor do desconto; Count=valor total do orÃ§amento; percentual aproximado no label." }
 	                }
 	            };
 	        }
@@ -3894,7 +3894,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP {top}
-                    CONCAT(CAST(CODEMPRESA AS NVARCHAR(30)), '/', CAST(ORCAMENTO AS NVARCHAR(30))) AS OrcamentoKey,
+                    CONCAT(CAST(CODEMPRESA AS NVARCHAR(30)), '/', CAST(ORCAMENTO AS NVARCHAR(30))) AS OrçamentoKey,
                     ISNULL(CLIENTE, 'Sem cliente') AS Cliente,
                     ISNULL(PERCENTUALDESCONTO, 0) AS PercentualDesconto,
                     ISNULL(VALORDESCONTO, 0) AS ValorDesconto,
@@ -3907,7 +3907,7 @@ namespace IT4You.Infrastructure.Repositories
             var points = rows.Select(row =>
             {
                 var percent = NormalizePercent(SafeToDecimal(row, "PercentualDesconto"));
-                var key = SafeToString(row, "OrcamentoKey") ?? "-";
+                var key = SafeToString(row, "OrçamentoKey") ?? "-";
                 var customer = SafeToString(row, "Cliente") ?? "Sem cliente";
                 return new SalesBudgetChartPointDto
                 {
@@ -3921,7 +3921,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Orcamentos com desconto acima da media",
+                Title = "Orçamentos com desconto acima da media",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal>
@@ -3931,7 +3931,7 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Value=percentual de desconto; Count=valor do desconto. Media calculada no periodo." }
+                    Warnings = new List<string> { "Value=percentual de desconto; Count=valor do desconto. Media calculada no período." }
                 }
             };
         }
@@ -3947,7 +3947,7 @@ namespace IT4You.Infrastructure.Repositories
                 SELECT TOP {top}
                     ISNULL(CAST(VENDEDOR AS NVARCHAR(200)), 'Sem vendedor') AS Vendedor,
                     ISNULL(AVG(ISNULL(PERCENTUALDESCONTO, 0)), 0) AS AvgDiscount,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos,
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos,
                     SUM(CASE WHEN {ApprovedStatusCondition()} THEN 1 ELSE 0 END) AS Aprovados
                 FROM VW_SWIA_ORCAMENTO
                 {where}
@@ -3959,7 +3959,7 @@ namespace IT4You.Infrastructure.Repositories
             var points = rows.Select(row =>
             {
                 var discountAvg = NormalizePercent(SafeToDecimal(row, "AvgDiscount"));
-                var total = SafeToDecimal(row, "TotalOrcamentos");
+                var total = SafeToDecimal(row, "TotalOrçamentos");
                 var approved = SafeToDecimal(row, "Aprovados");
                 var conversion = total > 0 ? approved / total : 0m;
                 return new SalesBudgetChartPointDto
@@ -3974,13 +3974,13 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Relacao desconto x vendedor",
+                Title = "Relação desconto x vendedor",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["items"] = points.Count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-	                    Warnings = new List<string> { "Versão inicial: Value=desconto médio (%). Count=conversão aproximada (0-1)." }
+	                    Warnings = new List<string> { "VersÃ£o inicial: Value=desconto mÃ©dio (%). Count=conversÃ£o aproximada (0-1)." }
 	                }
 	            };
 	        }
@@ -3994,14 +3994,14 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT
-                    ISNULL(SUM(VALORTOTAL), 0) AS TotalLiquido,
+                    ISNULL(SUM(VALORTOTAL), 0) AS TotalLíquido,
                     ISNULL(SUM(VALORDESCONTO), 0) AS TotalDesconto,
                     ISNULL(SUM(VALORACRESCIMO), 0) AS TotalAcrescimo
                 FROM VW_SWIA_ORCAMENTO
                 {where}";
 
             var row = await connection.QuerySingleAsync(sql, parameters);
-            var netTotal = SafeToDecimal(row, "TotalLiquido");
+            var netTotal = SafeToDecimal(row, "TotalLíquido");
             var discountTotal = SafeToDecimal(row, "TotalDesconto");
             var surchargeTotal = SafeToDecimal(row, "TotalAcrescimo");
             var grossApprox = netTotal + discountTotal - surchargeTotal;
@@ -4009,12 +4009,12 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Comparativo valor bruto x valor liquido",
+                Title = "Comparativo valor bruto x valor líquido",
                 Visualization = "kpi_grid",
                 Data = new List<SalesBudgetChartPointDto>
                 {
                     new() { Label = "Bruto aprox.", Amount = grossApprox },
-                    new() { Label = "Liquido (total)", Amount = netTotal },
+                    new() { Label = "Líquido (total)", Amount = netTotal },
                     new() { Label = "Desconto total", Amount = discountTotal },
                     new() { Label = "Acrescimo total", Amount = surchargeTotal },
                 },
@@ -4027,12 +4027,12 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Bruto aproximado = liquido + desconto - acrescimo (heuristica inicial)." }
+                    Warnings = new List<string> { "Bruto aproximado = líquido + desconto - acrescimo (heuristica inicial)." }
                 }
             };
         }
 
-        private async Task<SalesBudgetChartDatasetDto> BuildLowMarkupBudgetsChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId, int top = 10, string title = "Orcamentos com possivel margem ruim")
+        private async Task<SalesBudgetChartDatasetDto> BuildLowMarkupBudgetsChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId, int top = 10, string title = "Orçamentos com possível margem ruim")
         {
             var parameters = new DynamicParameters();
             var conditions = new List<string>();
@@ -4040,7 +4040,7 @@ namespace IT4You.Infrastructure.Repositories
             var where = BuildWhere(conditions);
             var sql = $@"
                 SELECT TOP {top}
-                    CONCAT(CAST(CODEMPRESA AS NVARCHAR(30)), '/', CAST(ORCAMENTO AS NVARCHAR(30))) AS OrcamentoKey,
+                    CONCAT(CAST(CODEMPRESA AS NVARCHAR(30)), '/', CAST(ORCAMENTO AS NVARCHAR(30))) AS OrçamentoKey,
                     ISNULL(MARKUP, 0) AS Markup,
                     ISNULL(VALORTOTAL, 0) AS ValorTotal
                 FROM VW_SWIA_ORCAMENTO
@@ -4050,7 +4050,7 @@ namespace IT4You.Infrastructure.Repositories
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row => new SalesBudgetChartPointDto
             {
-                Label = SafeToString(row, "OrcamentoKey") ?? "-",
+                Label = SafeToString(row, "OrçamentoKey") ?? "-",
                 Value = SafeToDecimal(row, "Markup"),
                 Amount = SafeToDecimal(row, "ValorTotal")
             }).ToList();
@@ -4074,7 +4074,7 @@ namespace IT4You.Infrastructure.Repositories
                 .ThenBy(x => x.Value ?? 0m)
                 .Take(top)
                 .ToList();
-            baseChart.Meta.Warnings.Add("Priorizado por maior volume e menor conversão.");
+            baseChart.Meta.Warnings.Add("Priorizado por maior volume e menor conversÃ£o.");
             return baseChart;
         }
 
@@ -4088,9 +4088,9 @@ namespace IT4You.Infrastructure.Repositories
             var sql = $@"
                 WITH origin_data AS (
                     SELECT
-                        ISNULL(CAST(ORIGEM AS NVARCHAR(200)), 'Sem informacao') AS Origem,
+                        ISNULL(CAST(ORIGEM AS NVARCHAR(200)), 'Sem informação') AS Origem,
                         ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
-                        {DistinctBudgetCountSql()} AS TotalOrcamentos
+                        {DistinctBudgetCountSql()} AS TotalOrçamentos
                     FROM VW_SWIA_ORCAMENTO
                     {where}
                     GROUP BY ORIGEM
@@ -4099,28 +4099,28 @@ namespace IT4You.Infrastructure.Repositories
                     SELECT
                         Origem,
                         TotalValor,
-                        TotalOrcamentos,
-                        TotalValor / NULLIF(TotalOrcamentos, 0) AS TicketMedio,
-                        AVG(CAST(TotalOrcamentos AS DECIMAL(18,6))) OVER () AS AvgOrcamentos
+                        TotalOrçamentos,
+                        TotalValor / NULLIF(TotalOrçamentos, 0) AS TicketMedio,
+                        AVG(CAST(TotalOrçamentos AS DECIMAL(18,6))) OVER () AS AvgOrçamentos
                     FROM origin_data
                 )
                 SELECT TOP {top}
                     Origem,
                     TicketMedio,
-                    TotalOrcamentos,
+                    TotalOrçamentos,
                     TotalValor,
-                    AvgOrcamentos
+                    AvgOrçamentos
                 FROM scored
-                WHERE TotalOrcamentos <= AvgOrcamentos
-                ORDER BY TicketMedio DESC, TotalOrcamentos ASC";
+                WHERE TotalOrçamentos <= AvgOrçamentos
+                ORDER BY TicketMedio DESC, TotalOrçamentos ASC";
 
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row => new SalesBudgetChartPointDto
             {
-                Label = SafeToString(row, "Origem") ?? "Sem informacao",
+                Label = SafeToString(row, "Origem") ?? "Sem informação",
                 Value = SafeToDecimal(row, "TicketMedio"),
                 Amount = SafeToDecimal(row, "TicketMedio"),
-                Count = SafeToDecimal(row, "TotalOrcamentos")
+                Count = SafeToDecimal(row, "TotalOrçamentos")
             }).ToList();
 
             return new SalesBudgetChartDatasetDto
@@ -4135,7 +4135,7 @@ namespace IT4You.Infrastructure.Repositories
                 },
                 Meta = new SalesBudgetChartMetaDto
                 {
-	                    Warnings = new List<string> { "Versão inicial: considera 'baixo volume' como abaixo (ou igual) à média de orçamentos por origem no período." }
+	                    Warnings = new List<string> { "VersÃ£o inicial: considera 'baixo volume' como abaixo (ou igual) Ã  mÃ©dia de orÃ§amentos por origem no perÃ­odo." }
 	                }
 	            };
 	        }
@@ -4149,7 +4149,7 @@ namespace IT4You.Infrastructure.Repositories
             var where = BuildWhere(conditions);
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informação') AS Grupo,
                     SUM(VALORTOTAL) AS Valor
                 FROM VW_SWIA_ORCAMENTO
                 {where}
@@ -4159,7 +4159,7 @@ namespace IT4You.Infrastructure.Repositories
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row => new SalesBudgetChartPointDto
             {
-                Label = SafeToString(row, "Grupo") ?? "Sem informacao",
+                Label = SafeToString(row, "Grupo") ?? "Sem informação",
                 Value = SafeToDecimal(row, "Valor"),
                 Amount = SafeToDecimal(row, "Valor")
             }).ToList();
@@ -4184,25 +4184,25 @@ namespace IT4You.Infrastructure.Repositories
             var conditions = new List<string>();
             AddDateFilters(parameters, filters, conditions);
             var where = BuildWhere(conditions);
-            var sql = $@"SELECT ISNULL(SUM(VALORFRETE), 0) AS TotalFrete, ISNULL(SUM(VALORTOTAL), 0) AS TotalOrcado FROM VW_SWIA_ORCAMENTO {where}";
+            var sql = $@"SELECT ISNULL(SUM(VALORFRETE), 0) AS TotalFrete, ISNULL(SUM(VALORTOTAL), 0) AS TotalOrçado FROM VW_SWIA_ORCAMENTO {where}";
             var row = await connection.QuerySingleAsync(sql, parameters);
             var totalFrete = SafeToDecimal(row, "TotalFrete");
-            var totalOrcado = SafeToDecimal(row, "TotalOrcado");
-            var ratio = totalOrcado > 0 ? totalFrete / totalOrcado : 0m;
+            var totalOrçado = SafeToDecimal(row, "TotalOrçado");
+            var ratio = totalOrçado > 0 ? totalFrete / totalOrçado : 0m;
 
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Frete em relacao ao valor total",
+                Title = "Frete em relação ao valor total",
                 Visualization = "kpi",
                 Data = new List<SalesBudgetChartPointDto>
                 {
-                    new() { Label = "Relacao frete", Value = ratio, Percentage = ratio, Amount = totalFrete }
+                    new() { Label = "Relação frete", Value = ratio, Percentage = ratio, Amount = totalFrete }
                 },
                 Totals = new Dictionary<string, decimal>
                 {
                     ["totalFreight"] = totalFrete,
-                    ["totalBudget"] = totalOrcado,
+                    ["totalBudget"] = totalOrçado,
                     ["ratio"] = ratio
                 },
                 Meta = new SalesBudgetChartMetaDto()
@@ -4219,23 +4219,23 @@ namespace IT4You.Infrastructure.Repositories
             var sql = $@"
                 SELECT
                     ISNULL(SUM(VALORFRETE), 0) AS TotalFrete,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos
                 FROM VW_SWIA_ORCAMENTO
                 {where}";
 
             var row = await connection.QuerySingleAsync(sql, parameters);
             var totalFrete = SafeToDecimal(row, "TotalFrete");
-            var totalBudgets = Convert.ToInt32(SafeToDecimal(row, "TotalOrcamentos"));
+            var totalBudgets = Convert.ToInt32(SafeToDecimal(row, "TotalOrçamentos"));
             var avgFreight = totalBudgets > 0 ? totalFrete / totalBudgets : 0m;
 
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-	                Title = "Frete médio por orçamento",
+	                Title = "Frete mÃ©dio por orÃ§amento",
                 Visualization = "kpi",
                 Data = new List<SalesBudgetChartPointDto>
                 {
-	                    new() { Label = "Frete médio", Value = avgFreight, Amount = avgFreight }
+	                    new() { Label = "Frete mÃ©dio", Value = avgFreight, Amount = avgFreight }
 	                },
                 Totals = new Dictionary<string, decimal>
                 {
@@ -4256,7 +4256,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP {top}
-                    CONCAT(CAST(CODEMPRESA AS NVARCHAR(30)), '/', CAST(ORCAMENTO AS NVARCHAR(30))) AS OrcamentoKey,
+                    CONCAT(CAST(CODEMPRESA AS NVARCHAR(30)), '/', CAST(ORCAMENTO AS NVARCHAR(30))) AS OrçamentoKey,
                     ISNULL(CLIENTE, 'Sem cliente') AS Cliente,
                     ISNULL(VALORFRETE, 0) AS ValorFrete,
                     ISNULL(VALORTOTAL, 0) AS ValorTotal
@@ -4268,7 +4268,7 @@ namespace IT4You.Infrastructure.Repositories
             var points = rows.Select(row =>
             {
                 var freight = SafeToDecimal(row, "ValorFrete");
-                var key = SafeToString(row, "OrcamentoKey") ?? "-";
+                var key = SafeToString(row, "OrçamentoKey") ?? "-";
                 var customer = SafeToString(row, "Cliente") ?? "Sem cliente";
                 return new SalesBudgetChartPointDto
                 {
@@ -4282,19 +4282,19 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Orcamentos com frete mais alto",
+                Title = "Orçamentos com frete mais alto",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["items"] = points.Count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-	                    Warnings = new List<string> { "Count=valor total do orçamento." }
+	                    Warnings = new List<string> { "Count=valor total do orÃ§amento." }
 	                }
 	            };
 	        }
 
 	        private async Task<SalesBudgetChartDatasetDto> BuildConversionByFreightTypeChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
-	            => await BuildConversionByGroupChartAsync(connection, filters, chartId, "Relação frete x conversão", "TIPOFRETE", "Tipo de frete");
+	            => await BuildConversionByGroupChartAsync(connection, filters, chartId, "RelaÃ§Ã£o frete x conversÃ£o", "TIPOFRETE", "Tipo de frete");
 
         private async Task<SalesBudgetChartDatasetDto> BuildExecutiveDashboardChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
         {
@@ -4368,7 +4368,7 @@ namespace IT4You.Infrastructure.Repositories
             var where = BuildWhere(conditions);
             var sql = $@"
                 SELECT TOP 1
-                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                    ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informação') AS Grupo,
                     SUM(VALORTOTAL) AS Valor
                 FROM VW_SWIA_ORCAMENTO
                 {where}
@@ -4403,7 +4403,7 @@ namespace IT4You.Infrastructure.Repositories
             var where = BuildWhere(conditions);
             var sql = $@"
                 SELECT TOP {top}
-                    CONCAT(CAST(CODEMPRESA AS NVARCHAR(30)), '/', CAST(ORCAMENTO AS NVARCHAR(30))) AS OrcamentoKey,
+                    CONCAT(CAST(CODEMPRESA AS NVARCHAR(30)), '/', CAST(ORCAMENTO AS NVARCHAR(30))) AS OrçamentoKey,
                     CLIENTE,
                     VALORTOTAL
                 FROM VW_SWIA_ORCAMENTO
@@ -4413,7 +4413,7 @@ namespace IT4You.Infrastructure.Repositories
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row => new SalesBudgetChartPointDto
             {
-                Label = $"{SafeToString(row, "CLIENTE") ?? "Sem cliente"} - {SafeToString(row, "OrcamentoKey") ?? "-"}",
+                Label = $"{SafeToString(row, "CLIENTE") ?? "Sem cliente"} - {SafeToString(row, "OrçamentoKey") ?? "-"}",
                 Value = SafeToDecimal(row, "VALORTOTAL"),
                 Amount = SafeToDecimal(row, "VALORTOTAL")
             }).ToList();
@@ -4421,13 +4421,13 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Orcamentos pendentes de follow-up",
+                Title = "Orçamentos pendentes de follow-up",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["total"] = points.Sum(x => x.Value ?? 0m) },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Recorte inicial: status em aberto emitidos ha mais de 7 dias." }
+                    Warnings = new List<string> { "Recorte inicial: status em aberto emitidos há mais de 7 dias." }
                 }
             };
         }
@@ -4442,7 +4442,7 @@ namespace IT4You.Infrastructure.Repositories
             var where = BuildWhere(conditions);
             var sql = $@"
                 SELECT TOP {top}
-                    CONCAT(CAST(CODEMPRESA AS NVARCHAR(30)), '/', CAST(ORCAMENTO AS NVARCHAR(30))) AS OrcamentoKey,
+                    CONCAT(CAST(CODEMPRESA AS NVARCHAR(30)), '/', CAST(ORCAMENTO AS NVARCHAR(30))) AS OrçamentoKey,
                     CLIENTE,
                     VALORTOTAL
                 FROM VW_SWIA_ORCAMENTO
@@ -4452,7 +4452,7 @@ namespace IT4You.Infrastructure.Repositories
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row => new SalesBudgetChartPointDto
             {
-                Label = $"{SafeToString(row, "CLIENTE") ?? "Sem cliente"} - {SafeToString(row, "OrcamentoKey") ?? "-"}",
+                Label = $"{SafeToString(row, "CLIENTE") ?? "Sem cliente"} - {SafeToString(row, "OrçamentoKey") ?? "-"}",
                 Value = SafeToDecimal(row, "VALORTOTAL"),
                 Amount = SafeToDecimal(row, "VALORTOTAL")
             }).ToList();
@@ -4460,13 +4460,13 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Orcamentos de alto valor sem retorno",
+                Title = "Orçamentos de alto valor sem retorno",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["total"] = points.Sum(x => x.Value ?? 0m) },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Recorte inicial: status em aberto ha mais de 15 dias." }
+                    Warnings = new List<string> { "Recorte inicial: status em aberto há mais de 15 dias." }
                 }
             };
         }
@@ -4482,21 +4482,21 @@ namespace IT4You.Infrastructure.Repositories
                     SELECT
                         ISNULL(VENDEDOR, 'Sem vendedor') AS Vendedor,
                         SUM(VALORTOTAL) AS TotalValor,
-                        {DistinctBudgetCountSql()} AS TotalOrcamentos
+                        {DistinctBudgetCountSql()} AS TotalOrçamentos
                     FROM VW_SWIA_ORCAMENTO
                     {where}
                     GROUP BY VENDEDOR
                 )
                 SELECT TOP {top}
                     Vendedor,
-                    TotalValor / NULLIF(TotalOrcamentos, 0) AS TicketMedio
+                    TotalValor / NULLIF(TotalOrçamentos, 0) AS TicketMedio
                 FROM seller_data
                 ORDER BY TicketMedio DESC";
 
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row => new SalesBudgetChartPointDto
             {
-                Label = SafeToString(row, "Vendedor") ?? "Sem informacao",
+                Label = SafeToString(row, "Vendedor") ?? "Sem informação",
                 Value = SafeToDecimal(row, "TicketMedio"),
                 Amount = SafeToDecimal(row, "TicketMedio")
             }).ToList();
@@ -4521,13 +4521,13 @@ namespace IT4You.Infrastructure.Repositories
             var sql = $@"
                 SELECT TOP {top}
                     CLIENTE,
-                    MAX(EMISSAO) AS UltimaEmissao,
-                    {DistinctBudgetCountSql()} AS Orcamentos
+                    MAX(EMISSAO) AS UltimaEmissão,
+                    {DistinctBudgetCountSql()} AS Orçamentos
                 FROM VW_SWIA_ORCAMENTO
                 WHERE EMISSAO <= @EndDate
                 GROUP BY CLIENTE
                 HAVING MAX(EMISSAO) <= @ReferenceDate
-                ORDER BY Orcamentos DESC, MAX(EMISSAO) ASC";
+                ORDER BY Orçamentos DESC, MAX(EMISSAO) ASC";
 
             var rows = await connection.QueryAsync(sql, new
             {
@@ -4538,8 +4538,8 @@ namespace IT4You.Infrastructure.Repositories
             var points = rows.Select(row => new SalesBudgetChartPointDto
             {
                 Label = SafeToString(row, "CLIENTE") ?? "Sem cliente",
-                Value = SafeToDecimal(row, "Orcamentos"),
-                Count = SafeToDecimal(row, "Orcamentos")
+                Value = SafeToDecimal(row, "Orçamentos"),
+                Count = SafeToDecimal(row, "Orçamentos")
             }).ToList();
 
             return new SalesBudgetChartDatasetDto
@@ -4551,7 +4551,7 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["customers"] = points.Count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-	                    Warnings = new List<string> { "Heurística inicial: clientes com histórico e sem orçamento recente nos últimos 30 dias." }
+	                    Warnings = new List<string> { "HeurÃ­stica inicial: clientes com histÃ³rico e sem orÃ§amento recente nos Ãºltimos 30 dias." }
 	                }
 	            };
 	        }
@@ -4656,7 +4656,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP {top}
-                    CONCAT(CAST(CODEMPRESA AS NVARCHAR(30)), '/', CAST(ORCAMENTO AS NVARCHAR(30))) AS OrcamentoKey,
+                    CONCAT(CAST(CODEMPRESA AS NVARCHAR(30)), '/', CAST(ORCAMENTO AS NVARCHAR(30))) AS OrçamentoKey,
                     ISNULL(CLIENTE, 'Sem cliente') AS Cliente,
                     ISNULL(STATUS, '') AS Status,
                     ISNULL(VALORTOTAL, 0) AS ValorTotal
@@ -4668,7 +4668,7 @@ namespace IT4You.Infrastructure.Repositories
             var points = rows.Select(row =>
             {
                 var amount = SafeToDecimal(row, "ValorTotal");
-                var key = SafeToString(row, "OrcamentoKey") ?? "-";
+                var key = SafeToString(row, "OrçamentoKey") ?? "-";
                 var customer = SafeToString(row, "Cliente") ?? "Sem cliente";
                 var status = SafeToString(row, "Status") ?? "";
                 var statusSuffix = string.IsNullOrWhiteSpace(status) ? "" : $" ({status})";
@@ -4689,7 +4689,7 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["total"] = points.Sum(x => x.Value ?? 0m) },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Ranking inicial por maior VALORTOTAL no periodo (com filtro por status)." }
+                    Warnings = new List<string> { "Ranking inicial por maior VALORTOTAL no período (com filtro por status)." }
                 }
             };
         }
@@ -4710,9 +4710,9 @@ namespace IT4You.Infrastructure.Repositories
             var sql = $@"
                 WITH data AS (
                     SELECT
-                        ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                        ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informação') AS Grupo,
                         ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
-                        {DistinctBudgetCountSql()} AS TotalOrcamentos,
+                        {DistinctBudgetCountSql()} AS TotalOrçamentos,
                         SUM(CASE WHEN {ApprovedStatusCondition()} THEN 1 ELSE 0 END) AS Aprovados
                     FROM VW_SWIA_ORCAMENTO
                     {where}
@@ -4721,10 +4721,10 @@ namespace IT4You.Infrastructure.Repositories
                 SELECT TOP {top}
                     Grupo,
                     TotalValor,
-                    TotalOrcamentos,
+                    TotalOrçamentos,
                     Aprovados,
-                    CASE WHEN TotalOrcamentos > 0 THEN CAST(Aprovados AS DECIMAL(18,6)) / CAST(TotalOrcamentos AS DECIMAL(18,6)) ELSE 0 END AS Conversao,
-                    TotalValor * (0.5 + (CASE WHEN TotalOrcamentos > 0 THEN CAST(Aprovados AS DECIMAL(18,6)) / CAST(TotalOrcamentos AS DECIMAL(18,6)) ELSE 0 END)) AS Score
+                    CASE WHEN TotalOrçamentos > 0 THEN CAST(Aprovados AS DECIMAL(18,6)) / CAST(TotalOrçamentos AS DECIMAL(18,6)) ELSE 0 END AS Conversão,
+                    TotalValor * (0.5 + (CASE WHEN TotalOrçamentos > 0 THEN CAST(Aprovados AS DECIMAL(18,6)) / CAST(TotalOrçamentos AS DECIMAL(18,6)) ELSE 0 END)) AS Score
                 FROM data
                 WHERE TotalValor > 0
                 ORDER BY Score DESC, TotalValor DESC";
@@ -4733,11 +4733,11 @@ namespace IT4You.Infrastructure.Repositories
             var points = rows.Select(row =>
             {
                 var amount = SafeToDecimal(row, "TotalValor");
-                var conversion = SafeToDecimal(row, "Conversao");
-                var totalCount = SafeToDecimal(row, "TotalOrcamentos");
+                var conversion = SafeToDecimal(row, "Conversão");
+                var totalCount = SafeToDecimal(row, "TotalOrçamentos");
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Grupo") ?? "Sem informacao",
+                    Label = SafeToString(row, "Grupo") ?? "Sem informação",
                     Value = amount,
                     Amount = amount,
                     Count = totalCount,
@@ -4756,7 +4756,7 @@ namespace IT4You.Infrastructure.Repositories
                 {
                     Warnings = new List<string>
                     {
-	                        "Versão inicial: ordena por score=TotalValor*(0.5+Conversao) e mostra barras por TotalValor. Percentage=conversão (0-1)."
+	                        "VersÃ£o inicial: ordena por score=TotalValor*(0.5+Conversão) e mostra barras por TotalValor. Percentage=conversÃ£o (0-1)."
 	                    }
 	                }
 	            };
@@ -4778,9 +4778,9 @@ namespace IT4You.Infrastructure.Repositories
             var sql = $@"
                 WITH data AS (
                     SELECT
-                        ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') AS Item,
+                        ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') AS Item,
                         ISNULL(SUM(I.VALORTOTAL), 0) AS TotalValor,
-                        COUNT(DISTINCT {budgetKeySql}) AS TotalOrcamentos,
+                        COUNT(DISTINCT {budgetKeySql}) AS TotalOrçamentos,
                         COUNT(DISTINCT CASE WHEN {ApprovedStatusCondition("O")} THEN {budgetKeySql} END) AS Aprovados
                     FROM VW_SWIA_ORCAMENTO_ITEM I
                     INNER JOIN VW_SWIA_ORCAMENTO O
@@ -4792,10 +4792,10 @@ namespace IT4You.Infrastructure.Repositories
                 SELECT TOP {top}
                     Item,
                     TotalValor,
-                    TotalOrcamentos,
+                    TotalOrçamentos,
                     Aprovados,
-                    CASE WHEN TotalOrcamentos > 0 THEN CAST(Aprovados AS DECIMAL(18,6)) / CAST(TotalOrcamentos AS DECIMAL(18,6)) ELSE 0 END AS Conversao,
-                    TotalValor * (0.5 + (CASE WHEN TotalOrcamentos > 0 THEN CAST(Aprovados AS DECIMAL(18,6)) / CAST(TotalOrcamentos AS DECIMAL(18,6)) ELSE 0 END)) AS Score
+                    CASE WHEN TotalOrçamentos > 0 THEN CAST(Aprovados AS DECIMAL(18,6)) / CAST(TotalOrçamentos AS DECIMAL(18,6)) ELSE 0 END AS Conversão,
+                    TotalValor * (0.5 + (CASE WHEN TotalOrçamentos > 0 THEN CAST(Aprovados AS DECIMAL(18,6)) / CAST(TotalOrçamentos AS DECIMAL(18,6)) ELSE 0 END)) AS Score
                 FROM data
                 WHERE TotalValor > 0
                 ORDER BY Score DESC, TotalValor DESC";
@@ -4804,11 +4804,11 @@ namespace IT4You.Infrastructure.Repositories
             var points = rows.Select(row =>
             {
                 var amount = SafeToDecimal(row, "TotalValor");
-                var conversion = SafeToDecimal(row, "Conversao");
-                var totalCount = SafeToDecimal(row, "TotalOrcamentos");
+                var conversion = SafeToDecimal(row, "Conversão");
+                var totalCount = SafeToDecimal(row, "TotalOrçamentos");
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Item") ?? "Sem informacao",
+                    Label = SafeToString(row, "Item") ?? "Sem informação",
                     Value = amount,
                     Amount = amount,
                     Count = totalCount,
@@ -4827,7 +4827,7 @@ namespace IT4You.Infrastructure.Repositories
                 {
                     Warnings = new List<string>
                     {
-	                        "Versão inicial: ordena por score=TotalValor*(0.5+Conversao) e mostra barras por TotalValor. Percentage=conversão (0-1)."
+	                        "VersÃ£o inicial: ordena por score=TotalValor*(0.5+Conversão) e mostra barras por TotalValor. Percentage=conversÃ£o (0-1)."
 	                    }
 	                }
 	            };
@@ -4926,7 +4926,7 @@ namespace IT4You.Infrastructure.Repositories
                 WITH data AS (
                     SELECT
                         ISNULL(CLIENTE, 'Sem cliente') AS Cliente,
-                        {DistinctBudgetCountSql()} AS TotalOrcamentos,
+                        {DistinctBudgetCountSql()} AS TotalOrçamentos,
                         SUM(CASE WHEN {ApprovedStatusCondition()} THEN 1 ELSE 0 END) AS Aprovados,
                         ISNULL(SUM(CASE WHEN {OpenStatusCondition()} THEN VALORTOTAL ELSE 0 END), 0) AS ValorAberto
                     FROM VW_SWIA_ORCAMENTO
@@ -4935,13 +4935,13 @@ namespace IT4You.Infrastructure.Repositories
                 )
                 SELECT TOP {top}
                     Cliente,
-                    TotalOrcamentos,
+                    TotalOrçamentos,
                     Aprovados,
                     ValorAberto,
-                    CASE WHEN TotalOrcamentos > 0 THEN CAST(Aprovados AS DECIMAL(18,6)) / CAST(TotalOrcamentos AS DECIMAL(18,6)) ELSE 0 END AS Conversao
+                    CASE WHEN TotalOrçamentos > 0 THEN CAST(Aprovados AS DECIMAL(18,6)) / CAST(TotalOrçamentos AS DECIMAL(18,6)) ELSE 0 END AS Conversão
                 FROM data
                 WHERE ValorAberto > 0
-                ORDER BY Conversao DESC, ValorAberto DESC";
+                ORDER BY Conversão DESC, ValorAberto DESC";
 
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row =>
@@ -4952,21 +4952,21 @@ namespace IT4You.Infrastructure.Repositories
                     Label = SafeToString(row, "Cliente") ?? "Sem cliente",
                     Value = openAmount,
                     Amount = openAmount,
-                    Count = SafeToDecimal(row, "TotalOrcamentos"),
-                    Percentage = SafeToDecimal(row, "Conversao")
+                    Count = SafeToDecimal(row, "TotalOrçamentos"),
+                    Percentage = SafeToDecimal(row, "Conversão")
                 };
             }).ToList();
 
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-	                Title = "Clientes com maior chance de conversão",
+	                Title = "Clientes com maior chance de conversÃ£o",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["customers"] = points.Count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-	                    Warnings = new List<string> { "Versão inicial: barras por valor em aberto; Percentage=conversão histórica (0-1) no período; requer mapeamento de STATUS." }
+	                    Warnings = new List<string> { "VersÃ£o inicial: barras por valor em aberto; Percentage=conversÃ£o histÃ³rica (0-1) no perÃ­odo; requer mapeamento de STATUS." }
 	                }
 	            };
 	        }
@@ -4988,9 +4988,9 @@ namespace IT4You.Infrastructure.Repositories
             var sql = $@"
                 SELECT TOP {top}
                     ISNULL(CLIENTE, 'Sem cliente') AS Cliente,
-                    MAX(EMISSAO) AS UltimaEmissao,
+                    MAX(EMISSAO) AS UltimaEmissão,
                     ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
-                    {DistinctBudgetCountSql()} AS Orcamentos
+                    {DistinctBudgetCountSql()} AS Orçamentos
                 FROM VW_SWIA_ORCAMENTO
                 {where}
                 GROUP BY CLIENTE
@@ -5003,13 +5003,13 @@ namespace IT4You.Infrastructure.Repositories
             var points = rows.Select(row =>
             {
                 var amount = SafeToDecimal(row, "TotalValor");
-                var last = SafeToString(row, "UltimaEmissao") ?? "";
+                var last = SafeToString(row, "UltimaEmissão") ?? "";
                 return new SalesBudgetChartPointDto
                 {
-                    Label = $"{SafeToString(row, "Cliente") ?? "Sem cliente"} (ultima: {last})",
+                    Label = $"{SafeToString(row, "Cliente") ?? "Sem cliente"} (última: {last})",
                     Value = amount,
                     Amount = amount,
-                    Count = SafeToDecimal(row, "Orcamentos")
+                    Count = SafeToDecimal(row, "Orçamentos")
                 };
             }).ToList();
 
@@ -5022,7 +5022,7 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["customers"] = points.Count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Versao inicial: clientes cuja ultima emissao no periodo filtrado foi ha >=30 dias da data final." }
+                    Warnings = new List<string> { "Versao inicial: clientes cuja última emissão no período filtrado foi há >=30 dias da data final." }
                 }
             };
         }
@@ -5066,7 +5066,7 @@ namespace IT4You.Infrastructure.Repositories
             var whereCustomer = AppendCondition(where, "ISNULL(O.CLIENTE, 'Sem cliente') = @Customer");
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') AS Item,
+                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') AS Item,
                     ISNULL(SUM(I.VALORTOTAL), 0) AS TotalValor
                 FROM VW_SWIA_ORCAMENTO_ITEM I
                 INNER JOIN VW_SWIA_ORCAMENTO O
@@ -5082,7 +5082,7 @@ namespace IT4You.Infrastructure.Repositories
                 var amount = SafeToDecimal(row, "TotalValor");
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Item") ?? "Sem informacao",
+                    Label = SafeToString(row, "Item") ?? "Sem informação",
                     Value = amount,
                     Amount = amount
                 };
@@ -5097,7 +5097,7 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["items"] = points.Count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Versao inicial: usa como referencia o cliente com maior valor no periodo e lista seus top produtos." }
+                    Warnings = new List<string> { "Versao inicial: usa como referencia o cliente com maior valor no período e lista seus top produtos." }
                 }
             };
         }
@@ -5129,7 +5129,7 @@ namespace IT4You.Infrastructure.Repositories
                 return new SalesBudgetChartDatasetDto
                 {
                     ChartId = chartId,
-                    Title = "Produtos mais vendidos por regiao",
+                    Title = "Produtos mais vendidos por região",
                     Visualization = "bar",
                     Data = new List<SalesBudgetChartPointDto>(),
                     Totals = new Dictionary<string, decimal>(),
@@ -5141,7 +5141,7 @@ namespace IT4You.Infrastructure.Repositories
             var whereUf = AppendCondition(where, "ISNULL(O.UF, 'Sem UF') = @UF");
             var sql = $@"
                 SELECT TOP {top}
-                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') AS Item,
+                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') AS Item,
                     ISNULL(SUM(I.VALORTOTAL), 0) AS TotalValor
                 FROM VW_SWIA_ORCAMENTO_ITEM I
                 INNER JOIN VW_SWIA_ORCAMENTO O
@@ -5157,7 +5157,7 @@ namespace IT4You.Infrastructure.Repositories
                 var amount = SafeToDecimal(row, "TotalValor");
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Item") ?? "Sem informacao",
+                    Label = SafeToString(row, "Item") ?? "Sem informação",
                     Value = amount,
                     Amount = amount
                 };
@@ -5166,13 +5166,13 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = $"Produtos mais vendidos por regiao (UF: {uf})",
+                Title = $"Produtos mais vendidos por região (UF: {uf})",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["items"] = points.Count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Versao inicial: usa como referencia a UF com maior valor no periodo e lista seus top produtos." }
+                    Warnings = new List<string> { "Versao inicial: usa como referencia a UF com maior valor no período e lista seus top produtos." }
                 }
             };
         }
@@ -5192,8 +5192,8 @@ namespace IT4You.Infrastructure.Repositories
             var sql = $@"
                 WITH data AS (
                     SELECT
-                        ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') AS Item,
-                        COUNT(DISTINCT {budgetKeySql}) AS TotalOrcamentos,
+                        ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') AS Item,
+                        COUNT(DISTINCT {budgetKeySql}) AS TotalOrçamentos,
                         COUNT(DISTINCT CASE WHEN {ApprovedStatusCondition("O")} THEN {budgetKeySql} END) AS Aprovados
                     FROM VW_SWIA_ORCAMENTO_ITEM I
                     INNER JOIN VW_SWIA_ORCAMENTO O
@@ -5204,23 +5204,23 @@ namespace IT4You.Infrastructure.Repositories
                 )
                 SELECT TOP {top}
                     Item,
-                    TotalOrcamentos,
+                    TotalOrçamentos,
                     Aprovados,
-                    CASE WHEN TotalOrcamentos > 0 THEN CAST(Aprovados AS DECIMAL(18,6)) / CAST(TotalOrcamentos AS DECIMAL(18,6)) ELSE 0 END AS Conversao
+                    CASE WHEN TotalOrçamentos > 0 THEN CAST(Aprovados AS DECIMAL(18,6)) / CAST(TotalOrçamentos AS DECIMAL(18,6)) ELSE 0 END AS Conversão
                 FROM data
-                WHERE TotalOrcamentos >= 3
-                ORDER BY Conversao DESC, TotalOrcamentos DESC";
+                WHERE TotalOrçamentos >= 3
+                ORDER BY Conversão DESC, TotalOrçamentos DESC";
 
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row =>
             {
-                var ratio = SafeToDecimal(row, "Conversao");
+                var ratio = SafeToDecimal(row, "Conversão");
                 var pctPoints = ratio * 100m;
                 return new SalesBudgetChartPointDto
                 {
-                    Label = SafeToString(row, "Item") ?? "Sem informacao",
+                    Label = SafeToString(row, "Item") ?? "Sem informação",
                     Value = pctPoints,
-                    Count = SafeToDecimal(row, "TotalOrcamentos"),
+                    Count = SafeToDecimal(row, "TotalOrçamentos"),
                     Percentage = ratio
                 };
             }).ToList();
@@ -5254,7 +5254,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP {top}
-                    CONCAT(CAST(CODEMPRESA AS NVARCHAR(30)), '/', CAST(ORCAMENTO AS NVARCHAR(30))) AS OrcamentoKey,
+                    CONCAT(CAST(CODEMPRESA AS NVARCHAR(30)), '/', CAST(ORCAMENTO AS NVARCHAR(30))) AS OrçamentoKey,
                     CLIENTE,
                     VALORTOTAL
                 FROM VW_SWIA_ORCAMENTO
@@ -5264,7 +5264,7 @@ namespace IT4You.Infrastructure.Repositories
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row => new SalesBudgetChartPointDto
             {
-                Label = $"{SafeToString(row, "CLIENTE") ?? "Sem cliente"} - {SafeToString(row, "OrcamentoKey") ?? "-"}",
+                Label = $"{SafeToString(row, "CLIENTE") ?? "Sem cliente"} - {SafeToString(row, "OrçamentoKey") ?? "-"}",
                 Value = SafeToDecimal(row, "VALORTOTAL"),
                 Amount = SafeToDecimal(row, "VALORTOTAL")
             }).ToList();
@@ -5272,13 +5272,13 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Orcamentos antigos ainda em aberto",
+                Title = "Orçamentos antigos ainda em aberto",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["total"] = points.Sum(x => x.Value ?? 0m) },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Recorte inicial: status em aberto ha mais de 30 dias." }
+                    Warnings = new List<string> { "Recorte inicial: status em aberto há mais de 30 dias." }
                 }
             };
         }
@@ -5298,7 +5298,7 @@ namespace IT4You.Infrastructure.Repositories
                 SELECT TOP {top}
                     ISNULL(CLIENTE, 'Sem cliente') AS Cliente,
                     ISNULL(AVG(ISNULL(PERCENTUALDESCONTO, 0)), 0) AS AvgDiscountRaw,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos,
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos,
                     SUM(CASE WHEN {ApprovedStatusCondition()} THEN 1 ELSE 0 END) AS Aprovados
                 FROM VW_SWIA_ORCAMENTO
                 {where}
@@ -5312,7 +5312,7 @@ namespace IT4You.Infrastructure.Repositories
                 var raw = SafeToDecimal(row, "AvgDiscountRaw");
                 var normalized = NormalizePercent(raw);
                 var pctPoints = normalized * 100m;
-                var total = SafeToDecimal(row, "TotalOrcamentos");
+                var total = SafeToDecimal(row, "TotalOrçamentos");
                 var approved = SafeToDecimal(row, "Aprovados");
                 var conversion = total > 0 ? approved / total : 0m;
                 return new SalesBudgetChartPointDto
@@ -5327,13 +5327,13 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Clientes sensiveis a desconto",
+                Title = "Clientes sensíveis a desconto",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["customers"] = points.Count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-	                    Warnings = new List<string> { "Value=desconto médio (pontos percentuais, 0-100). Percentage=conversão (0-1)." }
+	                    Warnings = new List<string> { "Value=desconto mÃ©dio (pontos percentuais, 0-100). Percentage=conversÃ£o (0-1)." }
 	                }
 	            };
 	        }
@@ -5353,7 +5353,7 @@ namespace IT4You.Infrastructure.Repositories
                 SELECT TOP {top}
                     ISNULL(CLIENTE, 'Sem cliente') AS Cliente,
                     ISNULL(AVG(ISNULL(PERCENTUALDESCONTO, 0)), 0) AS AvgDiscountRaw,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos,
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos,
                     SUM(CASE WHEN {ApprovedStatusCondition()} THEN 1 ELSE 0 END) AS Aprovados
                 FROM VW_SWIA_ORCAMENTO
                 {where}
@@ -5367,7 +5367,7 @@ namespace IT4You.Infrastructure.Repositories
                 var raw = SafeToDecimal(row, "AvgDiscountRaw");
                 var normalized = NormalizePercent(raw);
                 var pctPoints = normalized * 100m;
-                var total = SafeToDecimal(row, "TotalOrcamentos");
+                var total = SafeToDecimal(row, "TotalOrçamentos");
                 var approved = SafeToDecimal(row, "Aprovados");
                 var conversion = total > 0 ? approved / total : 0m;
                 return new SalesBudgetChartPointDto
@@ -5388,7 +5388,7 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["customers"] = points.Count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Value=desconto medio (pontos percentuais, 0-100). Filtra clientes com pelo menos 1 aprovado no periodo." }
+                    Warnings = new List<string> { "Value=desconto medio (pontos percentuais, 0-100). Filtra clientes com pelo menos 1 aprovado no período." }
                 }
             };
         }
@@ -5466,7 +5466,7 @@ namespace IT4You.Infrastructure.Repositories
                 WITH data AS (
                     SELECT
                         ISNULL(O.VENDEDOR, 'Sem vendedor') AS Vendedor,
-                        ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') AS Item,
+                        ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') AS Item,
                         ISNULL(SUM(I.VALORTOTAL), 0) AS TotalValor
                     FROM VW_SWIA_ORCAMENTO_ITEM I
                     INNER JOIN VW_SWIA_ORCAMENTO O
@@ -5492,7 +5492,7 @@ namespace IT4You.Infrastructure.Repositories
             {
                 var amount = SafeToDecimal(row, "TotalValor");
                 var seller = SafeToString(row, "Vendedor") ?? "Sem vendedor";
-                var item = SafeToString(row, "Item") ?? "Sem informacao";
+                var item = SafeToString(row, "Item") ?? "Sem informação";
                 return new SalesBudgetChartPointDto
                 {
                     Label = $"{seller} - {item}",
@@ -5562,7 +5562,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Melhor regiao para cada vendedor",
+                Title = "Melhor região para cada vendedor",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal> { ["items"] = points.Count },
@@ -5585,7 +5585,7 @@ namespace IT4You.Infrastructure.Repositories
                 SELECT TOP {top}
                     ISNULL(VENDEDOR, 'Sem vendedor') AS Vendedor,
                     ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos
                 FROM VW_SWIA_ORCAMENTO
                 {where}
                 GROUP BY VENDEDOR
@@ -5600,7 +5600,7 @@ namespace IT4You.Infrastructure.Repositories
                     Label = SafeToString(row, "Vendedor") ?? "Sem vendedor",
                     Value = amount,
                     Amount = amount,
-                    Count = SafeToDecimal(row, "TotalOrcamentos")
+                    Count = SafeToDecimal(row, "TotalOrçamentos")
                 };
             }).ToList();
 
@@ -5640,7 +5640,7 @@ namespace IT4You.Infrastructure.Repositories
             var sql = $@"
                 WITH company_top AS (
                     SELECT TOP {top}
-                        ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') AS Item,
+                        ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') AS Item,
                         ISNULL(SUM(I.VALORTOTAL), 0) AS TotalValor
                     FROM VW_SWIA_ORCAMENTO_ITEM I
                     INNER JOIN VW_SWIA_ORCAMENTO O
@@ -5660,7 +5660,7 @@ namespace IT4You.Infrastructure.Repositories
                 seller_totals AS (
                     SELECT
                         ISNULL(O.VENDEDOR, 'Sem vendedor') AS Vendedor,
-                        ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') AS Item,
+                        ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') AS Item,
                         ISNULL(SUM(I.VALORTOTAL), 0) AS TotalValor
                     FROM VW_SWIA_ORCAMENTO_ITEM I
                     INNER JOIN VW_SWIA_ORCAMENTO O
@@ -5685,7 +5685,7 @@ namespace IT4You.Infrastructure.Repositories
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row => new SalesBudgetChartPointDto
             {
-                Label = $"{SafeToString(row, "Vendedor") ?? "Sem vendedor"} - {SafeToString(row, "Item") ?? "Sem informacao"}",
+                Label = $"{SafeToString(row, "Vendedor") ?? "Sem vendedor"} - {SafeToString(row, "Item") ?? "Sem informação"}",
                 Value = SafeToDecimal(row, "CompanyTotalValor"),
                 Amount = SafeToDecimal(row, "CompanyTotalValor"),
                 Count = SafeToDecimal(row, "TotalValor")
@@ -5700,7 +5700,7 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["items"] = points.Count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Versao inicial: top produtos da empresa (Amount=valor da empresa) onde o vendedor tem TotalValor=0 no periodo." }
+                    Warnings = new List<string> { "Versao inicial: top produtos da empresa (Amount=valor da empresa) onde o vendedor tem TotalValor=0 no período." }
                 }
             };
         }
@@ -5718,13 +5718,13 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"SELECT 
                             ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
-                            {DistinctBudgetCountSql()} AS TotalOrcamentos
+                            {DistinctBudgetCountSql()} AS TotalOrçamentos
                          FROM VW_SWIA_ORCAMENTO {where}";
 
             var row = await connection.QuerySingleAsync(sql, parameters);
             var totalValor = SafeToDecimal(row, "TotalValor");
-            var totalOrcamentos = Convert.ToInt32(SafeToDecimal(row, "TotalOrcamentos"));
-            var avgTicket = totalOrcamentos > 0 ? totalValor / totalOrcamentos : 0m;
+            var totalOrçamentos = Convert.ToInt32(SafeToDecimal(row, "TotalOrçamentos"));
+            var avgTicket = totalOrçamentos > 0 ? totalValor / totalOrçamentos : 0m;
 
             return new SalesBudgetChartDatasetDto
             {
@@ -5784,7 +5784,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP 1
-                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') AS Item,
+                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') AS Item,
                     ISNULL(SUM(I.VALORTOTAL), 0) AS Valor
                 FROM VW_SWIA_ORCAMENTO_ITEM I
                 INNER JOIN VW_SWIA_ORCAMENTO O
@@ -5824,7 +5824,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP 1
-                    CONCAT(CAST(CODEMPRESA AS NVARCHAR(30)), '/', CAST(ORCAMENTO AS NVARCHAR(30))) AS OrcamentoKey,
+                    CONCAT(CAST(CODEMPRESA AS NVARCHAR(30)), '/', CAST(ORCAMENTO AS NVARCHAR(30))) AS OrçamentoKey,
                     ISNULL(CLIENTE, 'Sem cliente') AS Cliente,
                     ISNULL(VALORDESCONTO, 0) AS ValorDesconto
                 FROM VW_SWIA_ORCAMENTO
@@ -5833,7 +5833,7 @@ namespace IT4You.Infrastructure.Repositories
 
             var row = await connection.QueryFirstOrDefaultAsync(sql, parameters);
             var customer = row == null ? "Sem dados" : SafeToString(row, "Cliente") ?? "Sem cliente";
-            var key = row == null ? "-" : SafeToString(row, "OrcamentoKey") ?? "-";
+            var key = row == null ? "-" : SafeToString(row, "OrçamentoKey") ?? "-";
             var value = row == null ? 0m : SafeToDecimal(row, "ValorDesconto");
 
             return new SalesBudgetChartDatasetDto
@@ -5862,8 +5862,8 @@ namespace IT4You.Infrastructure.Repositories
 
             var sql = $@"
                 SELECT TOP 1
-                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') AS Item,
-                    {DistinctBudgetCountSql("O")} AS Orcamentos
+                    ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') AS Item,
+                    {DistinctBudgetCountSql("O")} AS Orçamentos
                 FROM VW_SWIA_ORCAMENTO_ITEM I
                 INNER JOIN VW_SWIA_ORCAMENTO O
                   ON O.CODEMPRESA = I.CODEMPRESA
@@ -5871,16 +5871,16 @@ namespace IT4You.Infrastructure.Repositories
                 {where}
                 GROUP BY I.ITEM
                 HAVING {DistinctBudgetCountSql("O")} > 0
-                ORDER BY Orcamentos DESC";
+                ORDER BY Orçamentos DESC";
 
             var row = await connection.QueryFirstOrDefaultAsync(sql, parameters);
-            var label = row == null ? "Sem dados" : SafeToString(row, "Item") ?? "Sem informacao";
-            var count = row == null ? 0m : SafeToDecimal(row, "Orcamentos");
+            var label = row == null ? "Sem dados" : SafeToString(row, "Item") ?? "Sem informação";
+            var count = row == null ? 0m : SafeToDecimal(row, "Orçamentos");
 
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Produto mais orcado",
+                Title = "Produto mais orçado",
                 Visualization = "kpi_text",
                 Data = new List<SalesBudgetChartPointDto>
                 {
@@ -5889,7 +5889,7 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["budgets"] = count },
                 Meta = new SalesBudgetChartMetaDto
                 {
-	                    Warnings = new List<string> { "Value exibido em moeda no modo kpi_text; representa quantidade de orçamentos (heurística de exibição)." }
+	                    Warnings = new List<string> { "Value exibido em moeda no modo kpi_text; representa quantidade de orÃ§amentos (heurÃ­stica de exibiÃ§Ã£o)." }
 	                }
 	            };
 	        }
@@ -5909,7 +5909,7 @@ namespace IT4You.Infrastructure.Repositories
                     SELECT
                         ISNULL(CLIENTE, 'Sem cliente') AS Cliente,
                         ISNULL(SUM(CASE WHEN {OpenStatusCondition()} THEN VALORTOTAL ELSE 0 END), 0) AS ValorAberto,
-                        {DistinctBudgetCountSql()} AS TotalOrcamentos,
+                        {DistinctBudgetCountSql()} AS TotalOrçamentos,
                         SUM(CASE WHEN {ApprovedStatusCondition()} THEN 1 ELSE 0 END) AS Aprovados
                     FROM VW_SWIA_ORCAMENTO
                     {where}
@@ -5918,7 +5918,7 @@ namespace IT4You.Infrastructure.Repositories
                 SELECT TOP 1
                     Cliente,
                     ValorAberto,
-                    CASE WHEN TotalOrcamentos > 0 THEN CAST(Aprovados AS DECIMAL(18,6)) / CAST(TotalOrcamentos AS DECIMAL(18,6)) ELSE 0 END AS Conversao
+                    CASE WHEN TotalOrçamentos > 0 THEN CAST(Aprovados AS DECIMAL(18,6)) / CAST(TotalOrçamentos AS DECIMAL(18,6)) ELSE 0 END AS Conversão
                 FROM data
                 WHERE ValorAberto > 0
                 ORDER BY ValorAberto DESC";
@@ -5926,7 +5926,7 @@ namespace IT4You.Infrastructure.Repositories
             var row = await connection.QueryFirstOrDefaultAsync(sql, parameters);
             var customer = row == null ? "Sem dados" : SafeToString(row, "Cliente") ?? "Sem cliente";
             var openAmount = row == null ? 0m : SafeToDecimal(row, "ValorAberto");
-            var conversion = row == null ? 0m : SafeToDecimal(row, "Conversao");
+            var conversion = row == null ? 0m : SafeToDecimal(row, "Conversão");
 
             return new SalesBudgetChartDatasetDto
             {
@@ -5940,7 +5940,7 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["openAmount"] = openAmount },
                 Meta = new SalesBudgetChartMetaDto
                 {
-	                    Warnings = new List<string> { "Versão inicial: escolhe o cliente com maior valor em aberto. Percentage=conversão (0-1). Depende do mapeamento de STATUS." }
+	                    Warnings = new List<string> { "VersÃ£o inicial: escolhe o cliente com maior valor em aberto. Percentage=conversÃ£o (0-1). Depende do mapeamento de STATUS." }
 	                }
 	            };
 	        }
@@ -5965,7 +5965,7 @@ namespace IT4You.Infrastructure.Repositories
             var sql = $@"
                 WITH atual AS (
                     SELECT
-                        ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                        ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informação') AS Grupo,
                         ISNULL(SUM(VALORTOTAL), 0) AS ValorAtual
                     FROM VW_SWIA_ORCAMENTO
                     WHERE EMISSAO >= @StartDate AND EMISSAO <= @EndDate
@@ -5973,7 +5973,7 @@ namespace IT4You.Infrastructure.Repositories
                 ),
                 anterior AS (
                     SELECT
-                        ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informacao') AS Grupo,
+                        ISNULL(CAST({groupColumn} AS NVARCHAR(200)), 'Sem informação') AS Grupo,
                         ISNULL(SUM(VALORTOTAL), 0) AS ValorAnterior
                     FROM VW_SWIA_ORCAMENTO
                     WHERE EMISSAO >= @PreviousStart AND EMISSAO <= @PreviousEnd
@@ -5996,7 +5996,7 @@ namespace IT4You.Infrastructure.Repositories
                 PreviousEnd = previousEnd
             });
 
-            var label = row == null ? "Sem dados" : SafeToString(row, "Grupo") ?? "Sem informacao";
+            var label = row == null ? "Sem dados" : SafeToString(row, "Grupo") ?? "Sem informação";
             var delta = row == null ? 0m : SafeToDecimal(row, "Delta");
             var displayDelta = mode == "drop" ? Math.Abs(delta) : delta;
 
@@ -6012,7 +6012,7 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["delta"] = displayDelta },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { $"Delta em valor total ({kind}) entre periodo atual e janela anterior equivalente." }
+                    Warnings = new List<string> { $"Delta em valor total ({kind}) entre período atual e janela anterior equivalente." }
                 }
             };
         }
@@ -6035,7 +6035,7 @@ namespace IT4You.Infrastructure.Repositories
             var sql = $@"
                 WITH atual AS (
                     SELECT
-                        ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') AS Item,
+                        ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') AS Item,
                         ISNULL(SUM(I.VALORTOTAL), 0) AS ValorAtual
                     FROM VW_SWIA_ORCAMENTO_ITEM I
                     INNER JOIN VW_SWIA_ORCAMENTO O
@@ -6046,7 +6046,7 @@ namespace IT4You.Infrastructure.Repositories
                 ),
                 anterior AS (
                     SELECT
-                        ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informacao') AS Item,
+                        ISNULL(CAST(I.ITEM AS NVARCHAR(200)), 'Sem informação') AS Item,
                         ISNULL(SUM(I.VALORTOTAL), 0) AS ValorAnterior
                     FROM VW_SWIA_ORCAMENTO_ITEM I
                     INNER JOIN VW_SWIA_ORCAMENTO O
@@ -6072,7 +6072,7 @@ namespace IT4You.Infrastructure.Repositories
                 PreviousEnd = previousEnd
             });
 
-            var label = row == null ? "Sem dados" : SafeToString(row, "Item") ?? "Sem informacao";
+            var label = row == null ? "Sem dados" : SafeToString(row, "Item") ?? "Sem informação";
             var delta = row == null ? 0m : SafeToDecimal(row, "Delta");
             var displayDelta = mode == "drop" ? Math.Abs(delta) : delta;
 
@@ -6088,7 +6088,7 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["delta"] = displayDelta },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Delta em valor total (itens) entre periodo atual e janela anterior equivalente." }
+                    Warnings = new List<string> { "Delta em valor total (itens) entre período atual e janela anterior equivalente." }
                 }
             };
         }
@@ -6110,7 +6110,7 @@ namespace IT4You.Infrastructure.Repositories
                 WITH data AS (
                     SELECT
                         ISNULL(ORIGEM, 'Sem origem') AS Origem,
-                        {DistinctBudgetCountSql()} AS TotalOrcamentos,
+                        {DistinctBudgetCountSql()} AS TotalOrçamentos,
                         SUM(CASE WHEN {ApprovedStatusCondition()} THEN 1 ELSE 0 END) AS Aprovados
                     FROM VW_SWIA_ORCAMENTO
                     {where}
@@ -6118,14 +6118,14 @@ namespace IT4You.Infrastructure.Repositories
                 )
                 SELECT TOP 1
                     Origem,
-                    CASE WHEN TotalOrcamentos > 0 THEN CAST(Aprovados AS DECIMAL(18,6)) / CAST(TotalOrcamentos AS DECIMAL(18,6)) ELSE 0 END AS Conversao
+                    CASE WHEN TotalOrçamentos > 0 THEN CAST(Aprovados AS DECIMAL(18,6)) / CAST(TotalOrçamentos AS DECIMAL(18,6)) ELSE 0 END AS Conversão
                 FROM data
-                WHERE TotalOrcamentos >= 3
-                ORDER BY Conversao {orderDirection}, TotalOrcamentos DESC";
+                WHERE TotalOrçamentos >= 3
+                ORDER BY Conversão {orderDirection}, TotalOrçamentos DESC";
 
             var row = await connection.QueryFirstOrDefaultAsync(sql, parameters);
             var origin = row == null ? "Sem dados" : SafeToString(row, "Origem") ?? "Sem origem";
-            var ratio = row == null ? 0m : SafeToDecimal(row, "Conversao");
+            var ratio = row == null ? 0m : SafeToDecimal(row, "Conversão");
             var pct = ratio * 100m;
 
             return new SalesBudgetChartDatasetDto
@@ -6140,7 +6140,7 @@ namespace IT4You.Infrastructure.Repositories
                 Totals = new Dictionary<string, decimal> { ["conversion"] = ratio },
                 Meta = new SalesBudgetChartMetaDto
                 {
-                    Warnings = new List<string> { "Conversao aproximada por origem (depende do mapeamento de STATUS). KPI_text mostra apenas o label." }
+                    Warnings = new List<string> { "Conversão aproximada por origem (depende do mapeamento de STATUS). KPI_text mostra apenas o label." }
                 }
             };
         }
@@ -6157,18 +6157,18 @@ namespace IT4You.Infrastructure.Repositories
                     CASE 
                         WHEN PERCENTUALDESCONTO >= 20 THEN 'Desconto Extremo (>= 20%)'
                         WHEN PERCENTUALDESCONTO >= 10 THEN 'Alto Desconto (10-19%)'
-                        WHEN PERCENTUALDESCONTO > 0 THEN 'Desconto Padrão (1-9%)'
+                        WHEN PERCENTUALDESCONTO > 0 THEN 'Desconto PadrÃ£o (1-9%)'
                         ELSE 'Sem Desconto'
                     END AS Faixa,
                     ISNULL(SUM(VALORTOTAL), 0) AS TotalValor,
-                    {DistinctBudgetCountSql()} AS TotalOrcamentos
+                    {DistinctBudgetCountSql()} AS TotalOrçamentos
                 FROM VW_SWIA_ORCAMENTO
                 {where}
                 GROUP BY 
                     CASE 
                         WHEN PERCENTUALDESCONTO >= 20 THEN 'Desconto Extremo (>= 20%)'
                         WHEN PERCENTUALDESCONTO >= 10 THEN 'Alto Desconto (10-19%)'
-                        WHEN PERCENTUALDESCONTO > 0 THEN 'Desconto Padrão (1-9%)'
+                        WHEN PERCENTUALDESCONTO > 0 THEN 'Desconto PadrÃ£o (1-9%)'
                         ELSE 'Sem Desconto'
                     END
                 ORDER BY SUM(VALORTOTAL) DESC";
@@ -6178,7 +6178,7 @@ namespace IT4You.Infrastructure.Repositories
             {
                 Label = SafeToString(row, "Faixa") ?? "Desconhecido",
                 Amount = SafeToDecimal(row, "TotalValor"),
-                Count = SafeToDecimal(row, "TotalOrcamentos"),
+                Count = SafeToDecimal(row, "TotalOrçamentos"),
                 Value = SafeToDecimal(row, "TotalValor")
             }).ToList();
 
@@ -6240,7 +6240,7 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Taxa de ganho vs Idade do orçamento",
+                Title = "Taxa de ganho vs Idade do orÃ§amento",
                 Visualization = "bar",
                 Data = points,
                 Totals = new Dictionary<string, decimal>(),
@@ -6271,11 +6271,11 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Volume orçado vs fechado",
+                Title = "Volume orÃ§ado vs fechado",
                 Visualization = "kpi",
                 Data = new List<SalesBudgetChartPointDto>
                 {
-                    new() { Label = "Conversão de Volume", Value = ratio, Percentage = ratio }
+                    new() { Label = "ConversÃ£o de Volume", Value = ratio, Percentage = ratio }
                 },
                 Totals = new Dictionary<string, decimal> { ["total"] = total, ["approved"] = approved },
                 Meta = new SalesBudgetChartMetaDto()
@@ -6310,10 +6310,10 @@ namespace IT4You.Infrastructure.Repositories
                 Visualization = "kpi",
                 Data = new List<SalesBudgetChartPointDto>
                 {
-                    new() { Label = "Orçamentos Abandonados", Value = rate, Percentage = rate }
+                    new() { Label = "OrÃ§amentos Abandonados", Value = rate, Percentage = rate }
                 },
                 Totals = new Dictionary<string, decimal> { ["abandonedCount"] = abandonedOpen, ["openCount"] = totalOpen },
-                Meta = new SalesBudgetChartMetaDto { Warnings = new List<string> { "Considera abandonado: Status Aberto e Emissão > 30 dias atrás" } }
+                Meta = new SalesBudgetChartMetaDto { Warnings = new List<string> { "Considera abandonado: Status Aberto e EmissÃ£o > 30 dias atrÃ¡s" } }
             };
         }
 
@@ -6340,11 +6340,11 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Eficiência de Mix",
+                Title = "EficiÃªncia de Mix",
                 Visualization = "kpi",
                 Data = new List<SalesBudgetChartPointDto>
                 {
-                    new() { Label = "Itens por orçamento", Value = avg, Count = avg }
+                    new() { Label = "Itens por orÃ§amento", Value = avg, Count = avg }
                 },
                 Totals = new Dictionary<string, decimal>(),
                 Meta = new SalesBudgetChartMetaDto()
@@ -6380,14 +6380,14 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Previsão de Fechamento",
+                Title = "PrevisÃ£o de Fechamento",
                 Visualization = "kpi",
                 Data = new List<SalesBudgetChartPointDto>
                 {
                     new() { Label = "Forecast Atual", Value = forecast, Amount = forecast }
                 },
                 Totals = new Dictionary<string, decimal> { ["openAmount"] = openAmount, ["historicalRate"] = historicalRate * 100m },
-                Meta = new SalesBudgetChartMetaDto { Warnings = new List<string> { "Calculado multiplicando o Valor Aberto atual pela Taxa Histórica de Conversão do período" } }
+                Meta = new SalesBudgetChartMetaDto { Warnings = new List<string> { "Calculado multiplicando o Valor Aberto atual pela Taxa HistÃ³rica de ConversÃ£o do perÃ­odo" } }
             };
         }
 
@@ -6446,7 +6446,7 @@ namespace IT4You.Infrastructure.Repositories
                 Visualization = "table",
                 Data = points,
                 Totals = new Dictionary<string, decimal>(),
-                Meta = new SalesBudgetChartMetaDto { Warnings = new List<string> { "Clientes com intervalo sem compras maior que o dobro do seu intervalo médio histórico." } }
+                Meta = new SalesBudgetChartMetaDto { Warnings = new List<string> { "Clientes com intervalo sem compras maior que o dobro do seu intervalo mÃ©dio histÃ³rico." } }
             };
         }
 
@@ -6458,7 +6458,7 @@ namespace IT4You.Infrastructure.Repositories
             var where = BuildWhere(conditions);
             
             var openCond = OpenStatusCondition();
-            // Alta probabilidade: Status aberto, emissão nos ultimos 10 dias, de clientes que já compraram antes
+            // Alta probabilidade: Status aberto, emissÃ£o nos últimos 10 dias, de clientes que jÃ¡ compraram antes
             var sql = $@"
                 WITH Buyers AS (
                     SELECT DISTINCT CLIENTE 
@@ -6467,7 +6467,7 @@ namespace IT4You.Infrastructure.Repositories
                 )
                 SELECT TOP 10
                     O.CLIENTE AS Cliente,
-                    O.ORCAMENTO AS Orcamento,
+                    O.ORCAMENTO AS Orçamento,
                     O.VALORTOTAL AS Valor
                 FROM VW_SWIA_ORCAMENTO O
                 INNER JOIN Buyers B ON O.CLIENTE = B.CLIENTE
@@ -6478,7 +6478,7 @@ namespace IT4You.Infrastructure.Repositories
             var rows = await connection.QueryAsync(sql, parameters);
             var points = rows.Select(row => new SalesBudgetChartPointDto
             {
-                Label = $"{SafeToString(row, "Cliente")} (Orc: {SafeToString(row, "Orcamento")})",
+                Label = $"{SafeToString(row, "Cliente")} (Orc: {SafeToString(row, "Orçamento")})",
                 Value = SafeToDecimal(row, "Valor"),
                 Amount = SafeToDecimal(row, "Valor")
             }).ToList();
@@ -6486,12 +6486,13 @@ namespace IT4You.Infrastructure.Repositories
             return new SalesBudgetChartDatasetDto
             {
                 ChartId = chartId,
-                Title = "Orçamentos com alta probabilidade",
+                Title = "OrÃ§amentos com alta probabilidade",
                 Visualization = "table",
                 Data = points,
                 Totals = new Dictionary<string, decimal>(),
-                Meta = new SalesBudgetChartMetaDto { Warnings = new List<string> { "Orçamentos recentes em aberto de clientes que já possuem histórico de aprovação." } }
+                Meta = new SalesBudgetChartMetaDto { Warnings = new List<string> { "OrÃ§amentos recentes em aberto de clientes que jÃ¡ possuem histÃ³rico de aprovaÃ§Ã£o." } }
             };
         }
     }
 }
+
