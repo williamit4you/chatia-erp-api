@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Data.Common;
@@ -48,6 +49,54 @@ namespace IT4You.Infrastructure.Repositories
         {
             var list = conditions.Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
             return list.Count == 0 ? string.Empty : $" WHERE {string.Join(" AND ", list)}";
+        }
+
+        private static string FixUtf8Mojibake(string? value)
+        {
+            if (string.IsNullOrEmpty(value)) return value ?? string.Empty;
+            if (!value.Contains('Ã') && !value.Contains('Â') && !value.Contains('â')) return value;
+
+            try
+            {
+                return Encoding.UTF8.GetString(Encoding.Latin1.GetBytes(value));
+            }
+            catch
+            {
+                return value;
+            }
+        }
+
+        private static SalesBudgetKpiResponseDto NormalizeKpiResponse(SalesBudgetKpiResponseDto response)
+        {
+            foreach (var item in response.Items)
+            {
+                item.Label = FixUtf8Mojibake(item.Label);
+                item.TextValue = FixUtf8Mojibake(item.TextValue);
+                item.Warning = FixUtf8Mojibake(item.Warning);
+            }
+
+            return response;
+        }
+
+        private static SalesBudgetChartDatasetDto NormalizeChartDataset(SalesBudgetChartDatasetDto chart)
+        {
+            chart.Title = FixUtf8Mojibake(chart.Title);
+
+            foreach (var point in chart.Data ?? new List<SalesBudgetChartPointDto>())
+            {
+                point.Label = FixUtf8Mojibake(point.Label);
+            }
+
+            if (chart.Meta is not null)
+            {
+                chart.Meta.Source = FixUtf8Mojibake(chart.Meta.Source);
+                chart.Meta.DateField = FixUtf8Mojibake(chart.Meta.DateField);
+                chart.Meta.Warnings = (chart.Meta.Warnings ?? new List<string>())
+                    .Select(FixUtf8Mojibake)
+                    .ToList();
+            }
+
+            return chart;
         }
 
         private static string DistinctBudgetCountSql(string alias = "")
@@ -234,7 +283,7 @@ namespace IT4You.Infrastructure.Repositories
                 items = items.Where(item => requested.Contains(item.KpiId)).ToList();
             }
 
-            return new SalesBudgetKpiResponseDto { Items = items };
+            return NormalizeKpiResponse(new SalesBudgetKpiResponseDto { Items = items });
         }
 
         public async Task<SalesBudgetChartBatchResponseDto> GetChartsAsync(SalesBudgetChartBatchRequestDto request)
@@ -256,12 +305,12 @@ namespace IT4You.Infrastructure.Repositories
                 {
                     try
                     {
-                        response.Items.Add(await BuildChartAsync(connection, request.Filters, chartId));
+                        response.Items.Add(NormalizeChartDataset(await BuildChartAsync(connection, request.Filters, chartId)));
                     }
                     catch (Exception ex)
                     {
                         _logger.LogWarning(ex, "Falha ao construir gráfico '{ChartId}': {Message}", chartId, ex.Message);
-                        response.Items.Add(new SalesBudgetChartDatasetDto
+                        response.Items.Add(NormalizeChartDataset(new SalesBudgetChartDatasetDto
                         {
                             ChartId = chartId,
                             Title = chartId,
@@ -273,7 +322,7 @@ namespace IT4You.Infrastructure.Repositories
                                 Source = "error",
                                 Warnings = new List<string> { $"Erro ao gerar este gráfico: {ex.Message}" }
                             }
-                        });
+                        }));
 
                         // Reconnect if connection was broken by the error
                         if (connection.State != ConnectionState.Open)
