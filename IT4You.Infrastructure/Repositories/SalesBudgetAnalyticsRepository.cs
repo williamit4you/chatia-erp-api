@@ -1405,25 +1405,26 @@ namespace IT4You.Infrastructure.Repositories
             return new PeriodTotals(totalAmount, totalCount);
         }
 
-        private static DateTime ClampDate(DateTime value, DateTime min, DateTime max)
+        private static (DateTime currentStart, DateTime currentEnd) ResolveComparisonRange(SalesBudgetFilterDto filters)
         {
-            if (value < min) return min;
-            if (value > max) return max;
-            return value;
+            var currentEnd = (filters.EndDate?.Date ?? DateTime.Today.Date);
+            var currentStart = (filters.StartDate?.Date ?? currentEnd);
+
+            if (currentStart > currentEnd)
+            {
+                (currentStart, currentEnd) = (currentEnd, currentStart);
+            }
+
+            return (currentStart, currentEnd);
         }
 
         private async Task<SalesBudgetChartDatasetDto> BuildCurrentVsPreviousMonthChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
         {
-            var referenceEnd = (filters.EndDate?.Date ?? DateTime.Today.Date);
-            var currentStart = new DateTime(referenceEnd.Year, referenceEnd.Month, 1);
-            var offsetDays = (referenceEnd - currentStart).Days;
-
+            var (currentStart, currentEnd) = ResolveComparisonRange(filters);
             var previousStart = currentStart.AddMonths(-1);
-            var previousMonthEnd = previousStart.AddMonths(1).AddDays(-1);
-            var previousEndCandidate = previousStart.AddDays(offsetDays);
-            var previousEnd = ClampDate(previousEndCandidate, previousStart, previousMonthEnd);
+            var previousEnd = currentEnd.AddMonths(-1);
 
-            var current = await QueryPeriodTotalsAsync(connection, currentStart, referenceEnd);
+            var current = await QueryPeriodTotalsAsync(connection, currentStart, currentEnd);
             var previous = await QueryPeriodTotalsAsync(connection, previousStart, previousEnd);
 
             return new SalesBudgetChartDatasetDto
@@ -1433,12 +1434,12 @@ namespace IT4You.Infrastructure.Repositories
 	                Visualization = "kpi_grid",
 	                Data = new List<SalesBudgetChartPointDto>
 	                {
-	                    new() { Label = "Valor (mÃªs atual)", Amount = current.TotalAmount },
-	                    new() { Label = "Qtd. orÃ§amentos (mÃªs atual)", Count = current.TotalCount },
-	                    new() { Label = "Ticket mÃ©dio (mÃªs atual)", Amount = current.AvgTicket },
-	                    new() { Label = "Valor (mÃªs anterior)", Amount = previous.TotalAmount },
-	                    new() { Label = "Qtd. orÃ§amentos (mÃªs anterior)", Count = previous.TotalCount },
-	                    new() { Label = "Ticket mÃ©dio (mÃªs anterior)", Amount = previous.AvgTicket },
+	                    new() { Label = "Valor (perÃ­odo atual)", Amount = current.TotalAmount },
+	                    new() { Label = "Qtd. orÃ§amentos (perÃ­odo atual)", Count = current.TotalCount },
+	                    new() { Label = "Ticket mÃ©dio (perÃ­odo atual)", Amount = current.AvgTicket },
+	                    new() { Label = "Valor (perÃ­odo anterior)", Amount = previous.TotalAmount },
+	                    new() { Label = "Qtd. orÃ§amentos (perÃ­odo anterior)", Count = previous.TotalCount },
+	                    new() { Label = "Ticket mÃ©dio (perÃ­odo anterior)", Amount = previous.AvgTicket },
 	                },
                 Totals = new Dictionary<string, decimal>
                 {
@@ -1451,7 +1452,7 @@ namespace IT4You.Infrastructure.Repositories
 	                {
 	                    Warnings = new List<string>
 	                    {
-	                        "Comparativo MTD (mÃªs atual atÃ© a data final do filtro) vs perÃ­odo equivalente no mÃªs anterior."
+	                        "Comparativo do intervalo selecionado vs perÃ­odo equivalente no mÃªs anterior."
 	                    }
 	                }
 	            };
@@ -1459,16 +1460,11 @@ namespace IT4You.Infrastructure.Repositories
 
         private async Task<SalesBudgetChartDatasetDto> BuildCurrentYearVsPreviousYearChartAsync(IDbConnection connection, SalesBudgetFilterDto filters, string chartId)
         {
-            var referenceEnd = (filters.EndDate?.Date ?? DateTime.Today.Date);
-            var currentStart = new DateTime(referenceEnd.Year, 1, 1);
-            var offsetDays = (referenceEnd - currentStart).Days;
-
+            var (currentStart, currentEnd) = ResolveComparisonRange(filters);
             var previousStart = currentStart.AddYears(-1);
-            var previousYearEnd = new DateTime(previousStart.Year, 12, 31);
-            var previousEndCandidate = previousStart.AddDays(offsetDays);
-            var previousEnd = ClampDate(previousEndCandidate, previousStart, previousYearEnd);
+            var previousEnd = currentEnd.AddYears(-1);
 
-            var current = await QueryPeriodTotalsAsync(connection, currentStart, referenceEnd);
+            var current = await QueryPeriodTotalsAsync(connection, currentStart, currentEnd);
             var previous = await QueryPeriodTotalsAsync(connection, previousStart, previousEnd);
 
             return new SalesBudgetChartDatasetDto
@@ -1478,12 +1474,12 @@ namespace IT4You.Infrastructure.Repositories
 	                Visualization = "kpi_grid",
 	                Data = new List<SalesBudgetChartPointDto>
 	                {
-	                    new() { Label = "Valor (ano atual)", Amount = current.TotalAmount },
-	                    new() { Label = "Qtd. orÃ§amentos (ano atual)", Count = current.TotalCount },
-	                    new() { Label = "Ticket mÃ©dio (ano atual)", Amount = current.AvgTicket },
-	                    new() { Label = "Valor (ano anterior)", Amount = previous.TotalAmount },
-	                    new() { Label = "Qtd. orÃ§amentos (ano anterior)", Count = previous.TotalCount },
-	                    new() { Label = "Ticket mÃ©dio (ano anterior)", Amount = previous.AvgTicket },
+	                    new() { Label = "Valor (perÃ­odo atual)", Amount = current.TotalAmount },
+	                    new() { Label = "Qtd. orÃ§amentos (perÃ­odo atual)", Count = current.TotalCount },
+	                    new() { Label = "Ticket mÃ©dio (perÃ­odo atual)", Amount = current.AvgTicket },
+	                    new() { Label = "Valor (perÃ­odo anterior)", Amount = previous.TotalAmount },
+	                    new() { Label = "Qtd. orÃ§amentos (perÃ­odo anterior)", Count = previous.TotalCount },
+	                    new() { Label = "Ticket mÃ©dio (perÃ­odo anterior)", Amount = previous.AvgTicket },
 	                },
                 Totals = new Dictionary<string, decimal>
                 {
@@ -1496,7 +1492,7 @@ namespace IT4You.Infrastructure.Repositories
 	                {
 	                    Warnings = new List<string>
 	                    {
-	                        "Comparativo YTD (ano atual atÃ© a data final do filtro) vs perÃ­odo equivalente no ano anterior."
+	                        "Comparativo do intervalo selecionado vs perÃ­odo equivalente no ano anterior."
 	                    }
 	                }
 	            };
