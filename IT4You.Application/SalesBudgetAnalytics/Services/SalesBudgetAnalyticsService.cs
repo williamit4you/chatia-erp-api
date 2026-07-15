@@ -38,7 +38,6 @@ public class SalesBudgetAnalyticsService : ISalesBudgetAnalyticsService
                         new() { Id = "overview_monthly_evolution", Title = "Evolução mensal de orçamentos", Availability = "available_now" },
                         new() { Id = "overview_weekly_evolution", Title = "Evolução semanal de orçamentos", Availability = "available_now" },
                         new() { Id = "overview_daily_evolution", Title = "Evolução diária de orçamentos", Availability = "available_now" },
-                        new() { Id = "overview_current_vs_previous_month", Title = "Comparativo mês atual x mês anterior", Availability = "available_now" },
                         new() { Id = "overview_current_year_vs_previous_year", Title = "Comparativo ano atual x ano anterior", Availability = "available_now" },
                         new() { Id = "overview_top_days_by_volume", Title = "Top dias com maior volume de orçamentos", Availability = "available_now" },
                         new() { Id = "overview_top_months_by_amount", Title = "Top meses com maior valor orçado", Availability = "available_now" },
