@@ -21,34 +21,39 @@ namespace IT4You.Application.FinanceAnalytics.Services
             _repository = repository;
         }
 
-        public async Task<FinanceSummaryDto> GetSummaryAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<IEnumerable<FinanceCompanyOptionDto>> GetCompaniesAsync(int tenantId)
         {
-            return await _repository.GetSummaryAsync(tenantId, rights, startDate, endDate);
+            return await _repository.GetCompaniesAsync(tenantId);
         }
 
-        public async Task<IEnumerable<MonthlyFlowDto>> GetMonthlyFlowAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<FinanceSummaryDto> GetSummaryAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null, IEnumerable<string>? companyIds = null)
         {
-            return await _repository.GetMonthlyFlowAsync(tenantId, rights, startDate, endDate);
+            return await _repository.GetSummaryAsync(tenantId, rights, startDate, endDate, companyIds);
         }
 
-        public async Task<IEnumerable<TopDebtorDto>> GetTopDebtorsAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<IEnumerable<MonthlyFlowDto>> GetMonthlyFlowAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null, IEnumerable<string>? companyIds = null)
         {
-            return await _repository.GetTopDebtorsAsync(tenantId, rights, startDate, endDate);
+            return await _repository.GetMonthlyFlowAsync(tenantId, rights, startDate, endDate, companyIds);
         }
 
-        public async Task<AiAnalysisDto> GetAiAnalysisDataAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<IEnumerable<TopDebtorDto>> GetTopDebtorsAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null, IEnumerable<string>? companyIds = null)
         {
-            return await _repository.GetAiAnalysisDataAsync(tenantId, rights, startDate, endDate);
+            return await _repository.GetTopDebtorsAsync(tenantId, rights, startDate, endDate, companyIds);
         }
 
-        public async Task<AdvancedDashboardDto> GetAdvancedAnalyticsAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<AiAnalysisDto> GetAiAnalysisDataAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null, IEnumerable<string>? companyIds = null)
         {
-            return await _repository.GetAdvancedAnalyticsAsync(tenantId, rights, startDate, endDate);
+            return await _repository.GetAiAnalysisDataAsync(tenantId, rights, startDate, endDate, companyIds);
         }
 
-        public async Task<IEnumerable<ChartQueryDetailsItemDto>> GetChartQueryDetailsAsync(int tenantId, FinanceRightsDto rights, IEnumerable<string> chartIds, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<AdvancedDashboardDto> GetAdvancedAnalyticsAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null, IEnumerable<string>? companyIds = null)
         {
-            return await _repository.GetChartQueryDetailsAsync(tenantId, rights, chartIds, startDate, endDate);
+            return await _repository.GetAdvancedAnalyticsAsync(tenantId, rights, startDate, endDate, companyIds);
+        }
+
+        public async Task<IEnumerable<ChartQueryDetailsItemDto>> GetChartQueryDetailsAsync(int tenantId, FinanceRightsDto rights, IEnumerable<string> chartIds, DateTime? startDate = null, DateTime? endDate = null, IEnumerable<string>? companyIds = null)
+        {
+            return await _repository.GetChartQueryDetailsAsync(tenantId, rights, chartIds, startDate, endDate, companyIds);
         }
 
         public async Task<ChartMetricsResponseDto> GetChartMetricsAsync(int tenantId, FinanceRightsDto rights, ChartMetricsRequestDto request)
@@ -91,20 +96,20 @@ namespace IT4You.Application.FinanceAnalytics.Services
 
             if (needSummary)
             {
-                curSummary = await _repository.GetSummaryAsync(tenantId, rights, start, end);
-                prevSummary = await _repository.GetSummaryAsync(tenantId, rights, prevStart, prevEnd);
+                curSummary = await _repository.GetSummaryAsync(tenantId, rights, start, end, request.CompanyIds);
+                prevSummary = await _repository.GetSummaryAsync(tenantId, rights, prevStart, prevEnd, request.CompanyIds);
             }
 
             if (needFlow)
             {
-                curFlow = await _repository.GetMonthlyFlowAsync(tenantId, rights, start, end);
-                prevFlow = await _repository.GetMonthlyFlowAsync(tenantId, rights, prevStart, prevEnd);
+                curFlow = await _repository.GetMonthlyFlowAsync(tenantId, rights, start, end, request.CompanyIds);
+                prevFlow = await _repository.GetMonthlyFlowAsync(tenantId, rights, prevStart, prevEnd, request.CompanyIds);
             }
 
             if (needAdvanced)
             {
-                curAdv = await _repository.GetAdvancedAnalyticsAsync(tenantId, rights, start, end);
-                prevAdv = await _repository.GetAdvancedAnalyticsAsync(tenantId, rights, prevStart, prevEnd);
+                curAdv = await _repository.GetAdvancedAnalyticsAsync(tenantId, rights, start, end, request.CompanyIds);
+                prevAdv = await _repository.GetAdvancedAnalyticsAsync(tenantId, rights, prevStart, prevEnd, request.CompanyIds);
             }
 
             static decimal Sum<T>(IEnumerable<T>? items, Func<T, decimal> selector)
@@ -220,9 +225,9 @@ namespace IT4You.Application.FinanceAnalytics.Services
             return new ChartMetricsResponseDto { Items = items };
         }
 
-        public async Task<IEnumerable<Dictionary<string, object?>>> GetChartExportDatasetAsync(int tenantId, FinanceRightsDto rights, string chartId, DateTime? startDate = null, DateTime? endDate = null, string? entityValue = null)
+        public async Task<IEnumerable<Dictionary<string, object?>>> GetChartExportDatasetAsync(int tenantId, FinanceRightsDto rights, string chartId, DateTime? startDate = null, DateTime? endDate = null, string? entityValue = null, IEnumerable<string>? companyIds = null)
         {
-            return await _repository.GetChartExportDatasetAsync(tenantId, rights, chartId, startDate, endDate, entityValue);
+            return await _repository.GetChartExportDatasetAsync(tenantId, rights, chartId, startDate, endDate, entityValue, companyIds);
         }
 
         public byte[] BuildCsv(IEnumerable<Dictionary<string, object?>> rows)

@@ -8,6 +8,7 @@ namespace IT4You.Application.FinanceAnalytics.DTOs
         public List<string> ChartIds { get; set; } = new();
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
+        public List<string> CompanyIds { get; set; } = new();
     }
 
     public class ChartQueryDetailsItemDto

@@ -58,6 +58,34 @@ namespace IT4You.Infrastructure.Repositories
             return where;
         }
 
+        private static List<string> NormalizeCompanyIds(IEnumerable<string>? companyIds)
+        {
+            return companyIds?
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => id.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList()
+                ?? new List<string>();
+        }
+
+        private static string AddCompanyFilter(DynamicParameters parameters, IEnumerable<string>? companyIds, string columnName = "EMPRESA", string paramName = "CompanyIds")
+        {
+            var normalized = NormalizeCompanyIds(companyIds);
+            if (normalized.Count == 0) return string.Empty;
+
+            if (!parameters.ParameterNames.Contains(paramName, StringComparer.OrdinalIgnoreCase))
+            {
+                parameters.Add(paramName, normalized);
+            }
+
+            return $" AND {columnName} IN @{paramName}";
+        }
+
+        private static string AddCompanyFilterToOpenClause(DynamicParameters parameters, IEnumerable<string>? companyIds, string baseClause, string columnName = "EMPRESA", string paramName = "CompanyIds")
+        {
+            return $"{baseClause}{AddCompanyFilter(parameters, companyIds, columnName, paramName)}";
+        }
+
         private static string FixUtf8Mojibake(string value)
         {
             if (string.IsNullOrEmpty(value)) return value;
@@ -75,7 +103,24 @@ namespace IT4You.Infrastructure.Repositories
             }
         }
 
-        public async Task<FinanceSummaryDto> GetSummaryAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<IEnumerable<FinanceCompanyOptionDto>> GetCompaniesAsync(int tenantId)
+        {
+            using var connection = await CreateConnectionAsync();
+            const string sql = @"
+                SELECT DISTINCT
+                    EMPRESA as Id,
+                    EMPRESA as Label,
+                    CPFCNPJ as CpfCnpj,
+                    CIDADE as City,
+                    UF as Uf
+                FROM VW_SWIA_EMPRESA_FILIAL
+                WHERE EMPRESA IS NOT NULL AND LTRIM(RTRIM(EMPRESA)) <> ''
+                ORDER BY EMPRESA";
+
+            return await connection.QueryAsync<FinanceCompanyOptionDto>(sql);
+        }
+
+        public async Task<FinanceSummaryDto> GetSummaryAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null, IEnumerable<string>? companyIds = null)
         {
             using var connection = await CreateConnectionAsync();
             var parameters = new DynamicParameters();
@@ -95,6 +140,9 @@ namespace IT4You.Infrastructure.Repositories
                 wherePago += " AND DATAPAGAMENTO <= @EndDate";
                 parameters.Add("EndDate", endDate.Value);
             }
+
+            whereAberto += AddCompanyFilter(parameters, companyIds, "EMPRESA", "SummaryCompanyIds");
+            wherePago += AddCompanyFilter(parameters, companyIds, "EMPRESA", "SummaryCompanyIds");
 
             decimal pagAberto = 0;
             decimal recAberto = 0;
@@ -127,7 +175,7 @@ namespace IT4You.Infrastructure.Repositories
             };
         }
 
-        public async Task<IEnumerable<MonthlyFlowDto>> GetMonthlyFlowAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<IEnumerable<MonthlyFlowDto>> GetMonthlyFlowAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null, IEnumerable<string>? companyIds = null)
         {
             using var connection = await CreateConnectionAsync();
             var parameters = new DynamicParameters();
@@ -147,6 +195,9 @@ namespace IT4You.Infrastructure.Repositories
                 whereAberto += " AND DATAVENCIMENTO <= @EndDate";
                 parameters.Add("EndDate", endDate.Value);
             }
+
+            wherePago += AddCompanyFilter(parameters, companyIds, "EMPRESA", "FlowCompanyIds");
+            whereAberto += AddCompanyFilter(parameters, companyIds, "EMPRESA", "FlowCompanyIds");
 
             var dictMap = new Dictionary<string, MonthlyFlowDto>();
 
@@ -202,7 +253,7 @@ namespace IT4You.Infrastructure.Repositories
             return result;
         }
 
-        public async Task<IEnumerable<TopDebtorDto>> GetTopDebtorsAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<IEnumerable<TopDebtorDto>> GetTopDebtorsAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null, IEnumerable<string>? companyIds = null)
         {
             if (!rights.HasReceivableDashboardAccess) return Enumerable.Empty<TopDebtorDto>();
 
@@ -221,6 +272,8 @@ namespace IT4You.Infrastructure.Repositories
                 parameters.Add("EndDate", endDate.Value);
             }
 
+            whereClause += AddCompanyFilter(parameters, companyIds, "EMPRESA", "TopDebtorCompanyIds");
+
             var sql = $@"
                 SELECT TOP 5 
                     CLIENTE as Cliente, 
@@ -235,10 +288,10 @@ namespace IT4You.Infrastructure.Repositories
             return result;
         }
 
-        public async Task<AiAnalysisDto> GetAiAnalysisDataAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<AiAnalysisDto> GetAiAnalysisDataAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null, IEnumerable<string>? companyIds = null)
         {
-            var summary = await GetSummaryAsync(tenantId, rights, startDate, endDate);
-            var topDebtors = await GetTopDebtorsAsync(tenantId, rights, startDate, endDate);
+            var summary = await GetSummaryAsync(tenantId, rights, startDate, endDate, companyIds);
+            var topDebtors = await GetTopDebtorsAsync(tenantId, rights, startDate, endDate, companyIds);
             
             return new AiAnalysisDto
             {
@@ -250,7 +303,7 @@ namespace IT4You.Infrastructure.Repositories
             };
         }
 
-        public async Task<AdvancedDashboardDto> GetAdvancedAnalyticsAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<AdvancedDashboardDto> GetAdvancedAnalyticsAsync(int tenantId, FinanceRightsDto rights, DateTime? startDate = null, DateTime? endDate = null, IEnumerable<string>? companyIds = null)
         {
             using var connection = await CreateConnectionAsync();
             var parameters = new DynamicParameters();
@@ -277,6 +330,11 @@ namespace IT4You.Infrastructure.Repositories
                 dateFilterPagPago += " AND DATAPAGAMENTO <= @End";
                 parameters.Add("End", endDate.Value);
             }
+
+            dateFilterRecAberto += AddCompanyFilter(parameters, companyIds, "EMPRESA", "AdvancedCompanyIds");
+            dateFilterRecPago += AddCompanyFilter(parameters, companyIds, "EMPRESA", "AdvancedCompanyIds");
+            dateFilterPagAberto += AddCompanyFilter(parameters, companyIds, "EMPRESA", "AdvancedCompanyIds");
+            dateFilterPagPago += AddCompanyFilter(parameters, companyIds, "EMPRESA", "AdvancedCompanyIds");
 
             IEnumerable<AgingDto> aging = Enumerable.Empty<AgingDto>();
             IEnumerable<GeographicDto> geo = Enumerable.Empty<GeographicDto>();
@@ -839,7 +897,7 @@ ORDER BY Valor DESC;";
             };
         }
 
-        public Task<IEnumerable<ChartQueryDetailsItemDto>> GetChartQueryDetailsAsync(int tenantId, FinanceRightsDto rights, IEnumerable<string> chartIds, DateTime? startDate = null, DateTime? endDate = null)
+        public Task<IEnumerable<ChartQueryDetailsItemDto>> GetChartQueryDetailsAsync(int tenantId, FinanceRightsDto rights, IEnumerable<string> chartIds, DateTime? startDate = null, DateTime? endDate = null, IEnumerable<string>? companyIds = null)
         {
             var result = new List<ChartQueryDetailsItemDto>();
 
@@ -881,6 +939,16 @@ ORDER BY Valor DESC;";
                 dateFilterPagAberto += " AND DATAVENCIMENTO <= @End";
                 dateFilterPagPago += " AND DATAPAGAMENTO <= @End";
             }
+
+            var companyDebugFilter = NormalizeCompanyIds(companyIds).Any()
+                ? $" AND EMPRESA IN ({string.Join(", ", NormalizeCompanyIds(companyIds).Select(id => $"'{id.Replace("'", "''")}'"))})"
+                : "";
+            whereAberto += companyDebugFilter;
+            wherePago += companyDebugFilter;
+            dateFilterRecAberto += companyDebugFilter;
+            dateFilterRecPago += companyDebugFilter;
+            dateFilterPagAberto += companyDebugFilter;
+            dateFilterPagPago += companyDebugFilter;
 
             foreach (var chartId in ids)
             {
@@ -1148,10 +1216,11 @@ ORDER BY Valor DESC");
             return Task.FromResult<IEnumerable<ChartQueryDetailsItemDto>>(result);
         }
 
-        public async Task<IEnumerable<Dictionary<string, object?>>> GetChartExportDatasetAsync(int tenantId, FinanceRightsDto rights, string chartId, DateTime? startDate = null, DateTime? endDate = null, string? entityValue = null)
+        public async Task<IEnumerable<Dictionary<string, object?>>> GetChartExportDatasetAsync(int tenantId, FinanceRightsDto rights, string chartId, DateTime? startDate = null, DateTime? endDate = null, string? entityValue = null, IEnumerable<string>? companyIds = null)
         {
             using var connection = await CreateConnectionAsync();
             var parameters = new DynamicParameters();
+            var companyFilter = AddCompanyFilter(parameters, companyIds, "EMPRESA", "ExportCompanyIds");
 
             chartId = (chartId ?? "").Trim();
             if (string.IsNullOrWhiteSpace(chartId)) return Array.Empty<Dictionary<string, object?>>();
@@ -1163,7 +1232,7 @@ ORDER BY Valor DESC");
                     if (!rights.HasPayableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
                     sql = $@"SELECT FORNECEDOR as Label, SUM(VALORORIG) as Valor
                              FROM VW_SWIA_DOC_FIN_PAG_ABERTO
-                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}
+                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}{companyFilter}
                              GROUP BY FORNECEDOR
                              ORDER BY Valor DESC";
                     break;
@@ -1172,7 +1241,7 @@ ORDER BY Valor DESC");
                     if (!rights.HasReceivableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
                     sql = $@"SELECT CLIENTE as Label, SUM(VALORORIG) as Valor
                              FROM VW_SWIA_DOC_FIN_REC_ABERTO
-                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}
+                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}{companyFilter}
                              GROUP BY CLIENTE
                              ORDER BY Valor DESC";
                     break;
@@ -1181,7 +1250,7 @@ ORDER BY Valor DESC");
                     if (!rights.HasPayableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
                     sql = $@"SELECT UF as Local, SUM(VALORORIG) as Valor
                              FROM VW_SWIA_DOC_FIN_PAG_ABERTO
-                             WHERE UF IS NOT NULL {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}
+                             WHERE UF IS NOT NULL {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}{companyFilter}
                              GROUP BY UF
                              ORDER BY Valor DESC";
                     break;
@@ -1190,7 +1259,7 @@ ORDER BY Valor DESC");
                     if (!rights.HasReceivableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
                     sql = $@"SELECT UF as Local, SUM(VALORORIG) as Valor
                              FROM VW_SWIA_DOC_FIN_REC_ABERTO
-                             WHERE UF IS NOT NULL {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}
+                             WHERE UF IS NOT NULL {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}{companyFilter}
                              GROUP BY UF
                              ORDER BY Valor DESC";
                     break;
@@ -1199,7 +1268,7 @@ ORDER BY Valor DESC");
                     if (!rights.HasPayableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
                     sql = $@"SELECT TIPOPAG as Label, SUM(VALORORIG) as Valor
                              FROM VW_SWIA_DOC_FIN_PAG_PAGO
-                             WHERE TIPOPAG IS NOT NULL {AddDateFilters(parameters, startDate, endDate, "DATAPAGAMENTO")}
+                             WHERE TIPOPAG IS NOT NULL {AddDateFilters(parameters, startDate, endDate, "DATAPAGAMENTO")}{companyFilter}
                              GROUP BY TIPOPAG
                              ORDER BY Valor DESC";
                     break;
@@ -1208,7 +1277,7 @@ ORDER BY Valor DESC");
                     if (!rights.HasPayableDashboardAccess) return Array.Empty<Dictionary<string, object?>>();
                     sql = $@"SELECT CONDPAG as Label, SUM(VALORORIG) as Valor
                              FROM VW_SWIA_DOC_FIN_PAG_ABERTO
-                             WHERE CONDPAG IS NOT NULL {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}
+                             WHERE CONDPAG IS NOT NULL {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}{companyFilter}
                              GROUP BY CONDPAG
                              ORDER BY Valor DESC";
                     break;
@@ -1225,7 +1294,7 @@ ORDER BY Valor DESC");
                              END as Faixa,
                                 SUM(VALORORIG - ISNULL(VALORPAG, 0)) as Valor
                              FROM VW_SWIA_DOC_FIN_REC_ABERTO
-                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}
+                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}{companyFilter}
                              GROUP BY
                                 CASE
                                     WHEN DATEDIFF(day, DATAVENCIMENTO, GETDATE()) <= 0 THEN 'A vencer'
@@ -1247,7 +1316,7 @@ ORDER BY Valor DESC");
                                 END as Label,
                                 SUM(VALORORIG) as Valor
                              FROM VW_SWIA_DOC_FIN_REC_ABERTO
-                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}
+                             WHERE 1=1 {AddDateFilters(parameters, startDate, endDate, "DATAVENCIMENTO")}{companyFilter}
                              GROUP BY
                                 CASE
                                     WHEN DATEDIFF(DAY, GETDATE(), DATAVENCIMENTO) <= 15 THEN '0-15'

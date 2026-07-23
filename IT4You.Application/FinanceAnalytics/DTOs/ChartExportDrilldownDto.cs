@@ -8,6 +8,7 @@ namespace IT4You.Application.FinanceAnalytics.DTOs
         public string ChartId { get; set; } = string.Empty;
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
+        public List<string> CompanyIds { get; set; } = new();
         public string? EntityValue { get; set; }
         public string Format { get; set; } = "csv"; // csv | xlsx (future)
     }
@@ -34,6 +35,7 @@ namespace IT4You.Application.FinanceAnalytics.DTOs
         public string ChartId { get; set; } = string.Empty;
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
+        public List<string> CompanyIds { get; set; } = new();
         public string? EntityValue { get; set; }
         public ChartSelectionDto Selection { get; set; } = new();
         public int Page { get; set; } = 1;

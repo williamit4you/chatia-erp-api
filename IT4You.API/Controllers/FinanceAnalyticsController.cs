@@ -54,48 +54,65 @@ namespace IT4You.API.Controllers
             );
         }
 
+        private static List<string> ParseCompanyIds(string? companyIds)
+        {
+            return (companyIds ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        [HttpGet("companies")]
+        public async Task<IActionResult> GetCompanies()
+        {
+            var tenantId = GetTenantId();
+            var items = await _financeAnalyticsService.GetCompaniesAsync(tenantId);
+            return Ok(new FinanceCompaniesResponseDto { Items = items.ToList() });
+        }
+
         [HttpGet("summary")]
-        public async Task<IActionResult> GetSummary([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
+        public async Task<IActionResult> GetSummary([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null, [FromQuery] string? companyIds = null)
         {
             var tenantId = GetTenantId();
             var rights = GetFinanceRights();
-            var data = await _financeAnalyticsService.GetSummaryAsync(tenantId, rights, startDate, endDate);
+            var data = await _financeAnalyticsService.GetSummaryAsync(tenantId, rights, startDate, endDate, ParseCompanyIds(companyIds));
             return Ok(data);
         }
 
         [HttpGet("monthly-flow")]
-        public async Task<IActionResult> GetMonthlyFlow([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
+        public async Task<IActionResult> GetMonthlyFlow([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null, [FromQuery] string? companyIds = null)
         {
             var tenantId = GetTenantId();
             var rights = GetFinanceRights();
-            var data = await _financeAnalyticsService.GetMonthlyFlowAsync(tenantId, rights, startDate, endDate);
+            var data = await _financeAnalyticsService.GetMonthlyFlowAsync(tenantId, rights, startDate, endDate, ParseCompanyIds(companyIds));
             return Ok(data);
         }
 
         [HttpGet("top-debtors")]
-        public async Task<IActionResult> GetTopDebtors([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
+        public async Task<IActionResult> GetTopDebtors([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null, [FromQuery] string? companyIds = null)
         {
             var tenantId = GetTenantId();
             var rights = GetFinanceRights();
-            var data = await _financeAnalyticsService.GetTopDebtorsAsync(tenantId, rights, startDate, endDate);
+            var data = await _financeAnalyticsService.GetTopDebtorsAsync(tenantId, rights, startDate, endDate, ParseCompanyIds(companyIds));
             return Ok(data);
         }
 
         [HttpGet("ai-analysis")]
-        public async Task<IActionResult> GetAiAnalysis([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
+        public async Task<IActionResult> GetAiAnalysis([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null, [FromQuery] string? companyIds = null)
         {
             var tenantId = GetTenantId();
             var rights = GetFinanceRights();
-            var data = await _financeAnalyticsService.GetAiAnalysisDataAsync(tenantId, rights, startDate, endDate);
+            var data = await _financeAnalyticsService.GetAiAnalysisDataAsync(tenantId, rights, startDate, endDate, ParseCompanyIds(companyIds));
             return Ok(data);
         }
 
         [HttpGet("advanced-analytics")]
-        public async Task<IActionResult> GetAdvancedAnalytics([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
+        public async Task<IActionResult> GetAdvancedAnalytics([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null, [FromQuery] string? companyIds = null)
         {
             var tenantId = GetTenantId();
             var rights = GetFinanceRights();
-            var data = await _financeAnalyticsService.GetAdvancedAnalyticsAsync(tenantId, rights, startDate, endDate);
+            var data = await _financeAnalyticsService.GetAdvancedAnalyticsAsync(tenantId, rights, startDate, endDate, ParseCompanyIds(companyIds));
             return Ok(data);
         }
 
@@ -108,7 +125,7 @@ namespace IT4You.API.Controllers
             var rights = GetFinanceRights();
             var chartIds = request?.ChartIds?.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList() ?? new();
 
-            var items = (await _financeAnalyticsService.GetChartQueryDetailsAsync(tenantId, rights, chartIds, request?.StartDate, request?.EndDate)).ToList();
+            var items = (await _financeAnalyticsService.GetChartQueryDetailsAsync(tenantId, rights, chartIds, request?.StartDate, request?.EndDate, request?.CompanyIds)).ToList();
 
             // "Detalhes dos gráficos" é visível para todos os usuários autenticados,
             // porém as consultas SQL (SELECT/query) ficam restritas a SUPER_ADMIN e TENANT_ADMIN.
@@ -160,7 +177,8 @@ namespace IT4You.API.Controllers
                 request.ChartId.Trim(),
                 request.StartDate,
                 request.EndDate,
-                request.EntityValue
+                request.EntityValue,
+                request.CompanyIds
             );
 
             var csvBytes = _financeAnalyticsService.BuildCsv(rows);
