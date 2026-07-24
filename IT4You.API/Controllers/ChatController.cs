@@ -1,8 +1,10 @@
 using IT4You.Application.DTOs;
 using IT4You.Application.Interfaces;
+using IT4You.Application.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Security.Claims;
 
@@ -15,11 +17,42 @@ public class ChatController : ControllerBase
 {
     private readonly IChatService _chatService;
     private readonly IMemoryCache _cache;
+    private readonly AppDbContext _context;
 
-    public ChatController(IChatService chatService, IMemoryCache cache)
+    public ChatController(IChatService chatService, IMemoryCache cache, AppDbContext context)
     {
         _chatService = chatService;
         _cache = cache;
+        _context = context;
+    }
+
+    private bool HasAnyRole(params string[] roles)
+    {
+        var role = User.FindFirst(ClaimTypes.Role)?.Value
+            ?? User.FindFirst("role")?.Value
+            ?? string.Empty;
+
+        role = role.Trim();
+        return roles.Any(r => string.Equals(role, r, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task<bool> CanSeeSqlAsync()
+    {
+        if (User.IsInRole("SUPER_ADMIN") || HasAnyRole("SUPER_ADMIN"))
+            return true;
+
+        var isTenantAdmin = User.IsInRole("TENANT_ADMIN") || HasAnyRole("TENANT_ADMIN");
+        if (!isTenantAdmin)
+            return false;
+
+        var tenantId = User.FindFirst("tenantId")?.Value;
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return false;
+
+        return await _context.Tenants
+            .Where(t => t.Id == tenantId)
+            .Select(t => t.ShowChartDetails)
+            .FirstOrDefaultAsync();
     }
 
     [HttpPost]
@@ -41,6 +74,10 @@ public class ChatController : ControllerBase
             }
 
             var response = await _chatService.ProcessMessageAsync(request, userId, tenantId);
+            if (!await CanSeeSqlAsync())
+            {
+                response = response with { SqlQueries = null };
+            }
             return Ok(response);
         }
         catch (Exception ex)
@@ -63,6 +100,10 @@ public class ChatController : ControllerBase
                 return Unauthorized(new { message = "Invalid session claims" });
 
             var response = await _chatService.ProcessChartAnalysisAsync(request, userId, tenantId);
+            if (!await CanSeeSqlAsync())
+            {
+                response = response with { SqlQueries = null };
+            }
             return Ok(response);
         }
         catch (Exception ex)
@@ -103,6 +144,7 @@ public class ChatController : ControllerBase
     public async Task<IActionResult> GetMessages(string sessionId)
     {
         var messages = await _chatService.GetMessagesAsync(sessionId);
+        var canSeeSql = await CanSeeSqlAsync();
 
         var payload = messages.Select(m => new
         {
@@ -110,7 +152,7 @@ public class ChatController : ControllerBase
             role = m.Role,
             content = m.Content,
             createdAt = DateTime.SpecifyKind(m.CreatedAt, DateTimeKind.Utc),
-            sqlQueries = m.SqlQueries,
+            sqlQueries = canSeeSql ? m.SqlQueries : null,
         });
 
         return Ok(payload);

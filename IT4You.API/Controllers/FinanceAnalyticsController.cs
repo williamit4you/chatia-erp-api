@@ -1,7 +1,9 @@
 using IT4You.Application.FinanceAnalytics.Interfaces;
 using IT4You.Application.FinanceAnalytics.DTOs;
+using IT4You.Application.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Threading.Tasks;
 using System.Security.Claims;
@@ -15,10 +17,12 @@ namespace IT4You.API.Controllers
     public class FinanceAnalyticsController : ControllerBase
     {
         private readonly IFinanceAnalyticsService _financeAnalyticsService;
+        private readonly AppDbContext _context;
 
-        public FinanceAnalyticsController(IFinanceAnalyticsService financeAnalyticsService)
+        public FinanceAnalyticsController(IFinanceAnalyticsService financeAnalyticsService, AppDbContext context)
         {
             _financeAnalyticsService = financeAnalyticsService;
+            _context = context;
         }
 
         private int GetTenantId()
@@ -37,6 +41,25 @@ namespace IT4You.API.Controllers
 
             role = role.Trim();
             return roles.Any(r => string.Equals(role, r, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private async Task<bool> CanSeeSqlAsync()
+        {
+            if (User.IsInRole("SUPER_ADMIN") || HasAnyRole("SUPER_ADMIN"))
+                return true;
+
+            var isTenantAdmin = User.IsInRole("TENANT_ADMIN") || HasAnyRole("TENANT_ADMIN");
+            if (!isTenantAdmin)
+                return false;
+
+            var tenantIdClaim = User.FindFirst("tenantId")?.Value ?? User.FindFirst("TenantId")?.Value;
+            if (string.IsNullOrWhiteSpace(tenantIdClaim))
+                return false;
+
+            return await _context.Tenants
+                .Where(t => t.Id == tenantIdClaim)
+                .Select(t => t.ShowChartDetails)
+                .FirstOrDefaultAsync();
         }
 
         private FinanceRightsDto GetFinanceRights()
@@ -119,7 +142,7 @@ namespace IT4You.API.Controllers
         [HttpPost("chart-query-details")]
         public async Task<IActionResult> GetChartQueryDetails([FromBody] ChartQueryDetailsRequestDto request)
         {
-            var canSeeSql = User.IsInRole("TENANT_ADMIN") || User.IsInRole("SUPER_ADMIN") || HasAnyRole("TENANT_ADMIN", "SUPER_ADMIN");
+            var canSeeSql = await CanSeeSqlAsync();
 
             var tenantId = GetTenantId();
             var rights = GetFinanceRights();

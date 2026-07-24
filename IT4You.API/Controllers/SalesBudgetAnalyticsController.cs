@@ -31,6 +31,20 @@ namespace IT4You.API.Controllers
             return roles.Any(r => string.Equals(role, r, StringComparison.OrdinalIgnoreCase));
         }
 
+        private bool CanSeeSql()
+        {
+            if (User.IsInRole("SUPER_ADMIN") || HasAnyRole("SUPER_ADMIN"))
+                return true;
+
+            var isTenantAdmin = User.IsInRole("TENANT_ADMIN") || HasAnyRole("TENANT_ADMIN");
+            var showChartDetails = string.Equals(
+                User.FindFirst("showChartDetails")?.Value,
+                "true",
+                StringComparison.OrdinalIgnoreCase);
+
+            return isTenantAdmin && showChartDetails;
+        }
+
         private bool HasSalesBudgetDashboardAccess()
         {
             if (User.IsInRole("TENANT_ADMIN") || User.IsInRole("SUPER_ADMIN") || HasAnyRole("TENANT_ADMIN", "SUPER_ADMIN"))
@@ -75,7 +89,7 @@ namespace IT4You.API.Controllers
             if (!HasSalesBudgetDashboardAccess())
                 return Forbid();
 
-            var canSeeSql = User.IsInRole("TENANT_ADMIN") || User.IsInRole("SUPER_ADMIN") || HasAnyRole("TENANT_ADMIN", "SUPER_ADMIN");
+            var canSeeSql = CanSeeSql();
 
             var chartIds = request?.ChartIds?.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList() ?? new();
             if (chartIds.Count == 0)
